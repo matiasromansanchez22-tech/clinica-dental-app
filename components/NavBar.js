@@ -12,6 +12,7 @@ const SECCIONES = [
   { href: "/presupuestos", label: "Presupuestos" },
   { href: "/planes", label: "Planes" },
   { href: "/caja", label: "Caja" },
+  { href: "/cierre", label: "Cierre" },
 ];
 
 export default function NavBar() {
