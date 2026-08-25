@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
-import { generarBloquesHorarios } from "@/lib/agenda";
+import NuevoTurnoModal from "@/components/NuevoTurnoModal";
+import {
+  diaSemanaDeFecha,
+  fechaDeHoyISO,
+  generarBloquesHorarios,
+  NOMBRES_DIA_SEMANA,
+  seMuestraEnGrilla,
+  sumarDias,
+} from "@/lib/agenda";
+import { obtenerPacientesActivos } from "@/lib/data/pacientes";
+import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -21,25 +31,21 @@ const leyenda = [
   { color: "bg-gray-200", etiqueta: "Agendado" },
 ];
 
-function fechaDeHoyISO() {
-  const hoy = new Date();
-  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoy.getDate()).padStart(2, "0");
-  return `${hoy.getFullYear()}-${mes}-${dia}`;
-}
-
 export default function AgendaPage() {
-  const [mensaje, setMensaje] = useState(null);
+  const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [turnos, setTurnos] = useState([]);
+  const [profesionales, setProfesionales] = useState([]);
+  const [pacientes, setPacientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
-  const fechaISO = fechaDeHoyISO();
+  const [slotElegido, setSlotElegido] = useState(null); // { consultorio, hora }
 
-  const hoy = new Date().toLocaleDateString("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
+
+  async function recargarTurnos() {
+    const data = await obtenerTurnosGeneralPorFecha(fecha);
+    setTurnos(data);
+  }
 
   useEffect(() => {
     if (!supabase) {
@@ -47,16 +53,48 @@ export default function AgendaPage() {
       setCargando(false);
       return;
     }
-    obtenerTurnosGeneralPorFecha(fechaISO)
-      .then(setTurnos)
+    setCargando(true);
+    Promise.all([obtenerTurnosGeneralPorFecha(fecha), obtenerProfesionales(), obtenerPacientesActivos()])
+      .then(([turnosData, profesionalesData, pacientesData]) => {
+        setTurnos(turnosData);
+        setProfesionales(profesionalesData);
+        setPacientes(pacientesData);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
-  }, [fechaISO]);
+  }, [fecha]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Agenda — Odontología General</h1>
-      <p className="mt-1 text-sm capitalize text-gray-500">{hoy}</p>
+
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          onClick={() => setFecha((f) => sumarDias(f, -1))}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
+        >
+          ← Día anterior
+        </button>
+        <input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+        />
+        <button
+          onClick={() => setFecha((f) => sumarDias(f, 1))}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
+        >
+          Día siguiente →
+        </button>
+        <button
+          onClick={() => setFecha(fechaDeHoyISO())}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
+        >
+          Hoy
+        </button>
+        <span className="ml-2 text-sm text-gray-500">{nombreDia}</span>
+      </div>
 
       {error && (
         <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -66,7 +104,7 @@ export default function AgendaPage() {
 
       {!error && !cargando && turnos.length === 0 && (
         <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-          Todavía no hay turnos cargados para hoy en la base de datos real. La grilla está vacía porque es información real, no de prueba.
+          No hay turnos cargados para este día. Hacé clic en un horario libre de la grilla para cargar el primero.
         </div>
       )}
 
@@ -79,12 +117,6 @@ export default function AgendaPage() {
         ))}
       </div>
 
-      {mensaje && (
-        <div className="mt-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800 border border-blue-200">
-          {mensaje}
-        </div>
-      )}
-
       <div className="mt-4">
         {cargando ? (
           <p className="text-sm text-gray-500">Cargando turnos...</p>
@@ -92,12 +124,28 @@ export default function AgendaPage() {
           <AgendaGrid
             turnos={turnos}
             bloques={bloques}
-            onSlotClick={(consultorio, bloque) =>
-              setMensaje(`Hiciste clic en un horario libre: Consultorio ${consultorio} a las ${bloque}. (Acá, más adelante, se va a abrir el formulario para cargar un turno nuevo.)`)
-            }
+            onSlotClick={(consultorio, hora) => setSlotElegido({ consultorio, hora })}
           />
         )}
       </div>
+
+      {slotElegido && (
+        <NuevoTurnoModal
+          fecha={fecha}
+          consultorioInicial={slotElegido.consultorio}
+          horaInicial={slotElegido.hora}
+          profesionales={profesionales}
+          pacientes={pacientes}
+          turnosVisibles={turnos.filter(seMuestraEnGrilla)}
+          onClose={() => setSlotElegido(null)}
+          onCreado={async () => {
+            await recargarTurnos();
+            const pacientesActualizados = await obtenerPacientesActivos();
+            setPacientes(pacientesActualizados);
+            setSlotElegido(null);
+          }}
+        />
+      )}
     </main>
   );
 }
