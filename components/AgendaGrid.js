@@ -29,7 +29,7 @@ function construirOcupacion(turnosVisibles, bloques, minutosPorBloque) {
   return ocupacion;
 }
 
-export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onSlotClick }) {
+export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onSlotClick, onTurnoClick }) {
   const turnosVisibles = turnos.filter(seMuestraEnGrilla);
   const ocupacion = construirOcupacion(turnosVisibles, bloques, minutosPorBloque);
 
@@ -66,7 +66,8 @@ export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onS
                     <td
                       key={consultorio}
                       rowSpan={celda.span}
-                      className={`border border-gray-300 p-1.5 align-top ${color.bg} ${color.text}`}
+                      onClick={() => onTurnoClick?.(turno)}
+                      className={`cursor-pointer border border-gray-300 p-1.5 align-top hover:brightness-95 ${color.bg} ${color.text}`}
                     >
                       <div className="font-semibold leading-tight">{turno.paciente}</div>
                       <div className="text-xs opacity-90 leading-tight">

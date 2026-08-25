@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
 import NuevoTurnoModal from "@/components/NuevoTurnoModal";
+import TurnoDetalleModal from "@/components/TurnoDetalleModal";
 import {
   diaSemanaDeFecha,
   fechaDeHoyISO,
@@ -39,6 +40,7 @@ export default function AgendaPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [slotElegido, setSlotElegido] = useState(null); // { consultorio, hora }
+  const [turnoElegido, setTurnoElegido] = useState(null);
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
 
@@ -125,9 +127,19 @@ export default function AgendaPage() {
             turnos={turnos}
             bloques={bloques}
             onSlotClick={(consultorio, hora) => setSlotElegido({ consultorio, hora })}
+            onTurnoClick={(turno) => setTurnoElegido(turno)}
           />
         )}
       </div>
+
+      {turnoElegido && (
+        <TurnoDetalleModal
+          turno={turnoElegido}
+          fecha={fecha}
+          onClose={() => setTurnoElegido(null)}
+          onCambiado={recargarTurnos}
+        />
+      )}
 
       {slotElegido && (
         <NuevoTurnoModal
