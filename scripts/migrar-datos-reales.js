@@ -34,7 +34,8 @@ function filasNoVacias(wb, nombreHoja) {
 }
 
 function numeroDesde(texto) {
-  const limpio = String(texto || "").replace(/[^\d,.-]/g, "").replace(",", ".");
+  // Los valores vienen formateados como moneda, ej. "$45,840.00" (coma = miles, punto = decimales).
+  const limpio = String(texto || "").replace(/[^\d.-]/g, "");
   const n = Number(limpio);
   return Number.isFinite(n) ? n : 0;
 }
