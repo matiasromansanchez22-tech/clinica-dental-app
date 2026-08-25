@@ -56,6 +56,16 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
     aplicarCambio("cancelar", { estado: "Cancelado" });
   }
 
+  function reprogramarTurno() {
+    if (
+      !window.confirm(
+        "¿Marcar para reprogramar? Se va a liberar el horario en la grilla y va a aparecer en el reporte de seguimiento para llamar al paciente."
+      )
+    )
+      return;
+    aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar" });
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
@@ -142,13 +152,22 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
             </div>
           </div>
 
-          <button
-            onClick={cancelarTurno}
-            disabled={guardando !== null}
-            className="mt-1 w-fit text-sm text-red-600 hover:underline disabled:opacity-50"
-          >
-            Cancelar turno
-          </button>
+          <div className="mt-1 flex gap-4">
+            <button
+              onClick={reprogramarTurno}
+              disabled={guardando !== null}
+              className="w-fit text-sm text-orange-600 hover:underline disabled:opacity-50"
+            >
+              Reprogramar
+            </button>
+            <button
+              onClick={cancelarTurno}
+              disabled={guardando !== null}
+              className="w-fit text-sm text-red-600 hover:underline disabled:opacity-50"
+            >
+              Cancelar turno
+            </button>
+          </div>
         </div>
 
         <hr className="my-4 border-gray-200" />

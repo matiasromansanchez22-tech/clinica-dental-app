@@ -12,6 +12,7 @@ const GRUPOS = [
     label: "Sistema General",
     items: [
       { href: "/agenda", label: "Agenda" },
+      { href: "/reprogramar", label: "Turnos a reprogramar" },
       { href: "/pacientes", label: "Pacientes" },
       { href: "/nomenclador", label: "Nomenclador" },
       { href: "/catalogo", label: "Catálogo" },
