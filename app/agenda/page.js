@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
 import { generarBloquesHorarios } from "@/lib/agenda";
-import { turnosDeEjemplo } from "@/lib/mockTurnos";
+import { obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+import { supabase } from "@/lib/supabaseClient";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 
@@ -20,22 +21,54 @@ const leyenda = [
   { color: "bg-gray-200", etiqueta: "Agendado" },
 ];
 
+function fechaDeHoyISO() {
+  const hoy = new Date();
+  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoy.getDate()).padStart(2, "0");
+  return `${hoy.getFullYear()}-${mes}-${dia}`;
+}
+
 export default function AgendaPage() {
   const [mensaje, setMensaje] = useState(null);
+  const [turnos, setTurnos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+  const fechaISO = fechaDeHoyISO();
+
   const hoy = new Date().toLocaleDateString("es-AR", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
 
+  useEffect(() => {
+    if (!supabase) {
+      setError("Falta configurar la conexión a Supabase (.env.local).");
+      setCargando(false);
+      return;
+    }
+    obtenerTurnosGeneralPorFecha(fechaISO)
+      .then(setTurnos)
+      .catch((e) => setError(e.message))
+      .finally(() => setCargando(false));
+  }, [fechaISO]);
+
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Agenda — Odontología General</h1>
       <p className="mt-1 text-sm capitalize text-gray-500">{hoy}</p>
 
-      <div className="mt-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 border border-yellow-200">
-        Estos turnos son datos de prueba (todavía no está conectada la base de datos real).
-      </div>
+      {error && (
+        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          Ocurrió un problema al conectar con la base de datos: {error}
+        </div>
+      )}
+
+      {!error && !cargando && turnos.length === 0 && (
+        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          Todavía no hay turnos cargados para hoy en la base de datos real. La grilla está vacía porque es información real, no de prueba.
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-3">
         {leyenda.map((item) => (
@@ -53,13 +86,17 @@ export default function AgendaPage() {
       )}
 
       <div className="mt-4">
-        <AgendaGrid
-          turnos={turnosDeEjemplo}
-          bloques={bloques}
-          onSlotClick={(consultorio, bloque) =>
-            setMensaje(`Hiciste clic en un horario libre: Consultorio ${consultorio} a las ${bloque}. (Acá, más adelante, se va a abrir el formulario para cargar un turno nuevo.)`)
-          }
-        />
+        {cargando ? (
+          <p className="text-sm text-gray-500">Cargando turnos...</p>
+        ) : (
+          <AgendaGrid
+            turnos={turnos}
+            bloques={bloques}
+            onSlotClick={(consultorio, bloque) =>
+              setMensaje(`Hiciste clic en un horario libre: Consultorio ${consultorio} a las ${bloque}. (Acá, más adelante, se va a abrir el formulario para cargar un turno nuevo.)`)
+            }
+          />
+        )}
       </div>
     </main>
   );
