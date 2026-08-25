@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CONSULTORIOS,
   diaSemanaDeFecha,
   generarBloquesHorarios,
   hayConflictoDeHorario,
+  minutosDesdeHora,
   NOMBRES_DIA_SEMANA,
   seMuestraEnGrilla,
 } from "@/lib/agenda";
-import { atiendeEseDia } from "@/lib/data/profesionales";
+import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/profesionales";
 import { buscarProximosHorariosLibres } from "@/lib/data/buscadorHorario";
 import { crearPaciente } from "@/lib/data/pacientes";
 import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
@@ -53,12 +54,73 @@ export default function NuevoTurnoModal({
   const [buscando, setBuscando] = useState(false);
   const [resultadosBusqueda, setResultadosBusqueda] = useState(null);
 
+  const [preferenciaHoraria, setPreferenciaHoraria] = useState("");
+  const [horasDisponibles, setHorasDisponibles] = useState(null); // null = todavía no calculado / sin filtrar
+  const [calculandoHoras, setCalculandoHoras] = useState(false);
+
   const diaSemana = diaSemanaDeFecha(fechaLocal);
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemana];
 
   const profesionalSeleccionado = profesionales.find((p) => p.id === profesionalDeTurnoId);
   const profesionalNoAtiendeEseDia =
     profesionalSeleccionado && !atiendeEseDia(profesionalSeleccionado, diaSemana);
+
+  // Regla del doc 3.1: mostrar solo los horarios realmente libres de ese
+  // profesional ese día (según su disponibilidad cargada), para que no se
+  // pisen turnos ni se sobrecargue la sala de espera.
+  useEffect(() => {
+    if (!profesionalDeTurnoId) {
+      setHorasDisponibles(null);
+      return;
+    }
+    let cancelado = false;
+    setCalculandoHoras(true);
+    (async () => {
+      try {
+        const disponibilidad = await obtenerDisponibilidadProfesional(profesionalDeTurnoId);
+        const bloquesDelDia = disponibilidad.filter((d) => d.dia_semana === diaSemana);
+        if (bloquesDelDia.length === 0) {
+          if (!cancelado) setHorasDisponibles([]);
+          return;
+        }
+
+        const turnosDelDia = await obtenerTurnosGeneralPorFecha(fechaLocal);
+        const turnosVisibles = turnosDelDia.filter(seMuestraEnGrilla);
+
+        const libres = [];
+        for (const bloque of bloquesDelDia) {
+          const finBloqueMin = minutosDesdeHora(bloque.hora_fin.slice(0, 5));
+          for (const hora of generarBloquesHorarios(bloque.hora_inicio.slice(0, 5), bloque.hora_fin.slice(0, 5), 30)) {
+            if (minutosDesdeHora(hora) + Number(duracionMin) > finBloqueMin) continue;
+            if (preferenciaHoraria === "manana" && minutosDesdeHora(hora) >= 12 * 60) continue;
+            if (preferenciaHoraria === "tarde" && minutosDesdeHora(hora) < 12 * 60) continue;
+
+            const conflicto = hayConflictoDeHorario({
+              turnosVisibles,
+              consultorio: bloque.consultorio,
+              profesionalDeTurnoId,
+              horaInicio: hora,
+              duracionMin: Number(duracionMin),
+            });
+            if (!conflicto) libres.push({ hora, consultorio: bloque.consultorio });
+          }
+        }
+        if (!cancelado) setHorasDisponibles(libres);
+      } catch {
+        if (!cancelado) setHorasDisponibles(null);
+      } finally {
+        if (!cancelado) setCalculandoHoras(false);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [profesionalDeTurnoId, fechaLocal, duracionMin, preferenciaHoraria, diaSemana]);
+
+  function elegirHoraDisponible(opcion) {
+    setHoraInicio(opcion.hora);
+    setConsultorio(opcion.consultorio);
+  }
 
   const pacienteExistente = useMemo(() => {
     const nombreNormalizado = pacienteNombre.trim().toLowerCase();
@@ -362,6 +424,56 @@ export default function NuevoTurnoModal({
               <span className="text-xs text-blue-600">ℹ {profesionalSeleccionado.observaciones}</span>
             )}
           </label>
+
+          {profesionalDeTurnoId && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  Horarios libres de {profesionalSeleccionado?.nombre} este día
+                </p>
+                <select
+                  value={preferenciaHoraria}
+                  onChange={(e) => setPreferenciaHoraria(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-xs"
+                >
+                  <option value="">Mañana o tarde</option>
+                  <option value="manana">Mañana</option>
+                  <option value="tarde">Tarde</option>
+                </select>
+              </div>
+
+              {calculandoHoras && <p className="text-xs text-gray-500">Calculando...</p>}
+
+              {!calculandoHoras && horasDisponibles !== null && horasDisponibles.length === 0 && (
+                <p className="text-xs text-gray-500">
+                  No hay horarios libres calculados para este día (no atiende, o ya está todo ocupado). Podés elegir
+                  la hora y el consultorio manualmente arriba si es una excepción.
+                </p>
+              )}
+
+              {!calculandoHoras && horasDisponibles && horasDisponibles.length > 0 && (
+                <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
+                  {horasDisponibles.map((op, i) => {
+                    const elegido = op.hora === horaInicio && op.consultorio === consultorio;
+                    return (
+                      <button
+                        type="button"
+                        key={i}
+                        onClick={() => elegirHoraDisponible(op)}
+                        className={`rounded-md border px-2 py-1 text-xs ${
+                          elegido
+                            ? "border-gray-900 bg-gray-900 text-white"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        {op.hora} · C{op.consultorio}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Tipo de atención
