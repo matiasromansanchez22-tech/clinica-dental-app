@@ -10,12 +10,20 @@ export default function Home() {
         Esta es la nueva aplicación, en construcción. Empezamos por lo más usado
         en el día a día: la Agenda de Odontología General.
       </p>
-      <Link
-        href="/agenda"
-        className="w-fit rounded-md bg-gray-900 px-5 py-3 font-medium text-white hover:bg-gray-700"
-      >
-        Ir a la Agenda de Odontología General →
-      </Link>
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/agenda"
+          className="w-fit rounded-md bg-gray-900 px-5 py-3 font-medium text-white hover:bg-gray-700"
+        >
+          Ir a la Agenda de Odontología General →
+        </Link>
+        <Link
+          href="/pacientes"
+          className="w-fit rounded-md border border-gray-300 px-5 py-3 font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Ir a Alta de Pacientes →
+        </Link>
+      </div>
     </main>
   );
 }
