@@ -9,7 +9,6 @@ import {
   fechaDeHoyISO,
   generarBloquesHorarios,
   NOMBRES_DIA_SEMANA,
-  seMuestraEnGrilla,
   sumarDias,
 } from "@/lib/agenda";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
@@ -148,7 +147,6 @@ export default function AgendaPage() {
           horaInicial={slotElegido.hora}
           profesionales={profesionales}
           pacientes={pacientes}
-          turnosVisibles={turnos.filter(seMuestraEnGrilla)}
           onClose={() => setSlotElegido(null)}
           onCreado={async () => {
             await recargarTurnos();

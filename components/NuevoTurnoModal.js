@@ -7,10 +7,12 @@ import {
   generarBloquesHorarios,
   hayConflictoDeHorario,
   NOMBRES_DIA_SEMANA,
+  seMuestraEnGrilla,
 } from "@/lib/agenda";
 import { atiendeEseDia } from "@/lib/data/profesionales";
+import { buscarProximosHorariosLibres } from "@/lib/data/buscadorHorario";
 import { crearPaciente } from "@/lib/data/pacientes";
-import { crearTurnoGeneral } from "@/lib/data/turnosGeneral";
+import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 
 const TIPOS_ATENCION = [
   "Primera consulta",
@@ -29,10 +31,10 @@ export default function NuevoTurnoModal({
   horaInicial,
   profesionales,
   pacientes,
-  turnosVisibles,
   onClose,
   onCreado,
 }) {
+  const [fechaLocal, setFechaLocal] = useState(fecha);
   const [consultorio, setConsultorio] = useState(consultorioInicial);
   const [horaInicio, setHoraInicio] = useState(horaInicial);
   const [duracionMin, setDuracionMin] = useState(30);
@@ -46,7 +48,12 @@ export default function NuevoTurnoModal({
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const diaSemana = diaSemanaDeFecha(fecha);
+  const [mostrarBuscador, setMostrarBuscador] = useState(false);
+  const [preferenciaBusqueda, setPreferenciaBusqueda] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [resultadosBusqueda, setResultadosBusqueda] = useState(null);
+
+  const diaSemana = diaSemanaDeFecha(fechaLocal);
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemana];
 
   const profesionalSeleccionado = profesionales.find((p) => p.id === profesionalDeTurnoId);
@@ -72,8 +79,9 @@ export default function NuevoTurnoModal({
       return;
     }
 
+    const turnosDelDia = await obtenerTurnosGeneralPorFecha(fechaLocal);
     const conflicto = hayConflictoDeHorario({
-      turnosVisibles,
+      turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
       consultorio,
       profesionalDeTurnoId,
       horaInicio,
@@ -100,7 +108,7 @@ export default function NuevoTurnoModal({
       }
 
       await crearTurnoGeneral({
-        fecha,
+        fecha: fechaLocal,
         horaInicio,
         duracionMin: Number(duracionMin),
         consultorio,
@@ -120,6 +128,35 @@ export default function NuevoTurnoModal({
     }
   }
 
+  async function buscarHorarios() {
+    if (!profesionalDeTurnoId) {
+      setErrorMsg("Elegí primero un profesional para poder buscar.");
+      return;
+    }
+    setBuscando(true);
+    setErrorMsg(null);
+    try {
+      const resultados = await buscarProximosHorariosLibres({
+        profesionalId: profesionalDeTurnoId,
+        duracionMin: Number(duracionMin),
+        preferencia: preferenciaBusqueda || null,
+      });
+      setResultadosBusqueda(resultados);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  function elegirResultado(r) {
+    setFechaLocal(r.fecha);
+    setHoraInicio(r.hora);
+    setConsultorio(r.consultorio);
+    setMostrarBuscador(false);
+    setResultadosBusqueda(null);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
@@ -130,9 +167,67 @@ export default function NuevoTurnoModal({
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-gray-500">
-          {nombreDia} {fecha}
-        </p>
+        <div className="mb-4 flex items-center gap-2">
+          <input
+            type="date"
+            value={fechaLocal}
+            onChange={(e) => setFechaLocal(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+          />
+          <span className="text-sm capitalize text-gray-500">{nombreDia}</span>
+          <button
+            type="button"
+            onClick={() => setMostrarBuscador((v) => !v)}
+            className="ml-auto text-sm text-blue-600 hover:underline"
+          >
+            🔍 Buscar próximo horario libre
+          </button>
+        </div>
+
+        {mostrarBuscador && (
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+            <p className="mb-2 text-xs text-blue-800">
+              Busca en los próximos 30 días según el profesional elegido abajo y su disponibilidad cargada.
+            </p>
+            <div className="flex items-center gap-2">
+              <select
+                value={preferenciaBusqueda}
+                onChange={(e) => setPreferenciaBusqueda(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">Mañana o tarde</option>
+                <option value="manana">Mañana</option>
+                <option value="tarde">Tarde</option>
+              </select>
+              <button
+                type="button"
+                onClick={buscarHorarios}
+                disabled={buscando}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {buscando ? "Buscando..." : "Buscar"}
+              </button>
+            </div>
+
+            {resultadosBusqueda && resultadosBusqueda.length === 0 && (
+              <p className="mt-2 text-sm text-gray-600">No se encontraron horarios libres en los próximos 30 días.</p>
+            )}
+            {resultadosBusqueda && resultadosBusqueda.length > 0 && (
+              <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+                {resultadosBusqueda.map((r, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => elegirResultado(r)}
+                    className="rounded-md border border-blue-300 bg-white px-2 py-1 text-xs text-blue-700 hover:bg-blue-100"
+                  >
+                    {r.fecha} · {r.hora} · C{r.consultorio}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
