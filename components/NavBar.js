@@ -9,6 +9,8 @@ const SECCIONES = [
   { href: "/pacientes", label: "Pacientes" },
   { href: "/nomenclador", label: "Nomenclador" },
   { href: "/catalogo", label: "Catálogo" },
+  { href: "/presupuestos", label: "Presupuestos" },
+  { href: "/planes", label: "Planes" },
 ];
 
 export default function NavBar() {
