@@ -263,6 +263,9 @@ export default function NuevoTurnoModal({
                 ⚠ Según su disponibilidad cargada, {profesionalSeleccionado.nombre} no atiende los {nombreDia.toLowerCase()}. Podés cargarlo igual si es una excepción.
               </span>
             )}
+            {profesionalSeleccionado?.observaciones && (
+              <span className="text-xs text-blue-600">ℹ {profesionalSeleccionado.observaciones}</span>
+            )}
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
