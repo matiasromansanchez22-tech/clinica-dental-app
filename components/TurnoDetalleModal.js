@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CONSULTORIOS, generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
 import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
-import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
+import { actualizarEstadoTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+
+const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 
 function BotonAccion({ activo, children, ...props }) {
   return (
@@ -25,6 +28,11 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
   const [error, setError] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
+  const [mostrarMover, setMostrarMover] = useState(false);
+  const [nuevaFecha, setNuevaFecha] = useState(fecha);
+  const [nuevaHora, setNuevaHora] = useState(turno.horaInicio);
+  const [nuevoConsultorio, setNuevoConsultorio] = useState(turno.consultorio);
+  const [moviendo, setMoviendo] = useState(false);
 
   useEffect(() => {
     if (!turnoActual.pacienteId) {
@@ -64,6 +72,38 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
     )
       return;
     aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar" });
+  }
+
+  async function confirmarMovimiento() {
+    setError(null);
+    setMoviendo(true);
+    try {
+      const turnosDelDiaDestino = await obtenerTurnosGeneralPorFecha(nuevaFecha);
+      const conflicto = hayConflictoDeHorario({
+        turnosVisibles: turnosDelDiaDestino.filter(seMuestraEnGrilla),
+        consultorio: Number(nuevoConsultorio),
+        profesionalDeTurnoId: turnoActual.profesionalDeTurnoId,
+        horaInicio: nuevaHora,
+        duracionMin: turnoActual.duracionMin,
+        idExcluido: turnoActual.id,
+      });
+      if (conflicto) {
+        setError("Ese horario ya está ocupado en ese consultorio, o el profesional ya tiene otro turno a esa hora.");
+        return;
+      }
+
+      await actualizarEstadoTurnoGeneral(turnoActual.id, {
+        fecha: nuevaFecha,
+        hora_inicio: nuevaHora,
+        consultorio: Number(nuevoConsultorio),
+      });
+      onCambiado();
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setMoviendo(false);
+    }
   }
 
   return (
@@ -151,6 +191,66 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
               </BotonAccion>
             </div>
           </div>
+
+          {!mostrarMover ? (
+            <button
+              onClick={() => setMostrarMover(true)}
+              disabled={guardando !== null}
+              className="w-fit text-sm text-blue-600 hover:underline disabled:opacity-50"
+            >
+              Mover turno
+            </button>
+          ) : (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase text-blue-800">Mover a</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={nuevaFecha}
+                  onChange={(e) => setNuevaFecha(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                />
+                <select
+                  value={nuevaHora}
+                  onChange={(e) => setNuevaHora(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                >
+                  {bloques.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={nuevoConsultorio}
+                  onChange={(e) => setNuevoConsultorio(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                >
+                  {CONSULTORIOS.map((c) => (
+                    <option key={c} value={c}>
+                      Consultorio {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={confirmarMovimiento}
+                  disabled={moviendo}
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {moviendo ? "Moviendo..." : "Confirmar movimiento"}
+                </button>
+                <button
+                  onClick={() => setMostrarMover(false)}
+                  disabled={moviendo}
+                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-1 flex gap-4">
             <button
