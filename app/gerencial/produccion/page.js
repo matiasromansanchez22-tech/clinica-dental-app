@@ -58,7 +58,7 @@ function ProduccionPorProfesionalContenido() {
       setFilas((fs) =>
         fs.map((f) =>
           f.profesionalId === fila.profesionalId
-            ? { ...f, porcentajeCopago: valor, honorariosCopago: f.totalCopago * (valor / 100), aLiquidar: f.totalCopago * (valor / 100) + f.honorariosOS }
+            ? { ...f, porcentajeCopago: valor, honorariosCopago: f.totalCopago * (valor / 100), aLiquidar: f.totalCopago * (valor / 100) }
             : f
         )
       );
@@ -74,7 +74,7 @@ function ProduccionPorProfesionalContenido() {
       setFilas((fs) =>
         fs.map((f) =>
           f.profesionalId === fila.profesionalId
-            ? { ...f, porcentajeOS: valor, honorariosOS: f.totalValorOS * (valor / 100), aLiquidar: f.honorariosCopago + f.totalValorOS * (valor / 100) }
+            ? { ...f, porcentajeOS: valor, honorariosOS: f.totalValorOS * (valor / 100) }
             : f
         )
       );
@@ -86,14 +86,16 @@ function ProduccionPorProfesionalContenido() {
   const totalCopago = filas.reduce((acc, f) => acc + f.totalCopago, 0);
   const totalValorOS = filas.reduce((acc, f) => acc + f.totalValorOS, 0);
   const totalALiquidar = filas.reduce((acc, f) => acc + f.aLiquidar, 0);
+  const totalHonorariosOS = filas.reduce((acc, f) => acc + f.honorariosOS, 0);
   const totalAtenciones = filas.reduce((acc, f) => acc + f.cantidadAtenciones, 0);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Se liquida un % sobre lo
-        cobrado en el día (copago/particular) y otro % sobre lo facturado a obras sociales.
+        Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Lo que se liquida en el día
+        es el % sobre el copago/particular cobrado — la parte de obra social se liquida a mes vencido, recién cuando
+        la clínica cobra del intermediario, y se muestra aparte como pendiente.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -154,8 +156,11 @@ function ProduccionPorProfesionalContenido() {
           <span className="text-gray-500">Facturado a O.Social: </span>
           <span className="font-semibold text-gray-900">${totalValorOS.toLocaleString("es-AR")}</span>
         </div>
+        <div className="rounded-md border border-brand-tan bg-brand-tan/20 px-3 py-2 text-sm text-brand-brown">
+          Pendiente O.Social (mes vencido): <span className="font-semibold">${totalHonorariosOS.toLocaleString("es-AR")}</span>
+        </div>
         <div className="ml-auto rounded-md bg-brand-brown px-3 py-2 text-sm text-white">
-          A liquidar: <span className="font-semibold">${totalALiquidar.toLocaleString("es-AR")}</span>
+          A liquidar hoy: <span className="font-semibold">${totalALiquidar.toLocaleString("es-AR")}</span>
         </div>
       </div>
 
@@ -171,22 +176,23 @@ function ProduccionPorProfesionalContenido() {
               <th className="px-2 py-2 text-center font-semibold">Atenciones</th>
               <th className="px-3 py-2 text-right font-semibold">Copago</th>
               <th className="px-2 py-2 text-center font-semibold">% Copago</th>
+              <th className="px-3 py-2 text-right font-semibold">A liquidar hoy</th>
               <th className="px-3 py-2 text-right font-semibold">Valor O.Social</th>
               <th className="px-2 py-2 text-center font-semibold">% O.Social</th>
-              <th className="px-3 py-2 text-right font-semibold">A liquidar</th>
+              <th className="px-3 py-2 text-right font-semibold">Pendiente O.Social (mes vencido)</th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && filas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No hay cobros registrados en este período.
                 </td>
               </tr>
@@ -215,6 +221,9 @@ function ProduccionPorProfesionalContenido() {
                       />
                     )}
                   </td>
+                  <td className="px-3 py-2 text-right font-semibold text-emerald-700">
+                    ${f.aLiquidar.toLocaleString("es-AR")}
+                  </td>
                   <td className="px-3 py-2 text-right text-gray-600">
                     {f.totalValorOS > 0 ? `$${f.totalValorOS.toLocaleString("es-AR")}` : "—"}
                   </td>
@@ -230,13 +239,13 @@ function ProduccionPorProfesionalContenido() {
                       />
                     )}
                   </td>
-                  <td className="px-3 py-2 text-right font-semibold text-emerald-700">
-                    ${f.aLiquidar.toLocaleString("es-AR")}
+                  <td className="px-3 py-2 text-right font-semibold text-brand-brown">
+                    {f.honorariosOS > 0 ? `$${f.honorariosOS.toLocaleString("es-AR")}` : "—"}
                   </td>
                 </tr>
                 {expandido === f.profesionalId && (
                   <tr className="bg-gray-50">
-                    <td colSpan={7} className="px-3 py-2">
+                    <td colSpan={8} className="px-3 py-2">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-gray-500">
@@ -269,8 +278,9 @@ function ProduccionPorProfesionalContenido() {
       </div>
 
       <p className="mt-3 text-xs text-gray-500">
-        El monto de obra social se calcula sobre lo facturado al intermediario, no sobre lo efectivamente cobrado —
-        tenelo en cuenta si liquidás esa parte recién cuando la clínica cobra.
+        "A liquidar hoy" es solo el % sobre el copago/particular cobrado en el período. La columna "Pendiente O.Social
+        (mes vencido)" se calcula sobre lo facturado al intermediario y se liquida recién a mes vencido, cuando la
+        clínica cobra esa parte — no está incluida en el total de hoy.
       </p>
     </main>
   );
