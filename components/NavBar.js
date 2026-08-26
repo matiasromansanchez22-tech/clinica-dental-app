@@ -28,6 +28,8 @@ const GRUPOS = [
     label: "Sistema Ortodoncia",
     items: [
       { href: "/ortodoncia/agenda", label: "Agenda" },
+      { href: "/ortodoncia/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
+      { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
     ],
   },
