@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
+  actualizarFechaInicioDeudaOrtodoncia,
   actualizarMesControl,
   actualizarObservacionesControl,
   calcularMesesAdeudados,
   MESES,
   obtenerControlesOrtodoncia,
+  obtenerFechaInicioDeudaOrtodoncia,
 } from "@/lib/data/controlesOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 
@@ -32,8 +34,16 @@ export default function ControlesOrtodonciaPage() {
   const [pacienteObservacion, setPacienteObservacion] = useState(null);
   const [celdasGuardando, setCeldasGuardando] = useState({});
   const celdasEnVuelo = useRef(new Set());
+  const [fechaInicioDeuda, setFechaInicioDeuda] = useState(null);
+  const [mostrarConfigFecha, setMostrarConfigFecha] = useState(false);
 
   const hoy = useMemo(() => new Date(fechaDeHoyISO() + "T12:00:00"), []);
+
+  useEffect(() => {
+    obtenerFechaInicioDeudaOrtodoncia()
+      .then(setFechaInicioDeuda)
+      .catch((e) => setError(e.message));
+  }, []);
 
   useEffect(() => {
     setCargando(true);
@@ -58,13 +68,14 @@ export default function ControlesOrtodonciaPage() {
           fechaInstalacion: p.fechaInstalacion,
           anio,
           hoy,
+          fechaInicioSeguimiento: fechaInicioDeuda,
         });
         const deudaTotal = mesesAdeudados * Number(p.valorControl || 0);
         return { paciente: p, control, mesesAdeudados, mesesVencidos, deudaTotal };
       })
       .filter((f) => !soloConDeuda || f.mesesAdeudados > 0)
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados || a.paciente.nombre.localeCompare(b.paciente.nombre));
-  }, [pacientes, controles, busqueda, soloActivos, soloConDeuda, anio, hoy]);
+  }, [pacientes, controles, busqueda, soloActivos, soloConDeuda, anio, hoy, fechaInicioDeuda]);
 
   const deudaTotalGeneral = filas.reduce((acc, f) => acc + f.deudaTotal, 0);
 
@@ -91,10 +102,19 @@ export default function ControlesOrtodonciaPage() {
 
   return (
     <main className="mx-auto max-w-7xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Controles — Ortodoncia</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Controles — Ortodoncia</h1>
+        <button
+          onClick={() => setMostrarConfigFecha(true)}
+          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          ⚙ Fecha de inicio de deuda
+        </button>
+      </div>
       <p className="mt-1 text-sm text-gray-500">
         Hacé clic en cada mes para marcarlo Pago / Pagado Anticipado / vacío. Los meses adeudados y la deuda se
-        calculan solos.
+        calculan solos, contando únicamente desde{" "}
+        <span className="font-medium text-gray-700">{fechaInicioDeuda || "..."}</span> en adelante.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -237,6 +257,53 @@ export default function ControlesOrtodonciaPage() {
                     );
                     setControles((c) => ({ ...c, [pacienteObservacion.id]: actualizado }));
                     setPacienteObservacion(null);
+                  } catch (e) {
+                    setError(e.message);
+                  }
+                }}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {mostrarConfigFecha && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Fecha de inicio de deuda</h2>
+              <button
+                onClick={() => setMostrarConfigFecha(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-gray-500">
+              Los meses anteriores a esta fecha nunca se van a contar como adeudados, sin importar si están
+              marcados o no. Usalo para "empezar de cero" si el historial previo no es confiable.
+            </p>
+            <input
+              type="date"
+              value={fechaInicioDeuda || ""}
+              onChange={(e) => setFechaInicioDeuda(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setMostrarConfigFecha(false)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await actualizarFechaInicioDeudaOrtodoncia(fechaInicioDeuda);
+                    setMostrarConfigFecha(false);
                   } catch (e) {
                     setError(e.message);
                   }

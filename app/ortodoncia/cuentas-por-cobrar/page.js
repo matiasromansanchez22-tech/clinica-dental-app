@@ -7,6 +7,7 @@ import {
   calcularMesesAdeudados,
   ESTADOS_GESTION,
   obtenerControlesOrtodoncia,
+  obtenerFechaInicioDeudaOrtodoncia,
 } from "@/lib/data/controlesOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 
@@ -28,8 +29,15 @@ export default function CuentasPorCobrarOrtodonciaPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [gestionEnEdicion, setGestionEnEdicion] = useState(null);
+  const [fechaInicioDeuda, setFechaInicioDeuda] = useState(null);
 
   const hoy = useMemo(() => new Date(fechaDeHoyISO() + "T12:00:00"), []);
+
+  useEffect(() => {
+    obtenerFechaInicioDeudaOrtodoncia()
+      .then(setFechaInicioDeuda)
+      .catch((e) => setError(e.message));
+  }, []);
 
   useEffect(() => {
     setCargando(true);
@@ -48,13 +56,19 @@ export default function CuentasPorCobrarOrtodonciaPage() {
       .filter((p) => !texto || p.nombre.toLowerCase().includes(texto))
       .map((p) => {
         const control = controles[p.id];
-        const { mesesAdeudados } = calcularMesesAdeudados({ control, fechaInstalacion: p.fechaInstalacion, anio, hoy });
+        const { mesesAdeudados } = calcularMesesAdeudados({
+          control,
+          fechaInstalacion: p.fechaInstalacion,
+          anio,
+          hoy,
+          fechaInicioSeguimiento: fechaInicioDeuda,
+        });
         const deudaTotal = mesesAdeudados * Number(p.valorControl || 0);
         return { paciente: p, control, mesesAdeudados, deudaTotal };
       })
       .filter((f) => f.mesesAdeudados > 0)
       .sort((a, b) => b.deudaTotal - a.deudaTotal);
-  }, [pacientes, controles, busqueda, anio, hoy]);
+  }, [pacientes, controles, busqueda, anio, hoy, fechaInicioDeuda]);
 
   const deudaTotalGeneral = filas.reduce((acc, f) => acc + f.deudaTotal, 0);
 
