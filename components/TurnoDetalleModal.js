@@ -84,7 +84,16 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
     setError(null);
     setGuardandoPrestaciones(true);
     try {
-      const suma = prestacionesTurno.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
+      // Si eligió una prestación en el desplegable pero no llegó a tocar
+      // "+ Agregar", la sumamos igual antes de guardar — no tiene por qué
+      // acordarse de ese paso intermedio.
+      let listaFinal = prestacionesTurno;
+      const pendiente = prestacionesDisponibles.find((p) => p.itemId === nuevaPrestacionId);
+      if (pendiente && listaFinal.length < MAX_PRESTACIONES_TURNO) {
+        listaFinal = [...listaFinal, { prestacion: pendiente.prestacion, tiempoEstimadoMin: pendiente.tiempoEstimadoMin }];
+      }
+
+      const suma = listaFinal.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
       const duracionNueva = suma > 0 ? suma : turnoActual.duracionMin;
 
       if (duracionNueva !== turnoActual.duracionMin) {
@@ -106,10 +115,12 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
       }
 
       const actualizado = await actualizarEstadoTurnoGeneral(turnoActual.id, {
-        prestaciones: prestacionesTurno,
+        prestaciones: listaFinal,
         duracion_min: duracionNueva,
       });
       setTurnoActual(actualizado);
+      setPrestacionesTurno(listaFinal);
+      setNuevaPrestacionId("");
       onCambiado();
     } catch (e) {
       setError(e.message);
