@@ -80,7 +80,7 @@ export default function NuevoTurnoModal({
   // propia duración estimada — según la cobertura, se eligen del Catálogo
   // (Particular) o del Nomenclador de la obra social correspondiente.
   useEffect(() => {
-    setPrestacionesTurno([]);
+    setPrestacionesTurno([{ itemId: "", prestacion: "", tiempoEstimadoMin: 0 }]);
     if (tipoPaciente === "Particular") {
       setPrestacionesDisponibles(
         catalogoCompleto

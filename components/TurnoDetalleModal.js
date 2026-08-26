@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { CONSULTORIOS, generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
+import { obtenerCatalogo } from "@/lib/data/catalogo";
+import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
 import { actualizarEstadoTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
+const MAX_PRESTACIONES_TURNO = 4;
 
 function BotonAccion({ activo, children, ...props }) {
   return (
@@ -33,6 +36,87 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
   const [nuevaHora, setNuevaHora] = useState(turno.horaInicio);
   const [nuevoConsultorio, setNuevoConsultorio] = useState(turno.consultorio);
   const [moviendo, setMoviendo] = useState(false);
+
+  const [catalogoCompleto, setCatalogoCompleto] = useState([]);
+  const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
+  const [prestacionesTurno, setPrestacionesTurno] = useState(turno.prestaciones || []);
+  const [nuevaPrestacionId, setNuevaPrestacionId] = useState("");
+  const [guardandoPrestaciones, setGuardandoPrestaciones] = useState(false);
+
+  useEffect(() => {
+    obtenerCatalogo().then(setCatalogoCompleto);
+  }, []);
+
+  useEffect(() => {
+    if (turnoActual.cobertura === "Particular") {
+      setPrestacionesDisponibles(
+        catalogoCompleto
+          .filter((c) => c.estado === "Activo" && c.particular)
+          .map((c) => ({ itemId: c.id, prestacion: c.prestacion, tiempoEstimadoMin: c.tiempo_estimado_min || 0 }))
+      );
+      return;
+    }
+    const catalogoPorId = new Map(catalogoCompleto.map((c) => [c.id, c]));
+    obtenerPrestacionesObraSocial(turnoActual.cobertura).then((filas) => {
+      setPrestacionesDisponibles(
+        filas.map((f) => ({
+          itemId: f.id,
+          prestacion: f.prestacion_os,
+          tiempoEstimadoMin: catalogoPorId.get(f.id_catalogo)?.tiempo_estimado_min || 0,
+        }))
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnoActual.cobertura, catalogoCompleto]);
+
+  function agregarPrestacion() {
+    const item = prestacionesDisponibles.find((p) => p.itemId === nuevaPrestacionId);
+    if (!item) return;
+    setPrestacionesTurno((filas) => [...filas, { prestacion: item.prestacion, tiempoEstimadoMin: item.tiempoEstimadoMin }]);
+    setNuevaPrestacionId("");
+  }
+
+  function quitarPrestacion(indice) {
+    setPrestacionesTurno((filas) => filas.filter((_, i) => i !== indice));
+  }
+
+  async function guardarPrestaciones() {
+    setError(null);
+    setGuardandoPrestaciones(true);
+    try {
+      const suma = prestacionesTurno.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
+      const duracionNueva = suma > 0 ? suma : turnoActual.duracionMin;
+
+      if (duracionNueva !== turnoActual.duracionMin) {
+        const turnosDelDia = await obtenerTurnosGeneralPorFecha(turnoActual.fecha);
+        const conflicto = hayConflictoDeHorario({
+          turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
+          consultorio: turnoActual.consultorio,
+          profesionalDeTurnoId: turnoActual.profesionalDeTurnoId,
+          horaInicio: turnoActual.horaInicio,
+          duracionMin: duracionNueva,
+          idExcluido: turnoActual.id,
+        });
+        if (conflicto) {
+          setError(
+            "Al ampliar la duración según estas prestaciones, se pisaría con otro turno. Cambiá la duración manualmente o mové alguno de los turnos."
+          );
+          return;
+        }
+      }
+
+      const actualizado = await actualizarEstadoTurnoGeneral(turnoActual.id, {
+        prestaciones: prestacionesTurno,
+        duracion_min: duracionNueva,
+      });
+      setTurnoActual(actualizado);
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoPrestaciones(false);
+    }
+  }
 
   useEffect(() => {
     if (!turnoActual.pacienteId) {
@@ -119,13 +203,67 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.tipoAtencion} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
-        {turnoActual.prestaciones?.length > 0 && (
-          <p className="mb-4 text-sm text-gray-700">
-            <span className="text-gray-500">A qué viene: </span>
-            {turnoActual.prestaciones.map((p) => p.prestacion).join(", ")}
-          </p>
-        )}
-        {!turnoActual.prestaciones?.length && <div className="mb-4" />}
+        <div className="mb-4 rounded-md border border-gray-200 p-3">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase text-gray-400">
+              A qué viene (hasta {MAX_PRESTACIONES_TURNO})
+            </p>
+            <span className="text-xs text-gray-400">Duración actual: {turnoActual.duracionMin} min</span>
+          </div>
+
+          {prestacionesTurno.length === 0 && (
+            <p className="mb-2 text-sm text-gray-500">Todavía no tiene una prestación cargada.</p>
+          )}
+          {prestacionesTurno.length > 0 && (
+            <ul className="mb-2 flex flex-col gap-1">
+              {prestacionesTurno.map((p, i) => (
+                <li key={i} className="flex items-center justify-between text-sm text-gray-700">
+                  <span>{p.prestacion}</span>
+                  <span className="flex items-center gap-2">
+                    {p.tiempoEstimadoMin ? <span className="text-xs text-gray-400">{p.tiempoEstimadoMin} min</span> : null}
+                    <button type="button" onClick={() => quitarPrestacion(i)} className="text-gray-400 hover:text-red-600">
+                      ✕
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {prestacionesTurno.length < MAX_PRESTACIONES_TURNO && (
+            <div className="flex items-center gap-2">
+              <select
+                value={nuevaPrestacionId}
+                onChange={(e) => setNuevaPrestacionId(e.target.value)}
+                className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">(elegir prestación)</option>
+                {prestacionesDisponibles.map((p) => (
+                  <option key={p.itemId} value={p.itemId}>
+                    {p.prestacion}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={agregarPrestacion}
+                disabled={!nuevaPrestacionId}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                + Agregar
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={guardarPrestaciones}
+            disabled={guardandoPrestaciones}
+            className="mt-2 rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            {guardandoPrestaciones ? "Guardando..." : "Guardar prestación"}
+          </button>
+        </div>
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
