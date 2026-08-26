@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
@@ -34,15 +35,18 @@ export default function LoginPage() {
 
   return (
     <main className="flex flex-1 items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-lg border border-gray-200 p-6 shadow-sm">
-        <h1 className="mb-1 text-xl font-bold text-gray-900">🦷 Clínica Dental</h1>
-        <p className="mb-6 text-sm text-gray-500">Ingresá con tu usuario para continuar.</p>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-lg border border-brand-tan bg-brand-cream p-6 shadow-sm">
+        <div className="mb-1 flex items-center gap-2">
+          <Image src="/icon.png" alt="" width={32} height={32} className="rounded-md" />
+          <h1 className="font-heading text-xl font-semibold text-brand-brown">Clínica Dental</h1>
+        </div>
+        <p className="mb-6 text-sm text-brand-charcoal/60">Ingresá con tu usuario para continuar.</p>
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
 
-        <label className="mb-3 flex flex-col gap-1 text-sm text-gray-700">
+        <label className="mb-3 flex flex-col gap-1 text-sm text-brand-charcoal/80">
           Usuario
           <input
             type="email"
@@ -54,7 +58,7 @@ export default function LoginPage() {
           />
         </label>
 
-        <label className="mb-6 flex flex-col gap-1 text-sm text-gray-700">
+        <label className="mb-6 flex flex-col gap-1 text-sm text-brand-charcoal/80">
           Contraseña
           <input
             type="password"
