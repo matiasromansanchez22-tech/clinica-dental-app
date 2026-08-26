@@ -36,7 +36,12 @@ const GRUPOS = [
       { href: "/ortodoncia/caja", label: "Caja" },
     ],
   },
-  { tipo: "link", href: "/gerencial", label: "Gerencial", soloDuena: true },
+  {
+    tipo: "grupo",
+    label: "Gerencial",
+    soloDuena: true,
+    items: [{ href: "/gerencial/produccion", label: "Producción y liquidación" }],
+  },
 ];
 
 function MenuDesplegable({ grupo, activo }) {
