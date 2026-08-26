@@ -126,7 +126,7 @@ export default function CierrePage() {
             ))}
           </div>
 
-          <div className="mt-3 rounded-md bg-gray-900 px-4 py-3 text-white">
+          <div className="mt-3 rounded-md bg-brand-brown px-4 py-3 text-white">
             <span className="text-sm">Total general ({totales.cantidadCobros} cobros): </span>
             <span className="text-xl font-bold">${totales.totalGeneral.toLocaleString("es-AR")}</span>
           </div>
@@ -154,7 +154,7 @@ export default function CierrePage() {
           <button
             onClick={handleGuardar}
             disabled={guardando || totales.cantidadCobros === 0}
-            className="mt-4 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+            className="mt-4 rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
           >
             {guardando ? "Guardando..." : cierreExistente ? "Actualizar cierre" : "Guardar Cierre Diario"}
           </button>
@@ -170,7 +170,7 @@ export default function CierrePage() {
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Fecha</th>
               <th className="px-3 py-2 text-right font-semibold">Total</th>
               <th className="px-3 py-2 text-left font-semibold">Responsable</th>

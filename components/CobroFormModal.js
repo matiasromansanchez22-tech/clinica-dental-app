@@ -230,7 +230,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
           {cargandoPlan && <p className="text-sm text-gray-500">Buscando plan de financiación activo...</p>}
 
           {usaPlan && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+            <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 px-3 py-2 text-sm text-brand-green">
               Tiene un plan activo <strong>{planActivo.numero_plan}</strong> — este cobro se va a aplicar a{" "}
               <strong>{numeroCuota === "Anticipo" ? "el anticipo" : `la cuota ${numeroCuota}`}</strong>. Saldo pendiente
               actual: ${Number(planActivo.saldo_pendiente).toLocaleString("es-AR")}.
@@ -336,7 +336,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
             <button
               type="submit"
               disabled={guardando}
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               {guardando ? "Guardando..." : "Registrar cobro"}
             </button>

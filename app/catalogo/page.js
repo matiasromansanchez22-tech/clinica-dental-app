@@ -41,7 +41,7 @@ export default function CatalogoPage() {
         <h1 className="text-2xl font-bold text-gray-900">Catálogo de Prestaciones</h1>
         <button
           onClick={() => setMostrarNueva(true)}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
         >
           + Nueva prestación
         </button>
@@ -64,7 +64,7 @@ export default function CatalogoPage() {
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">ID</th>
               <th className="px-3 py-2 text-left font-semibold">Prestación</th>
               <th className="px-3 py-2 text-left font-semibold">Categoría</th>

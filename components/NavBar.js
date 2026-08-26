@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -67,20 +68,20 @@ function MenuDesplegable({ grupo, activo }) {
       <button
         onClick={() => setAbierto((a) => !a)}
         className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium ${
-          activo ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+          activo ? "bg-brand-brown text-brand-cream" : "text-brand-charcoal/70 hover:bg-brand-tan/40"
         }`}
       >
         {grupo.label}
         <span className="text-xs">▾</span>
       </button>
       {abierto && (
-        <div className="absolute left-0 z-10 mt-1 w-56 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+        <div className="absolute left-0 z-10 mt-1 w-56 rounded-md border border-brand-tan bg-brand-cream py-1 shadow-lg">
           {grupo.items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setAbierto(false)}
-              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              className="block px-4 py-2 text-sm text-brand-charcoal hover:bg-brand-tan/40"
             >
               {item.label}
             </Link>
@@ -100,9 +101,12 @@ export default function NavBar() {
   const esDuena = perfil?.rol === "Duena";
 
   return (
-    <nav className="border-b border-gray-200 bg-white">
+    <nav className="border-b border-brand-tan bg-brand-cream">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-6 py-3">
-        <span className="mr-4 font-bold text-gray-900">🦷 Clínica Dental</span>
+        <Link href="/" className="mr-4 flex items-center gap-2">
+          <Image src="/icon.png" alt="" width={32} height={32} className="rounded-md" />
+          <span className="font-heading text-lg font-semibold text-brand-brown">Clínica Dental</span>
+        </Link>
         {GRUPOS.filter((g) => !g.soloDuena || esDuena).map((g) => {
           if (g.tipo === "link") {
             const activo = pathname === g.href;
@@ -111,7 +115,7 @@ export default function NavBar() {
                 key={g.href}
                 href={g.href}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                  activo ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+                  activo ? "bg-brand-brown text-brand-cream" : "text-brand-charcoal/70 hover:bg-brand-tan/40"
                 }`}
               >
                 {g.label}
@@ -121,9 +125,9 @@ export default function NavBar() {
           const activo = g.items.some((i) => i.href === pathname);
           return <MenuDesplegable key={g.label} grupo={g} activo={activo} />;
         })}
-        <span className="ml-auto flex items-center gap-3 text-sm text-gray-500">
+        <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
           {perfil?.nombre || user.email}
-          <button onClick={cerrarSesion} className="text-red-600 hover:underline">
+          <button onClick={cerrarSesion} className="text-red-700 hover:underline">
             Cerrar sesión
           </button>
         </span>

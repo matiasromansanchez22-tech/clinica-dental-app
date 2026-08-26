@@ -154,7 +154,7 @@ function ProduccionPorProfesionalContenido() {
           <span className="text-gray-500">Facturado a O.Social: </span>
           <span className="font-semibold text-gray-900">${totalValorOS.toLocaleString("es-AR")}</span>
         </div>
-        <div className="ml-auto rounded-md bg-gray-900 px-3 py-2 text-sm text-white">
+        <div className="ml-auto rounded-md bg-brand-brown px-3 py-2 text-sm text-white">
           A liquidar: <span className="font-semibold">${totalALiquidar.toLocaleString("es-AR")}</span>
         </div>
       </div>
@@ -166,7 +166,7 @@ function ProduccionPorProfesionalContenido() {
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Profesional</th>
               <th className="px-2 py-2 text-center font-semibold">Atenciones</th>
               <th className="px-3 py-2 text-right font-semibold">Copago</th>

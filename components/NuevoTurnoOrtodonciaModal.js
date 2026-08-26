@@ -258,7 +258,7 @@ export default function NuevoTurnoOrtodonciaModal({
         </div>
 
         {mostrarBuscador && (
-          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+          <div className="mb-4 rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
             <div className="flex items-center gap-2">
               <select
                 value={preferenciaBusqueda}
@@ -438,7 +438,7 @@ export default function NuevoTurnoOrtodonciaModal({
                         key={i}
                         onClick={() => elegirHoraDisponible(op)}
                         className={`rounded-md border px-2 py-1 text-xs ${
-                          elegido ? "border-gray-900 bg-gray-900 text-white" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                          elegido ? "border-gray-900 bg-brand-brown text-white" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
                         }`}
                       >
                         {op.hora} · C{op.consultorio}
@@ -503,7 +503,7 @@ export default function NuevoTurnoOrtodonciaModal({
             <button
               type="submit"
               disabled={guardando}
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               {guardando ? "Guardando..." : "Guardar turno"}
             </button>

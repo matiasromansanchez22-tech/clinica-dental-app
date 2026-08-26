@@ -73,7 +73,7 @@ export default function NomencladorFilaModal({ fila, porcentajeParticular, excep
             />
           </label>
 
-          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 px-3 py-2 text-sm text-brand-green">
             Según la configuración actual, el copago sugerido sería{" "}
             <strong>${sugerido.copago.toLocaleString("es-AR")}</strong> ({sugerido.porcentajeAplicado}%
             {sugerido.origen === "excepcion" ? ", excepción de esta obra social" : ""}).
@@ -97,7 +97,7 @@ export default function NomencladorFilaModal({ fila, porcentajeParticular, excep
             <button
               type="submit"
               disabled={guardando}
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               {guardando ? "Guardando..." : "Guardar"}
             </button>

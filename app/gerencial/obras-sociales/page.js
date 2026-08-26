@@ -163,7 +163,7 @@ function ControlObrasSocialesContenido() {
             </option>
           ))}
         </select>
-        <div className="ml-auto rounded-md bg-gray-900 px-3 py-2 text-sm text-white">
+        <div className="ml-auto rounded-md bg-brand-brown px-3 py-2 text-sm text-white">
           Total: <span className="font-semibold">${totalGeneral.toLocaleString("es-AR")}</span>
         </div>
       </div>
@@ -207,7 +207,7 @@ function ControlObrasSocialesContenido() {
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-2 py-2"></th>
               <th className="px-3 py-2 text-left font-semibold">Fecha</th>
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>

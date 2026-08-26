@@ -357,7 +357,7 @@ export default function PacienteFormModal({ paciente, profesionales, onClose, on
             <button
               type="submit"
               disabled={guardando}
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               {guardando ? "Guardando..." : "Guardar paciente"}
             </button>

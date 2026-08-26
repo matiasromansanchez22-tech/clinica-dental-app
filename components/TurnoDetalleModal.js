@@ -13,7 +13,7 @@ function BotonAccion({ activo, children, ...props }) {
       {...props}
       className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
         activo
-          ? "border-gray-900 bg-gray-900 text-white"
+          ? "border-gray-900 bg-brand-brown text-white"
           : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
       }`}
     >
@@ -208,8 +208,8 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
               Mover turno
             </button>
           ) : (
-            <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase text-blue-800">Mover a</p>
+            <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase text-brand-green">Mover a</p>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"

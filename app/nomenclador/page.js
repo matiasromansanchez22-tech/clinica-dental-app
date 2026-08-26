@@ -111,7 +111,7 @@ export default function NomencladorPage() {
         <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="bg-gray-800 text-white">
+              <tr className="bg-brand-brown text-white">
                 <th className="px-3 py-2 text-left font-semibold">Código</th>
                 <th className="px-3 py-2 text-left font-semibold">Prestación (obra social)</th>
                 <th className="px-3 py-2 text-left font-semibold">Prestación interna</th>

@@ -129,7 +129,7 @@ export default function ConfiguracionCopagoModal({ porcentajeParticular, excepci
           type="button"
           onClick={recalcularTodo}
           disabled={recalculando}
-          className="mb-6 rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+          className="mb-6 rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
         >
           {recalculando ? "Recalculando..." : "Recalcular todos los copagos ahora"}
         </button>
@@ -174,7 +174,7 @@ export default function ConfiguracionCopagoModal({ porcentajeParticular, excepci
           <button
             type="submit"
             disabled={guardando}
-            className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+            className="rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
           >
             Agregar
           </button>

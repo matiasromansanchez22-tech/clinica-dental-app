@@ -47,7 +47,7 @@ export default function ReprogramarOrtodonciaPage() {
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">WhatsApp</th>
               <th className="px-3 py-2 text-left font-semibold">Turno original</th>

@@ -112,7 +112,7 @@ export default function CuentasPorCobrarOrtodonciaPage() {
           placeholder="Buscar por nombre..."
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
         />
-        <div className="ml-auto rounded-md bg-gray-900 px-3 py-2 text-sm text-white">
+        <div className="ml-auto rounded-md bg-brand-brown px-3 py-2 text-sm text-white">
           Deuda total: <span className="font-semibold">${deudaTotalGeneral.toLocaleString("es-AR")}</span>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function CuentasPorCobrarOrtodonciaPage() {
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">WhatsApp</th>
               <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
@@ -249,7 +249,7 @@ export default function CuentasPorCobrarOrtodonciaPage() {
                     setError(e.message);
                   }
                 }}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+                className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
               >
                 Guardar
               </button>

@@ -133,7 +133,7 @@ export default function AgendaOrtodonciaPage() {
       )}
 
       {!error && !cargando && turnos.length === 0 && (
-        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+        <div className="mt-2 rounded-md border border-brand-mint/40 bg-brand-mint/15 px-3 py-2 text-sm text-brand-green">
           {vista === "semana"
             ? "No hay turnos cargados para esta semana."
             : "No hay turnos cargados para este día. Hacé clic en un horario libre de la grilla para cargar el primero."}

@@ -106,7 +106,7 @@ function AumentosOrtodonciaContenido() {
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
@@ -156,7 +156,7 @@ function AumentosOrtodonciaContenido() {
                   <button
                     onClick={() => aplicar(f)}
                     disabled={aplicando === f.paciente.id}
-                    className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+                    className="rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
                   >
                     {aplicando === f.paciente.id ? "Aplicando..." : "Aplicar aumento"}
                   </button>

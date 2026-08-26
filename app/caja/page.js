@@ -46,7 +46,7 @@ export default function CajaPage() {
         <h1 className="text-2xl font-bold text-gray-900">Caja General</h1>
         <button
           onClick={() => setMostrarNuevo(true)}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
         >
           + Nuevo cobro
         </button>
@@ -90,7 +90,7 @@ export default function CajaPage() {
             <span className="font-semibold text-gray-900">${total.toLocaleString("es-AR")}</span>
           </div>
         ))}
-        <div className="rounded-md bg-gray-900 px-3 py-2 text-sm text-white">
+        <div className="rounded-md bg-brand-brown px-3 py-2 text-sm text-white">
           Total del día: <span className="font-semibold">${totalGeneral.toLocaleString("es-AR")}</span>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function CajaPage() {
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-800 text-white">
+            <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Cobertura</th>
               <th className="px-3 py-2 text-left font-semibold">Concepto</th>

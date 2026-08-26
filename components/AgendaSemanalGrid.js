@@ -18,8 +18,8 @@ export default function AgendaSemanalGrid({ fechaInicio, turnos, bloques, onTurn
     <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full border-collapse text-xs">
         <thead>
-          <tr className="bg-gray-800 text-white">
-            <th className="sticky left-0 z-10 w-16 border border-gray-700 bg-gray-800 px-2 py-2 text-left font-semibold">
+          <tr className="bg-brand-brown text-white">
+            <th className="sticky left-0 z-10 w-16 border border-gray-700 bg-brand-brown px-2 py-2 text-left font-semibold">
               Hora
             </th>
             {dias.map((dia) => (
