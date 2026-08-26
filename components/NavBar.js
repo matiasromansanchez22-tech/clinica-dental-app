@@ -43,6 +43,7 @@ const GRUPOS = [
     items: [
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
+      { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
       { href: "/gerencial/aumentos-ortodoncia", label: "Aumento de cuota (Ortodoncia)" },
     ],
   },
