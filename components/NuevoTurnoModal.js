@@ -15,6 +15,7 @@ import { buscarProximosHorariosLibres } from "@/lib/data/buscadorHorario";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { crearPaciente } from "@/lib/data/pacientes";
+import { calcularEdad } from "@/lib/pacientes";
 import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 
 const TIPOS_ATENCION = [
@@ -200,6 +201,25 @@ export default function NuevoTurnoModal({
     if (!nombreNormalizado) return null;
     return pacientes.find((p) => p.apellido_y_nombre.trim().toLowerCase() === nombreNormalizado) ?? null;
   }, [pacienteNombre, pacientes]);
+
+  // Al encontrar un paciente ya cargado, completar solo lo que ya sabemos de
+  // su ficha (celular, cobertura, profesional habitual), para no volver a
+  // preguntarle a la secretaria datos que ya están en Alta de Pacientes.
+  useEffect(() => {
+    if (!pacienteExistente) return;
+    setCelular(pacienteExistente.celular || "");
+    if (pacienteExistente.tipo_paciente === "Obra Social") {
+      setTipoPaciente("Obra Social");
+      setObraSocial(pacienteExistente.obra_social || "");
+    } else {
+      setTipoPaciente("Particular");
+      setObraSocial(pacienteExistente.obra_social || "");
+    }
+    if (pacienteExistente.profesional_responsable_id) {
+      setProfesionalDeTurnoId(pacienteExistente.profesional_responsable_id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacienteExistente?.id]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -442,6 +462,31 @@ export default function NuevoTurnoModal({
               )
             )}
           </label>
+
+          {pacienteExistente && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+              <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Ficha del paciente</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                <span>DNI: {pacienteExistente.dni || "—"}</span>
+                <span>
+                  Edad: {pacienteExistente.fecha_nacimiento ? `${calcularEdad(pacienteExistente.fecha_nacimiento)} años` : "—"}
+                </span>
+                <span>Celular: {pacienteExistente.celular || "—"}</span>
+                <span>
+                  Cobertura: {pacienteExistente.tipo_paciente}
+                  {pacienteExistente.obra_social ? ` · ${pacienteExistente.obra_social}` : ""}
+                </span>
+                {pacienteExistente.numero_afiliado && <span>N.º afiliado: {pacienteExistente.numero_afiliado}</span>}
+                <span>Profesional habitual: {pacienteExistente.profesional_responsable?.nombre || "—"}</span>
+                {pacienteExistente.localidad && <span>Localidad: {pacienteExistente.localidad}</span>}
+                {pacienteExistente.email && <span>Email: {pacienteExistente.email}</span>}
+                {pacienteExistente.estado_administrativo && (
+                  <span>Estado administrativo: {pacienteExistente.estado_administrativo}</span>
+                )}
+                {pacienteExistente.estado_clinico && <span>Estado clínico: {pacienteExistente.estado_clinico}</span>}
+              </div>
+            </div>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Celular
