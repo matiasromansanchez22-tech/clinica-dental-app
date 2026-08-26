@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import CatalogoFilaModal from "@/components/CatalogoFilaModal";
+import NuevaPrestacionModal from "@/components/NuevaPrestacionModal";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 
 export default function CatalogoPage() {
@@ -10,6 +11,7 @@ export default function CatalogoPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [filaEnEdicion, setFilaEnEdicion] = useState(null);
+  const [mostrarNueva, setMostrarNueva] = useState(false);
 
   async function recargar() {
     const data = await obtenerCatalogo(busqueda);
@@ -35,7 +37,15 @@ export default function CatalogoPage() {
 
   return (
     <main className="mx-auto max-w-5xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Catálogo de Prestaciones</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Catálogo de Prestaciones</h1>
+        <button
+          onClick={() => setMostrarNueva(true)}
+          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+        >
+          + Nueva prestación
+        </button>
+      </div>
       <p className="mt-1 text-sm text-gray-500">
         Lista maestra de prestaciones de la clínica, con sus precios de Lista y Efectivo.
       </p>
@@ -115,6 +125,16 @@ export default function CatalogoPage() {
           onGuardado={async () => {
             await recargar();
             setFilaEnEdicion(null);
+          }}
+        />
+      )}
+
+      {mostrarNueva && (
+        <NuevaPrestacionModal
+          onClose={() => setMostrarNueva(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarNueva(false);
           }}
         />
       )}
