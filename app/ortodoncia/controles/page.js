@@ -91,7 +91,7 @@ export default function ControlesOrtodonciaPage() {
 
   return (
     <main className="mx-auto max-w-7xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Controles {anio} — Ortodoncia</h1>
+      <h1 className="text-2xl font-bold text-gray-900">Controles — Ortodoncia</h1>
       <p className="mt-1 text-sm text-gray-500">
         Hacé clic en cada mes para marcarlo Pago / Pagado Anticipado / vacío. Los meses adeudados y la deuda se
         calculan solos.
