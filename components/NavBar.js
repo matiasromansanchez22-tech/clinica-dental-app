@@ -32,6 +32,7 @@ const GRUPOS = [
       { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/controles", label: "Controles" },
+      { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar" },
       { href: "/ortodoncia/caja", label: "Caja" },
     ],
   },
