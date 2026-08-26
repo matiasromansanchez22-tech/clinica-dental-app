@@ -48,6 +48,33 @@ function TarjetaResumen({ titulo, monto, tono }) {
   );
 }
 
+function TablaNeto({ titulo, filas }) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-4">
+      <h3 className="font-heading text-sm font-semibold text-brand-charcoal">{titulo}</h3>
+      {filas.length === 0 ? (
+        <p className="mt-2 text-sm text-gray-500">Sin datos en este período.</p>
+      ) : (
+        <ul className="mt-2 flex flex-col gap-2">
+          {filas.map((f) => (
+            <li key={f.clave} className="flex items-center justify-between border-b border-gray-100 pb-2 text-sm last:border-0 last:pb-0">
+              <span className="text-gray-600">{f.clave}</span>
+              <span className="text-right">
+                <span className="block text-xs text-gray-400">
+                  +{formatoMoneda(f.ingreso)} − {formatoMoneda(f.egreso)}
+                </span>
+                <span className={`font-semibold ${f.monto >= 0 ? "text-brand-green" : "text-red-700"}`}>
+                  {formatoMoneda(f.monto)}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function TablaDesglose({ titulo, filas }) {
   const total = filas.reduce((acc, f) => acc + f.monto, 0);
   return (
@@ -138,6 +165,10 @@ function BalanceMensualContenido() {
                 monto={balance.balance}
                 tono={balance.balance >= 0 ? "balancePositivo" : "balanceNegativo"}
               />
+            </div>
+
+            <div className="mt-6">
+              <TablaNeto titulo="Lo que queda limpio por medio de pago (ingresos − egresos)" filas={balance.netoPorMedioPago} />
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">

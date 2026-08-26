@@ -10,6 +10,17 @@ import { calcularTotalesDelDiaOrtodoncia } from "@/lib/data/cierresTurnoOrtodonc
 import { obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPerfiles } from "@/lib/data/perfiles";
+import { obtenerGastos } from "@/lib/data/gastos";
+import { obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
+
+const CLAVE_POR_MEDIO = {
+  Efectivo: "efectivo",
+  Transferencia: "transferencia",
+  "Débito": "debito",
+  "Crédito": "credito",
+  "Mercado Pago": "mercado_pago",
+  QR: "qr",
+};
 
 const ETIQUETAS = [
   { clave: "efectivo", label: "Efectivo" },
@@ -20,15 +31,19 @@ const ETIQUETAS = [
   { clave: "qr", label: "QR" },
 ];
 
-function TarjetasMedioPago({ totales }) {
+function TarjetasMedioPago({ totales, coloreado }) {
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-      {ETIQUETAS.map((e) => (
-        <div key={e.clave} className="rounded-md border border-gray-200 px-3 py-2">
-          <p className="text-xs text-gray-500">{e.label}</p>
-          <p className="text-base font-semibold text-gray-900">${Number(totales[e.clave]).toLocaleString("es-AR")}</p>
-        </div>
-      ))}
+      {ETIQUETAS.map((e) => {
+        const monto = Number(totales[e.clave]);
+        const color = coloreado ? (monto >= 0 ? "text-brand-green" : "text-red-700") : "text-gray-900";
+        return (
+          <div key={e.clave} className="rounded-md border border-gray-200 px-3 py-2">
+            <p className="text-xs text-gray-500">{e.label}</p>
+            <p className={`text-base font-semibold ${color}`}>${monto.toLocaleString("es-AR")}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -41,6 +56,8 @@ function CierreDiarioContenido() {
   const [totalesOrto, setTotalesOrto] = useState(null);
   const [cobrosGeneral, setCobrosGeneral] = useState([]);
   const [cobrosOrto, setCobrosOrto] = useState([]);
+  const [gastos, setGastos] = useState([]);
+  const [pagosProfesionales, setPagosProfesionales] = useState([]);
   const [perfiles, setPerfiles] = useState([]);
   const [cierreAprobado, setCierreAprobado] = useState(null);
   const [observacionesAprobacion, setObservacionesAprobacion] = useState("");
@@ -53,11 +70,13 @@ function CierreDiarioContenido() {
     setCargando(true);
     setMensaje(null);
     try {
-      const [g, o, cg, co, pf, aprobado] = await Promise.all([
+      const [g, o, cg, co, gas, pagos, pf, aprobado] = await Promise.all([
         calcularTotalesDelDia(fecha),
         calcularTotalesDelDiaOrtodoncia(fecha),
         obtenerCobrosPorFecha(fecha),
         obtenerCobrosOrtodonciaPorFecha(fecha),
+        obtenerGastos(fecha, fecha),
+        obtenerPagosProfesionales(fecha, fecha),
         obtenerPerfiles(),
         obtenerCierreDelDia(fecha),
       ]);
@@ -65,6 +84,8 @@ function CierreDiarioContenido() {
       setTotalesOrto(o);
       setCobrosGeneral(cg);
       setCobrosOrto(co);
+      setGastos(gas);
+      setPagosProfesionales(pagos);
       setPerfiles(pf);
       setCierreAprobado(aprobado);
       setObservacionesAprobacion(aprobado?.observaciones || "");
@@ -85,6 +106,22 @@ function CierreDiarioContenido() {
     return acc;
   }, {});
   const totalCombinado = (totalesGeneral?.totalGeneral || 0) + (totalesOrto?.totalGeneral || 0);
+
+  const totalesEgresos = ETIQUETAS.reduce((acc, e) => {
+    acc[e.clave] = 0;
+    return acc;
+  }, {});
+  [...gastos, ...pagosProfesionales].forEach((m) => {
+    const clave = CLAVE_POR_MEDIO[m.medioPago];
+    if (clave) totalesEgresos[clave] += Number(m.monto);
+  });
+  const totalEgresos = Object.values(totalesEgresos).reduce((a, b) => a + b, 0);
+
+  const totalesNeto = ETIQUETAS.reduce((acc, e) => {
+    acc[e.clave] = (totalesCombinados[e.clave] || 0) - (totalesEgresos[e.clave] || 0);
+    return acc;
+  }, {});
+  const totalNeto = totalCombinado - totalEgresos;
 
   const nombrePorUsuario = (usuarioId) => perfiles.find((p) => p.id === usuarioId)?.nombre || "—";
 
@@ -206,6 +243,23 @@ function CierreDiarioContenido() {
           <div className="mt-3 rounded-md bg-brand-brown px-4 py-3 text-white">
             <span className="text-sm">Total del día (ambas especialidades): </span>
             <span className="text-xl font-bold">${totalCombinado.toLocaleString("es-AR")}</span>
+          </div>
+
+          <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
+            Egresos del día ({gastos.length} gastos + {pagosProfesionales.length} pagos a profesionales)
+          </h2>
+          <TarjetasMedioPago totales={totalesEgresos} />
+          <p className="mt-1 text-right text-sm font-semibold text-gray-700">
+            Total: ${totalEgresos.toLocaleString("es-AR")}
+          </p>
+
+          <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
+            Lo que queda limpio (ingresos − egresos)
+          </h2>
+          <TarjetasMedioPago totales={totalesNeto} coloreado />
+          <div className={`mt-3 rounded-md px-4 py-3 text-white ${totalNeto >= 0 ? "bg-brand-green" : "bg-red-700"}`}>
+            <span className="text-sm">Neto del día: </span>
+            <span className="text-xl font-bold">${totalNeto.toLocaleString("es-AR")}</span>
           </div>
 
           <h2 className="mt-8 mb-2 font-heading text-sm font-semibold text-brand-brown">
