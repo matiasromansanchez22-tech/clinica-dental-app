@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import CobroOrtodonciaFormModal from "@/components/CobroOrtodonciaFormModal";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
-import { obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
+import { eliminarCobroOrtodoncia, obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 
 export default function CajaOrtodonciaPage() {
@@ -36,6 +36,21 @@ export default function CajaOrtodonciaPage() {
     return acc;
   }, {});
   const totalGeneral = Object.values(totalesPorMedio).reduce((a, b) => a + b, 0);
+
+  async function borrarCobro(cobro) {
+    if (
+      !window.confirm(
+        `¿Borrar el cobro de ${cobro.paciente} por $${Number(cobro.importe).toLocaleString("es-AR")}? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    try {
+      await eliminarCobroOrtodoncia(cobro.id);
+      await recargar();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -101,19 +116,20 @@ export default function CajaOrtodonciaPage() {
               <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
               <th className="px-3 py-2 text-right font-semibold">Importe</th>
               <th className="px-3 py-2 text-left font-semibold">Medio</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && cobros.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
                   No hay cobros registrados este día.
                 </td>
               </tr>
@@ -124,13 +140,17 @@ export default function CajaOrtodonciaPage() {
                 <td className="px-3 py-2 text-gray-600">
                   {c.concepto}
                   {c.concepto === "Control" && c.cantidadControlesAbonados > 1 && ` (${c.cantidadControlesAbonados} controles)`}
-                  {c.concepto === "Reposición de bracket" &&
-                    c.bracketReposicion &&
-                    ` (${c.bracketReposicion}${c.cantidadBrackets ? ` x${c.cantidadBrackets}` : ""})`}
+                  {c.bracketReposicion &&
+                    ` (${c.concepto === "Control" ? "+ " : ""}${c.bracketReposicion}${c.cantidadBrackets ? ` x${c.cantidadBrackets}` : ""}${c.concepto === "Control" ? " despegado" : ""})`}
                 </td>
                 <td className="px-3 py-2 text-gray-600">{c.ortodoncista}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.importe).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
+                <td className="px-3 py-2 text-right">
+                  <button onClick={() => borrarCobro(c)} className="text-xs text-red-600 hover:underline">
+                    Borrar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

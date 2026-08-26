@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import CobroFormModal from "@/components/CobroFormModal";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
-import { obtenerCobrosPorFecha } from "@/lib/data/caja";
+import { eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
@@ -39,6 +39,21 @@ export default function CajaPage() {
     return acc;
   }, {});
   const totalGeneral = Object.values(totalesPorMedio).reduce((a, b) => a + b, 0);
+
+  async function borrarCobro(cobro) {
+    if (
+      !window.confirm(
+        `¿Borrar el cobro de ${cobro.paciente} por $${Number(cobro.pago).toLocaleString("es-AR")}? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    try {
+      await eliminarCobro(cobro);
+      await recargar();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -105,19 +120,20 @@ export default function CajaPage() {
               <th className="px-3 py-2 text-left font-semibold">Profesional</th>
               <th className="px-3 py-2 text-right font-semibold">Pago</th>
               <th className="px-3 py-2 text-left font-semibold">Medio</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && cobros.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   No hay cobros registrados este día.
                 </td>
               </tr>
@@ -134,6 +150,11 @@ export default function CajaPage() {
                 <td className="px-3 py-2 text-gray-600">{c.profesionalAtencion}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.pago).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
+                <td className="px-3 py-2 text-right">
+                  <button onClick={() => borrarCobro(c)} className="text-xs text-red-600 hover:underline">
+                    Borrar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

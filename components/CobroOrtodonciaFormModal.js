@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
+import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 
 const CONCEPTOS = [
   "Control",
@@ -21,21 +22,32 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
   const [cantidadControlesAbonados, setCantidadControlesAbonados] = useState(1);
   const [bracketReposicion, setBracketReposicion] = useState("Metálico");
   const [cantidadBrackets, setCantidadBrackets] = useState(1);
+  const [seDespegoBracket, setSeDespegoBracket] = useState(false);
+  const [precios, setPrecios] = useState({ precio_bracket_metalico: 0, precio_bracket_porcelana: 0 });
   const [importe, setImporte] = useState(0);
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
+  useEffect(() => {
+    obtenerConfiguracionOrtodoncia().then(setPrecios);
+  }, []);
+
   const paciente = useMemo(() => pacientes.find((p) => p.id === pacienteId), [pacienteId, pacientes]);
+
+  const precioPorBracket =
+    bracketReposicion === "Porcelana" ? precios.precio_bracket_porcelana : precios.precio_bracket_metalico;
 
   useEffect(() => {
     if (!paciente) return;
     if (concepto === "Control") {
-      setImporte(Number(paciente.valorControl || 0) * Number(cantidadControlesAbonados || 1));
+      const valorControles = Number(paciente.valorControl || 0) * Number(cantidadControlesAbonados || 1);
+      const valorBrackets = seDespegoBracket ? Number(cantidadBrackets || 0) * precioPorBracket : 0;
+      setImporte(valorControles + valorBrackets);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pacienteId, concepto, cantidadControlesAbonados]);
+  }, [pacienteId, concepto, cantidadControlesAbonados, seDespegoBracket, cantidadBrackets, bracketReposicion, precios]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -58,8 +70,14 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
         ortodoncistaId: paciente.ortodoncistaId,
         concepto,
         cantidadControlesAbonados: concepto === "Control" ? Number(cantidadControlesAbonados) : null,
-        bracketReposicion: concepto === "Reposición de bracket" ? bracketReposicion : null,
-        cantidadBrackets: concepto === "Reposición de bracket" ? Number(cantidadBrackets) : null,
+        bracketReposicion:
+          concepto === "Reposición de bracket" || (concepto === "Control" && seDespegoBracket)
+            ? bracketReposicion
+            : null,
+        cantidadBrackets:
+          concepto === "Reposición de bracket" || (concepto === "Control" && seDespegoBracket)
+            ? Number(cantidadBrackets)
+            : null,
         importe: Number(importe),
         medioPago,
         observaciones,
@@ -126,16 +144,61 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
           </label>
 
           {concepto === "Control" && (
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              Cantidad de controles abonados
-              <input
-                type="number"
-                min={1}
-                value={cantidadControlesAbonados}
-                onChange={(e) => setCantidadControlesAbonados(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              />
-            </label>
+            <>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Cantidad de controles abonados
+                <input
+                  type="number"
+                  min={1}
+                  value={cantidadControlesAbonados}
+                  onChange={(e) => setCantidadControlesAbonados(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={seDespegoBracket}
+                  onChange={(e) => setSeDespegoBracket(e.target.checked)}
+                />
+                Se despegó algún bracket (se suma al total del control)
+              </label>
+
+              {seDespegoBracket && (
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1 text-sm text-gray-700">
+                    Tipo de bracket
+                    <select
+                      value={bracketReposicion}
+                      onChange={(e) => setBracketReposicion(e.target.value)}
+                      className="rounded-md border border-gray-300 px-2 py-1.5"
+                    >
+                      {BRACKETS.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm text-gray-700">
+                    Cantidad despegada
+                    <input
+                      type="number"
+                      min={1}
+                      value={cantidadBrackets}
+                      onChange={(e) => setCantidadBrackets(e.target.value)}
+                      className="rounded-md border border-gray-300 px-2 py-1.5"
+                    />
+                  </label>
+                  <p className="col-span-2 text-xs text-gray-500">
+                    ${precioPorBracket.toLocaleString("es-AR")} por bracket ({bracketReposicion}) × {cantidadBrackets || 0} = $
+                    {(precioPorBracket * Number(cantidadBrackets || 0)).toLocaleString("es-AR")}, ya sumado al importe
+                    de abajo.
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           {concepto === "Reposición de bracket" && (
