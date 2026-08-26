@@ -12,6 +12,8 @@ import {
 } from "@/lib/agenda";
 import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/profesionales";
 import { buscarProximosHorariosLibres } from "@/lib/data/buscadorHorario";
+import { obtenerCatalogo } from "@/lib/data/catalogo";
+import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { crearPaciente } from "@/lib/data/pacientes";
 import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 
@@ -25,6 +27,7 @@ const TIPOS_ATENCION = [
 ];
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
+const MAX_PRESTACIONES_TURNO = 4;
 
 export default function NuevoTurnoModal({
   fecha,
@@ -57,6 +60,76 @@ export default function NuevoTurnoModal({
   const [preferenciaHoraria, setPreferenciaHoraria] = useState("");
   const [horasDisponibles, setHorasDisponibles] = useState(null); // null = todavía no calculado / sin filtrar
   const [calculandoHoras, setCalculandoHoras] = useState(false);
+
+  const [catalogoCompleto, setCatalogoCompleto] = useState([]);
+  const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
+  const [prestacionesTurno, setPrestacionesTurno] = useState([]);
+
+  useEffect(() => {
+    obtenerCatalogo().then(setCatalogoCompleto);
+  }, []);
+
+  const catalogoPorId = useMemo(() => {
+    const mapa = new Map();
+    catalogoCompleto.forEach((c) => mapa.set(c.id, c));
+    return mapa;
+  }, [catalogoCompleto]);
+
+  // Regla del doc 3.1: hasta 4 prestaciones por turno, cada una con su
+  // propia duración estimada — según la cobertura, se eligen del Catálogo
+  // (Particular) o del Nomenclador de la obra social correspondiente.
+  useEffect(() => {
+    setPrestacionesTurno([]);
+    if (tipoPaciente === "Particular") {
+      setPrestacionesDisponibles(
+        catalogoCompleto
+          .filter((c) => c.estado === "Activo" && c.particular)
+          .map((c) => ({ itemId: c.id, prestacion: c.prestacion, tiempoEstimadoMin: c.tiempo_estimado_min || 0 }))
+      );
+      return;
+    }
+    if (tipoPaciente === "Obra Social" && obraSocial) {
+      obtenerPrestacionesObraSocial(obraSocial).then((filas) => {
+        setPrestacionesDisponibles(
+          filas.map((f) => ({
+            itemId: f.id,
+            prestacion: f.prestacion_os,
+            tiempoEstimadoMin: catalogoPorId.get(f.id_catalogo)?.tiempo_estimado_min || 0,
+          }))
+        );
+      });
+    } else {
+      setPrestacionesDisponibles([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoPaciente, obraSocial, catalogoCompleto]);
+
+  function agregarPrestacionTurno() {
+    if (prestacionesTurno.length >= MAX_PRESTACIONES_TURNO) return;
+    setPrestacionesTurno((f) => [...f, { itemId: "", prestacion: "", tiempoEstimadoMin: 0 }]);
+  }
+
+  function actualizarPrestacionTurno(indice, itemId) {
+    const item = prestacionesDisponibles.find((p) => p.itemId === itemId);
+    setPrestacionesTurno((filas) => {
+      const nuevas = [...filas];
+      nuevas[indice] = item
+        ? { itemId: item.itemId, prestacion: item.prestacion, tiempoEstimadoMin: item.tiempoEstimadoMin }
+        : { itemId: "", prestacion: "", tiempoEstimadoMin: 0 };
+      const suma = nuevas.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
+      if (suma > 0) setDuracionMin(suma);
+      return nuevas;
+    });
+  }
+
+  function quitarPrestacionTurno(indice) {
+    setPrestacionesTurno((filas) => {
+      const nuevas = filas.filter((_, i) => i !== indice);
+      const suma = nuevas.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
+      if (suma > 0) setDuracionMin(suma);
+      return nuevas;
+    });
+  }
 
   const diaSemana = diaSemanaDeFecha(fechaLocal);
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemana];
@@ -179,6 +252,9 @@ export default function NuevoTurnoModal({
         profesionalDeTurnoId,
         tipoAtencion,
         cobertura: tipoPaciente === "Obra Social" ? obraSocial || "Obra social" : "Particular",
+        prestaciones: prestacionesTurno
+          .filter((p) => p.itemId)
+          .map((p) => ({ prestacion: p.prestacion, tiempoEstimadoMin: p.tiempoEstimadoMin })),
         observaciones,
       });
 
@@ -399,6 +475,53 @@ export default function NuevoTurnoModal({
                   className="rounded-md border border-gray-300 px-2 py-1.5"
                 />
               </label>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase text-gray-400">
+                Prestaciones (hasta {MAX_PRESTACIONES_TURNO}) — a qué viene
+              </p>
+              {prestacionesTurno.length < MAX_PRESTACIONES_TURNO && (
+                <button type="button" onClick={agregarPrestacionTurno} className="text-xs text-blue-600 hover:underline">
+                  + Agregar
+                </button>
+              )}
+            </div>
+            {tipoPaciente === "Obra Social" && !obraSocial && (
+              <p className="text-xs text-gray-500">Completá la obra social para ver sus prestaciones.</p>
+            )}
+            <div className="flex flex-col gap-2">
+              {prestacionesTurno.map((fila, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={fila.itemId}
+                    onChange={(e) => actualizarPrestacionTurno(i, e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    <option value="">(elegir prestación)</option>
+                    {prestacionesDisponibles.map((p) => (
+                      <option key={p.itemId} value={p.itemId}>
+                        {p.prestacion}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="w-16 text-right text-xs text-gray-500">
+                    {fila.tiempoEstimadoMin ? `${fila.tiempoEstimadoMin} min` : ""}
+                  </span>
+                  <button type="button" onClick={() => quitarPrestacionTurno(i)} className="text-gray-400 hover:text-red-600">
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            {prestacionesTurno.some((p) => p.tiempoEstimadoMin > 0) && (
+              <p className="mt-1 text-xs text-gray-500">
+                Duración sugerida según las prestaciones:{" "}
+                {prestacionesTurno.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0)} min (ya aplicada
+                abajo, la podés cambiar si hace falta).
+              </p>
             )}
           </div>
 

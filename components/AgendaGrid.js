@@ -71,7 +71,10 @@ export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onS
                     >
                       <div className="font-semibold leading-tight">{turno.paciente}</div>
                       <div className="text-xs opacity-90 leading-tight">
-                        {turno.tipoAtencion} · {turno.profesionalDeTurno}
+                        {turno.prestaciones?.length
+                          ? turno.prestaciones.map((p) => p.prestacion).join(", ")
+                          : turno.tipoAtencion}{" "}
+                        · {turno.profesionalDeTurno}
                       </div>
                       <div className="text-[11px] opacity-80 leading-tight">{color.etiqueta}</div>
                     </td>

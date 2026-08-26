@@ -115,10 +115,17 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
             ✕
           </button>
         </div>
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-1 text-sm text-gray-500">
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.tipoAtencion} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
+        {turnoActual.prestaciones?.length > 0 && (
+          <p className="mb-4 text-sm text-gray-700">
+            <span className="text-gray-500">A qué viene: </span>
+            {turnoActual.prestaciones.map((p) => p.prestacion).join(", ")}
+          </p>
+        )}
+        {!turnoActual.prestaciones?.length && <div className="mb-4" />}
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
