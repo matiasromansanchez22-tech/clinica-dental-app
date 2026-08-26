@@ -31,6 +31,7 @@ const GRUPOS = [
       { href: "/ortodoncia/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
       { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
+      { href: "/ortodoncia/caja", label: "Caja" },
     ],
   },
   { tipo: "link", href: "/gerencial", label: "Gerencial", soloDuena: true },
