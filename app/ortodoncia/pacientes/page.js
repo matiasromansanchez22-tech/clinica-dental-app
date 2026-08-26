@@ -1,0 +1,140 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
+import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
+import { obtenerConfiguracionOrtodoncia, obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import { obtenerProfesionales } from "@/lib/data/profesionales";
+
+export default function PacientesOrtodonciaPage() {
+  const [pacientes, setPacientes] = useState([]);
+  const [profesionales, setProfesionales] = useState([]);
+  const [config, setConfig] = useState({});
+  const [busqueda, setBusqueda] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+  const [pacienteEnEdicion, setPacienteEnEdicion] = useState(null);
+  const [mostrarNuevo, setMostrarNuevo] = useState(false);
+
+  async function recargar() {
+    const data = await obtenerPacientesOrtodoncia({ busqueda });
+    setPacientes(data);
+  }
+
+  useEffect(() => {
+    setCargando(true);
+    Promise.all([obtenerPacientesOrtodoncia({ busqueda }), obtenerProfesionales(), obtenerConfiguracionOrtodoncia()])
+      .then(([p, prof, conf]) => {
+        setPacientes(p);
+        setProfesionales(prof.filter((pr) => pr.especialidad === "Ortodoncia"));
+        setConfig(conf);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setCargando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      recargar().catch((e) => setError(e.message));
+    }, 300);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
+
+  return (
+    <main className="mx-auto max-w-6xl p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Pacientes de Ortodoncia</h1>
+        <button
+          onClick={() => setMostrarNuevo(true)}
+          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+        >
+          + Nuevo paciente
+        </button>
+      </div>
+
+      <input
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="Buscar por nombre o WhatsApp..."
+        className="mt-4 w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
+      />
+
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
+
+      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-gray-800 text-white">
+              <th className="px-3 py-2 text-left font-semibold">Paciente</th>
+              <th className="px-3 py-2 text-left font-semibold">Edad</th>
+              <th className="px-3 py-2 text-left font-semibold">Brackets</th>
+              <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
+              <th className="px-3 py-2 text-right font-semibold">Cuota</th>
+              <th className="px-3 py-2 text-left font-semibold">Próximo aumento</th>
+              <th className="px-3 py-2 text-left font-semibold">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cargando && (
+              <tr>
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                  Cargando...
+                </td>
+              </tr>
+            )}
+            {!cargando && pacientes.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                  No se encontraron pacientes.
+                </td>
+              </tr>
+            )}
+            {pacientes.map((p) => {
+              const aumento = calcularEstadoAumento(p.proximoAumento);
+              return (
+                <tr
+                  key={p.id}
+                  onClick={() => setPacienteEnEdicion(p)}
+                  className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
+                >
+                  <td className="px-3 py-2 font-medium text-gray-900">{p.nombre}</td>
+                  <td className="px-3 py-2 text-gray-600">{calcularEdad(p.fechaNacimiento) ?? "—"}</td>
+                  <td className="px-3 py-2 text-gray-600">{p.tipoBrackets || "—"}</td>
+                  <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">
+                    {p.valorControl ? `$${Number(p.valorControl).toLocaleString("es-AR")}` : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">{p.proximoAumento || "—"}</td>
+                  <td className={`px-3 py-2 font-medium ${aumento.color}`}>
+                    {aumento.emoji} {aumento.texto}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {(mostrarNuevo || pacienteEnEdicion) && (
+        <PacienteOrtodonciaFormModal
+          paciente={pacienteEnEdicion}
+          profesionales={profesionales}
+          config={config}
+          onClose={() => {
+            setMostrarNuevo(false);
+            setPacienteEnEdicion(null);
+          }}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarNuevo(false);
+            setPacienteEnEdicion(null);
+          }}
+        />
+      )}
+    </main>
+  );
+}
