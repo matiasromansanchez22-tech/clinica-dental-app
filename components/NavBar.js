@@ -40,7 +40,10 @@ const GRUPOS = [
     tipo: "grupo",
     label: "Gerencial",
     soloDuena: true,
-    items: [{ href: "/gerencial/produccion", label: "Producción y liquidación" }],
+    items: [
+      { href: "/gerencial/produccion", label: "Producción y liquidación" },
+      { href: "/gerencial/aumentos-ortodoncia", label: "Aumento de cuota (Ortodoncia)" },
+    ],
   },
 ];
 
