@@ -1,8 +1,14 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import RegistrarPagoProfesionalModal from "@/components/RegistrarPagoProfesionalModal";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
+import {
+  eliminarPagoProfesional,
+  obtenerPagosProfesionales,
+  obtenerTotalPagadoPorProfesional,
+} from "@/lib/data/pagosProfesionales";
 import { obtenerProduccionPorProfesional } from "@/lib/data/produccionProfesionales";
 import { actualizarPorcentajeHonorariosCopago, actualizarPorcentajeHonorariosOS } from "@/lib/data/profesionales";
 
@@ -19,19 +25,38 @@ function ProduccionPorProfesionalContenido() {
   const [fechaInicio, setFechaInicio] = useState(hoy);
   const [fechaFin, setFechaFin] = useState(hoy);
   const [filas, setFilas] = useState([]);
+  const [pagadoPorProfesional, setPagadoPorProfesional] = useState({});
+  const [pagosDelPeriodo, setPagosDelPeriodo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [expandido, setExpandido] = useState(null);
+  const [modalPago, setModalPago] = useState(null); // { fila, tipo, montoSugerido }
 
   async function recargar() {
     setCargando(true);
     try {
-      const data = await obtenerProduccionPorProfesional(fechaInicio, fechaFin);
+      const [data, pagado, pagos] = await Promise.all([
+        obtenerProduccionPorProfesional(fechaInicio, fechaFin),
+        obtenerTotalPagadoPorProfesional(fechaInicio, fechaFin),
+        obtenerPagosProfesionales(fechaInicio, fechaFin),
+      ]);
       setFilas(data);
+      setPagadoPorProfesional(pagado);
+      setPagosDelPeriodo(pagos);
     } catch (e) {
       setError(e.message);
     } finally {
       setCargando(false);
+    }
+  }
+
+  async function borrarPago(pago) {
+    if (!window.confirm(`¿Borrar el pago de $${pago.monto.toLocaleString("es-AR")} a ${pago.profesional}?`)) return;
+    try {
+      await eliminarPagoProfesional(pago.id);
+      await recargar();
+    } catch (e) {
+      setError(e.message);
     }
   }
 
@@ -88,6 +113,7 @@ function ProduccionPorProfesionalContenido() {
   const totalALiquidar = filas.reduce((acc, f) => acc + f.aLiquidar, 0);
   const totalHonorariosOS = filas.reduce((acc, f) => acc + f.honorariosOS, 0);
   const totalAtenciones = filas.reduce((acc, f) => acc + f.cantidadAtenciones, 0);
+  const totalPagado = pagosDelPeriodo.reduce((acc, p) => acc + p.monto, 0);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -159,6 +185,9 @@ function ProduccionPorProfesionalContenido() {
         <div className="rounded-md border border-brand-tan bg-brand-tan/20 px-3 py-2 text-sm text-brand-brown">
           Pendiente O.Social (mes vencido): <span className="font-semibold">${totalHonorariosOS.toLocaleString("es-AR")}</span>
         </div>
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Ya pagado este período: <span className="font-semibold">${totalPagado.toLocaleString("es-AR")}</span>
+        </div>
         <div className="ml-auto rounded-md bg-brand-brown px-3 py-2 text-sm text-white">
           A liquidar hoy: <span className="font-semibold">${totalALiquidar.toLocaleString("es-AR")}</span>
         </div>
@@ -180,19 +209,20 @@ function ProduccionPorProfesionalContenido() {
               <th className="px-3 py-2 text-right font-semibold">Valor O.Social</th>
               <th className="px-2 py-2 text-center font-semibold">% O.Social</th>
               <th className="px-3 py-2 text-right font-semibold">Pendiente O.Social (mes vencido)</th>
+              <th className="px-3 py-2 text-left font-semibold">Pagos</th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && filas.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   No hay cobros registrados en este período.
                 </td>
               </tr>
@@ -242,10 +272,51 @@ function ProduccionPorProfesionalContenido() {
                   <td className="px-3 py-2 text-right font-semibold text-brand-brown">
                     {f.honorariosOS > 0 ? `$${f.honorariosOS.toLocaleString("es-AR")}` : "—"}
                   </td>
+                  <td className="px-3 py-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                    {f.profesionalId === "sin-asignar" ? (
+                      "—"
+                    ) : (
+                      (() => {
+                        const pagado = pagadoPorProfesional[f.profesionalId] || { copago: 0, obraSocial: 0 };
+                        const pendienteCopago = Math.max(f.aLiquidar - pagado.copago, 0);
+                        const pendienteOS = Math.max(f.honorariosOS - pagado.obraSocial, 0);
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {pagado.copago > 0 && (
+                              <span className="text-gray-500">Pagado copago: ${Math.round(pagado.copago).toLocaleString("es-AR")}</span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setModalPago({ fila: f, tipo: "Copago", montoSugerido: pendienteCopago })
+                              }
+                              className="w-fit text-brand-brown hover:underline"
+                            >
+                              💵 Pagar copago{pendienteCopago > 0 ? ` ($${Math.round(pendienteCopago).toLocaleString("es-AR")})` : ""}
+                            </button>
+                            {pagado.obraSocial > 0 && (
+                              <span className="text-gray-500">Pagado O.Social: ${Math.round(pagado.obraSocial).toLocaleString("es-AR")}</span>
+                            )}
+                            {f.honorariosOS > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setModalPago({ fila: f, tipo: "Obra Social", montoSugerido: pendienteOS })
+                                }
+                                className="w-fit text-brand-brown hover:underline"
+                              >
+                                💵 Pagar O.Social{pendienteOS > 0 ? ` ($${Math.round(pendienteOS).toLocaleString("es-AR")})` : ""}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()
+                    )}
+                  </td>
                 </tr>
                 {expandido === f.profesionalId && (
                   <tr className="bg-gray-50">
-                    <td colSpan={8} className="px-3 py-2">
+                    <td colSpan={9} className="px-3 py-2">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-gray-500">
@@ -282,6 +353,62 @@ function ProduccionPorProfesionalContenido() {
         (mes vencido)" se calcula sobre lo facturado al intermediario y se liquida recién a mes vencido, cuando la
         clínica cobra esa parte — no está incluida en el total de hoy.
       </p>
+
+      <h2 className="mt-8 mb-2 font-heading text-sm font-semibold text-brand-brown">
+        Pagos registrados este período ({pagosDelPeriodo.length})
+      </h2>
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-brand-brown text-white">
+              <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+              <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+              <th className="px-3 py-2 text-left font-semibold">Tipo</th>
+              <th className="px-3 py-2 text-right font-semibold">Monto</th>
+              <th className="px-3 py-2 text-left font-semibold">Medio</th>
+              <th className="px-3 py-2 text-left font-semibold">Observaciones</th>
+              <th className="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {pagosDelPeriodo.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                  Todavía no se registró ningún pago a profesionales en este período.
+                </td>
+              </tr>
+            )}
+            {pagosDelPeriodo.map((p) => (
+              <tr key={p.id} className="border-t border-gray-100">
+                <td className="px-3 py-2 text-gray-600">{p.fecha}</td>
+                <td className="px-3 py-2 font-medium text-gray-900">{p.profesional}</td>
+                <td className="px-3 py-2 text-gray-600">{p.tipo}</td>
+                <td className="px-3 py-2 text-right text-gray-600">${p.monto.toLocaleString("es-AR")}</td>
+                <td className="px-3 py-2 text-gray-600">{p.medioPago}</td>
+                <td className="px-3 py-2 text-gray-500">{p.observaciones || "—"}</td>
+                <td className="px-3 py-2 text-right">
+                  <button onClick={() => borrarPago(p)} className="text-xs text-red-600 hover:underline">
+                    Borrar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modalPago && (
+        <RegistrarPagoProfesionalModal
+          profesional={modalPago.fila}
+          tipo={modalPago.tipo}
+          montoSugerido={modalPago.montoSugerido}
+          onClose={() => setModalPago(null)}
+          onGuardado={async () => {
+            await recargar();
+            setModalPago(null);
+          }}
+        />
+      )}
     </main>
   );
 }
