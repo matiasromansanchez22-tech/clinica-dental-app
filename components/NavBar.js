@@ -108,7 +108,7 @@ export default function NavBar() {
   const esDuena = perfil?.rol === "Duena";
 
   return (
-    <nav className="border-b border-brand-tan bg-brand-cream">
+    <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-6 py-3">
         <Link href="/" className="mr-4 flex items-center gap-2">
           <Image src="/icon.png" alt="" width={32} height={32} className="rounded-md" />
