@@ -4,13 +4,19 @@ import { useState } from "react";
 import { calcularCopagoSugerido } from "@/lib/copago";
 import { actualizarFilaNomenclador } from "@/lib/data/nomenclador";
 
-export default function NomencladorFilaModal({ fila, escalas, excepciones, onClose, onGuardado }) {
+export default function NomencladorFilaModal({ fila, porcentajeParticular, excepciones, onClose, onGuardado }) {
   const [valorOS, setValorOS] = useState(fila.valor_os);
   const [copago, setCopago] = useState(fila.copago_oficial);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
-  const sugerido = calcularCopagoSugerido(Number(valorOS) || 0, fila.obra_social, escalas, excepciones);
+  const sugerido = calcularCopagoSugerido(
+    Number(valorOS) || 0,
+    Number(fila.valor_efectivo) || 0,
+    fila.obra_social,
+    porcentajeParticular,
+    excepciones
+  );
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -68,7 +74,7 @@ export default function NomencladorFilaModal({ fila, escalas, excepciones, onClo
           </label>
 
           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            Según la escala configurada, el copago sugerido sería{" "}
+            Según la configuración actual, el copago sugerido sería{" "}
             <strong>${sugerido.copago.toLocaleString("es-AR")}</strong> ({sugerido.porcentajeAplicado}%
             {sugerido.origen === "excepcion" ? ", excepción de esta obra social" : ""}).
             <button

@@ -2,27 +2,52 @@
 
 import { useState } from "react";
 import {
-  actualizarEscalaCopago,
+  actualizarConfiguracionCopagoParticular,
   actualizarExcepcionCopago,
   crearExcepcionCopago,
   eliminarExcepcionCopago,
+  recalcularCopagosSobreParticular,
 } from "@/lib/data/nomenclador";
 
-export default function ConfiguracionCopagoModal({ escalas, excepciones, onClose, onCambiado }) {
-  const [filasEscala, setFilasEscala] = useState(escalas);
+export default function ConfiguracionCopagoModal({ porcentajeParticular, excepciones, onClose, onCambiado }) {
+  const [porcentaje, setPorcentaje] = useState(porcentajeParticular);
   const [filasExcepcion, setFilasExcepcion] = useState(excepciones);
   const [nuevaObraSocial, setNuevaObraSocial] = useState("");
   const [nuevoPorcentaje, setNuevoPorcentaje] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [recalculando, setRecalculando] = useState(false);
+  const [resultado, setResultado] = useState(null);
   const [error, setError] = useState(null);
 
-  async function guardarEscala(id, porcentaje) {
+  async function guardarPorcentaje() {
     setError(null);
     try {
-      await actualizarEscalaCopago(id, Number(porcentaje));
+      await actualizarConfiguracionCopagoParticular(Number(porcentaje));
       onCambiado();
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function recalcularTodo() {
+    if (
+      !window.confirm(
+        `¿Recalcular el copago de TODAS las prestaciones (menos las obras sociales con excepción) a ${porcentaje}% del valor particular? Esto va a actualizar miles de filas del nomenclador.`
+      )
+    )
+      return;
+    setRecalculando(true);
+    setError(null);
+    setResultado(null);
+    try {
+      await actualizarConfiguracionCopagoParticular(Number(porcentaje));
+      const r = await recalcularCopagosSobreParticular();
+      setResultado(r);
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRecalculando(false);
     }
   }
 
@@ -37,7 +62,7 @@ export default function ConfiguracionCopagoModal({ escalas, excepciones, onClose
   }
 
   async function borrarExcepcion(id) {
-    if (!window.confirm("¿Quitar esta excepción? Esa obra social va a volver a usar la escala general.")) return;
+    if (!window.confirm("¿Quitar esta excepción? Esa obra social va a volver a usar el % general.")) return;
     setError(null);
     try {
       await eliminarExcepcionCopago(id);
@@ -78,36 +103,41 @@ export default function ConfiguracionCopagoModal({ escalas, excepciones, onClose
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
+        {resultado && (
+          <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Listo: {resultado.actualizadas} filas recalculadas, {resultado.omitidas} omitidas (excepciones o sin
+            precio particular).
+          </div>
+        )}
 
-        <h3 className="mb-2 text-sm font-semibold text-gray-900">Escala general (según el Valor OS)</h3>
-        <div className="mb-6 flex flex-col gap-2">
-          {filasEscala
-            .slice()
-            .sort((a, b) => a.orden - b.orden)
-            .map((fila, i, arr) => {
-              const desde = i === 0 ? 0 : arr[i - 1].umbral_maximo;
-              return (
-                <div key={fila.id} className="flex items-center gap-2 text-sm">
-                  <span className="w-48 text-gray-600">
-                    {fila.umbral_maximo === null
-                      ? `Más de $${Number(desde).toLocaleString("es-AR")}`
-                      : `$${Number(desde).toLocaleString("es-AR")} — $${Number(fila.umbral_maximo).toLocaleString("es-AR")}`}
-                  </span>
-                  <input
-                    type="number"
-                    defaultValue={fila.porcentaje}
-                    onBlur={(e) => guardarEscala(fila.id, e.target.value)}
-                    className="w-20 rounded-md border border-gray-300 px-2 py-1"
-                  />
-                  <span className="text-gray-500">%</span>
-                </div>
-              );
-            })}
+        <h3 className="mb-2 text-sm font-semibold text-gray-900">Copago general (% del valor particular)</h3>
+        <p className="mb-2 text-xs text-gray-500">
+          El copago de cada prestación se fija como este % de lo que cobrás particular por esa misma prestación,
+          para todas las obras sociales sin excepción propia.
+        </p>
+        <div className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="number"
+            value={porcentaje}
+            onChange={(e) => setPorcentaje(e.target.value)}
+            onBlur={guardarPorcentaje}
+            className="w-20 rounded-md border border-gray-300 px-2 py-1"
+          />
+          <span className="text-gray-500">% del valor particular</span>
         </div>
+        <button
+          type="button"
+          onClick={recalcularTodo}
+          disabled={recalculando}
+          className="mb-6 rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+        >
+          {recalculando ? "Recalculando..." : "Recalcular todos los copagos ahora"}
+        </button>
 
         <h3 className="mb-2 text-sm font-semibold text-gray-900">Excepciones por obra social</h3>
         <p className="mb-2 text-xs text-gray-500">
-          Una obra social con excepción usa este porcentaje fijo en vez de la escala general (ej. IAPOS = 200%).
+          Una obra social con excepción usa este porcentaje fijo sobre su Valor OS en vez del % general (ej. IAPOS =
+          200%).
         </p>
         <div className="mb-3 flex flex-col gap-2">
           {filasExcepcion.map((fila) => (

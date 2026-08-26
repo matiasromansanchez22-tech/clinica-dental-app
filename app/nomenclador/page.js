@@ -5,7 +5,7 @@ import ConfiguracionCopagoModal from "@/components/ConfiguracionCopagoModal";
 import NomencladorFilaModal from "@/components/NomencladorFilaModal";
 import { calcularCopagoSugerido } from "@/lib/copago";
 import {
-  obtenerEscalasCopago,
+  obtenerConfiguracionCopagoParticular,
   obtenerExcepcionesCopago,
   obtenerNomencladorPorObraSocial,
   obtenerObrasSociales,
@@ -16,7 +16,7 @@ export default function NomencladorPage() {
   const [obraSocial, setObraSocial] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filas, setFilas] = useState([]);
-  const [escalas, setEscalas] = useState([]);
+  const [porcentajeParticular, setPorcentajeParticular] = useState(80);
   const [excepciones, setExcepciones] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
@@ -24,16 +24,16 @@ export default function NomencladorPage() {
   const [mostrarConfig, setMostrarConfig] = useState(false);
 
   async function recargarConfig() {
-    const [e, x] = await Promise.all([obtenerEscalasCopago(), obtenerExcepcionesCopago()]);
-    setEscalas(e);
+    const [p, x] = await Promise.all([obtenerConfiguracionCopagoParticular(), obtenerExcepcionesCopago()]);
+    setPorcentajeParticular(p);
     setExcepciones(x);
   }
 
   useEffect(() => {
-    Promise.all([obtenerObrasSociales(), obtenerEscalasCopago(), obtenerExcepcionesCopago()])
-      .then(([os, e, x]) => {
+    Promise.all([obtenerObrasSociales(), obtenerConfiguracionCopagoParticular(), obtenerExcepcionesCopago()])
+      .then(([os, p, x]) => {
         setObrasSociales(os);
-        setEscalas(e);
+        setPorcentajeParticular(p);
         setExcepciones(x);
       })
       .catch((e) => setError(e.message));
@@ -70,7 +70,7 @@ export default function NomencladorPage() {
           onClick={() => setMostrarConfig(true)}
           className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
-          ⚙ Configurar escala de copago
+          ⚙ Configurar copago
         </button>
       </div>
       <p className="mt-1 text-sm text-gray-500">
@@ -135,7 +135,13 @@ export default function NomencladorPage() {
                 </tr>
               )}
               {filas.map((f) => {
-                const sugerido = calcularCopagoSugerido(Number(f.valor_os), f.obra_social, escalas, excepciones);
+                const sugerido = calcularCopagoSugerido(
+                  Number(f.valor_os),
+                  Number(f.valor_efectivo) || 0,
+                  f.obra_social,
+                  porcentajeParticular,
+                  excepciones
+                );
                 const difiere = Math.abs(sugerido.copago - Number(f.copago_oficial)) > 1;
                 return (
                   <tr
@@ -166,7 +172,7 @@ export default function NomencladorPage() {
       {filaEnEdicion && (
         <NomencladorFilaModal
           fila={filaEnEdicion}
-          escalas={escalas}
+          porcentajeParticular={porcentajeParticular}
           excepciones={excepciones}
           onClose={() => setFilaEnEdicion(null)}
           onGuardado={async () => {
@@ -178,7 +184,7 @@ export default function NomencladorPage() {
 
       {mostrarConfig && (
         <ConfiguracionCopagoModal
-          escalas={escalas}
+          porcentajeParticular={porcentajeParticular}
           excepciones={excepciones}
           onClose={() => setMostrarConfig(false)}
           onCambiado={recargarConfig}
