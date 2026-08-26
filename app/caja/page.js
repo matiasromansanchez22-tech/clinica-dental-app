@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import CobroFormModal from "@/components/CobroFormModal";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
 export default function CajaPage() {
+  const { perfil } = useAuth();
+  const esDuena = perfil?.rol === "Duena";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [cobros, setCobros] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -151,9 +154,15 @@ export default function CajaPage() {
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.pago).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
                 <td className="px-3 py-2 text-right">
-                  <button onClick={() => borrarCobro(c)} className="text-xs text-red-600 hover:underline">
-                    Borrar
-                  </button>
+                  {c.cerrado && !esDuena ? (
+                    <span className="text-xs text-gray-400" title="El turno ya se cerró. Solo la Dueña puede reabrirlo.">
+                      🔒 Cerrado
+                    </span>
+                  ) : (
+                    <button onClick={() => borrarCobro(c)} className="text-xs text-red-600 hover:underline">
+                      {c.cerrado ? "🔒 Borrar" : "Borrar"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

@@ -8,6 +8,7 @@ import {
   guardarCierreTurno,
   obtenerCierreTurno,
   obtenerCierresTurnoDelDia,
+  reabrirTurno,
 } from "@/lib/data/cierresTurno";
 
 const ETIQUETAS = [
@@ -21,6 +22,7 @@ const ETIQUETAS = [
 
 export default function CierreTurnoPage() {
   const { user, perfil } = useAuth();
+  const esDuena = perfil?.rol === "Duena";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [totales, setTotales] = useState(null);
   const [cierreExistente, setCierreExistente] = useState(null);
@@ -49,6 +51,28 @@ export default function CierreTurnoPage() {
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [fecha, user]);
+
+  async function handleReabrir(c) {
+    if (
+      !window.confirm(
+        `¿Reabrir el turno de ${c.nombre_secretaria || "este secretario/a"}? Sus cobros de ese día van a quedar editables de nuevo.`
+      )
+    )
+      return;
+    setError(null);
+    try {
+      await reabrirTurno(fecha, c.usuario_id);
+      const delDia = await obtenerCierresTurnoDelDia(fecha);
+      setCierresDelDia(delDia);
+      if (c.usuario_id === user.id) {
+        setCierreExistente(null);
+        const t = await calcularTotalesDelTurno(fecha, user.id);
+        setTotales(t);
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   async function handleGuardar() {
     setGuardando(true);
@@ -172,12 +196,13 @@ export default function CierreTurnoPage() {
               <th className="px-3 py-2 text-left font-semibold">Secretario/a</th>
               <th className="px-3 py-2 text-right font-semibold">Total</th>
               <th className="px-3 py-2 text-left font-semibold">Guardado</th>
+              {esDuena && <th className="px-3 py-2"></th>}
             </tr>
           </thead>
           <tbody>
             {cierresDelDia.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={esDuena ? 4 : 3} className="px-3 py-4 text-center text-gray-500">
                   Todavía no hay cierres de turno guardados este día.
                 </td>
               </tr>
@@ -189,6 +214,13 @@ export default function CierreTurnoPage() {
                   ${Number(c.total_general).toLocaleString("es-AR")}
                 </td>
                 <td className="px-3 py-2 text-gray-500">{new Date(c.guardado_en).toLocaleString("es-AR")}</td>
+                {esDuena && (
+                  <td className="px-3 py-2 text-right">
+                    <button onClick={() => handleReabrir(c)} className="text-xs text-orange-600 hover:underline">
+                      Reabrir
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
