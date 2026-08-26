@@ -42,6 +42,7 @@ const GRUPOS = [
     label: "Gerencial",
     soloDuena: true,
     items: [
+      { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
       { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
