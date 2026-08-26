@@ -59,7 +59,6 @@ export default function CuentasPorCobrarOrtodonciaPage() {
         const { mesesAdeudados } = calcularMesesAdeudados({
           control,
           fechaInstalacion: p.fechaInstalacion,
-          valorControl: p.valorControl,
           anio,
           hoy,
           fechaInicioSeguimiento: fechaInicioDeuda,
@@ -67,7 +66,7 @@ export default function CuentasPorCobrarOrtodonciaPage() {
         const deudaTotal = mesesAdeudados * Number(p.valorControl || 0);
         return { paciente: p, control, mesesAdeudados, deudaTotal };
       })
-      .filter((f) => f.mesesAdeudados > 0)
+      .filter((f) => f.deudaTotal > 0)
       .sort((a, b) => b.deudaTotal - a.deudaTotal);
   }, [pacientes, controles, busqueda, anio, hoy, fechaInicioDeuda]);
 
