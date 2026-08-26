@@ -42,6 +42,7 @@ const GRUPOS = [
     soloDuena: true,
     items: [
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
+      { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
       { href: "/gerencial/aumentos-ortodoncia", label: "Aumento de cuota (Ortodoncia)" },
     ],
   },
