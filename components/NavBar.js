@@ -22,6 +22,7 @@ const GRUPOS = [
       { href: "/planes", label: "Planes de Financiación" },
       { href: "/caja", label: "Caja" },
       { href: "/cierre", label: "Cierre Diario" },
+      { href: "/cierre-turno", label: "Cierre de Turno" },
     ],
   },
   {
