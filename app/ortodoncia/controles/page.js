@@ -74,7 +74,7 @@ export default function ControlesOrtodonciaPage() {
         return { paciente: p, control, mesesAdeudados, mesesVencidos, deudaTotal };
       })
       .filter((f) => !soloConDeuda || f.mesesAdeudados > 0)
-      .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados || a.paciente.nombre.localeCompare(b.paciente.nombre));
+      .sort((a, b) => a.paciente.nombre.localeCompare(b.paciente.nombre));
   }, [pacientes, controles, busqueda, soloActivos, soloConDeuda, anio, hoy, fechaInicioDeuda]);
 
   const deudaTotalGeneral = filas.reduce((acc, f) => acc + f.deudaTotal, 0);

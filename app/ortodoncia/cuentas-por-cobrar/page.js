@@ -67,7 +67,7 @@ export default function CuentasPorCobrarOrtodonciaPage() {
         return { paciente: p, control, mesesAdeudados, deudaTotal };
       })
       .filter((f) => f.deudaTotal > 0)
-      .sort((a, b) => b.deudaTotal - a.deudaTotal);
+      .sort((a, b) => a.paciente.nombre.localeCompare(b.paciente.nombre));
   }, [pacientes, controles, busqueda, anio, hoy, fechaInicioDeuda]);
 
   const deudaTotalGeneral = filas.reduce((acc, f) => acc + f.deudaTotal, 0);
