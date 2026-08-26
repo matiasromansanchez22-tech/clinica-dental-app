@@ -26,7 +26,10 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Sistema Ortodoncia",
-    items: [{ href: "/ortodoncia/pacientes", label: "Pacientes" }],
+    items: [
+      { href: "/ortodoncia/agenda", label: "Agenda" },
+      { href: "/ortodoncia/pacientes", label: "Pacientes" },
+    ],
   },
   { tipo: "link", href: "/gerencial", label: "Gerencial", soloDuena: true },
 ];

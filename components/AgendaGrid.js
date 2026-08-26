@@ -7,14 +7,15 @@ import {
   seMuestraEnGrilla,
 } from "@/lib/agenda";
 
-function construirOcupacion(turnosVisibles, bloques, minutosPorBloque) {
+function construirOcupacion(turnosVisibles, bloques, minutosPorBloque, consultorios) {
   const ocupacion = {};
-  for (const consultorio of CONSULTORIOS) ocupacion[consultorio] = {};
+  for (const consultorio of consultorios) ocupacion[consultorio] = {};
 
   for (const turno of turnosVisibles) {
     const span = bloquesQueOcupa(turno, minutosPorBloque);
     const indiceInicio = bloques.indexOf(turno.horaInicio);
     if (indiceInicio === -1) continue; // el turno arranca fuera del horario mostrado
+    if (!ocupacion[turno.consultorio]) continue; // consultorio fuera de los que muestra esta grilla
 
     ocupacion[turno.consultorio][bloques[indiceInicio]] = {
       tipo: "inicio",
@@ -29,9 +30,17 @@ function construirOcupacion(turnosVisibles, bloques, minutosPorBloque) {
   return ocupacion;
 }
 
-export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onSlotClick, onTurnoClick }) {
+export default function AgendaGrid({
+  turnos,
+  bloques,
+  consultorios = CONSULTORIOS,
+  minutosPorBloque = 30,
+  onSlotClick,
+  onTurnoClick,
+  renderSubtitulo,
+}) {
   const turnosVisibles = turnos.filter(seMuestraEnGrilla);
-  const ocupacion = construirOcupacion(turnosVisibles, bloques, minutosPorBloque);
+  const ocupacion = construirOcupacion(turnosVisibles, bloques, minutosPorBloque, consultorios);
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -39,7 +48,7 @@ export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onS
         <thead>
           <tr className="bg-gray-800 text-white">
             <th className="w-20 border border-gray-300 px-2 py-2 text-left font-semibold">Hora</th>
-            {CONSULTORIOS.map((c) => (
+            {consultorios.map((c) => (
               <th key={c} className="border border-gray-300 px-2 py-2 text-left font-semibold">
                 Consultorio {c}
               </th>
@@ -52,7 +61,7 @@ export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onS
               <td className="border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 align-top">
                 {bloque}
               </td>
-              {CONSULTORIOS.map((consultorio) => {
+              {consultorios.map((consultorio) => {
                 const celda = ocupacion[consultorio][bloque];
 
                 if (celda?.tipo === "ocupado") {
@@ -62,6 +71,11 @@ export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onS
                 if (celda?.tipo === "inicio") {
                   const { turno } = celda;
                   const color = colorDeTurno(turno);
+                  const subtitulo = renderSubtitulo
+                    ? renderSubtitulo(turno)
+                    : turno.prestaciones?.length
+                      ? turno.prestaciones.map((p) => p.prestacion).join(", ")
+                      : turno.tipoAtencion;
                   return (
                     <td
                       key={consultorio}
@@ -71,10 +85,7 @@ export default function AgendaGrid({ turnos, bloques, minutosPorBloque = 30, onS
                     >
                       <div className="font-semibold leading-tight">{turno.paciente}</div>
                       <div className="text-xs opacity-90 leading-tight">
-                        {turno.prestaciones?.length
-                          ? turno.prestaciones.map((p) => p.prestacion).join(", ")
-                          : turno.tipoAtencion}{" "}
-                        · {turno.profesionalDeTurno}
+                        {subtitulo} · {turno.profesionalDeTurno}
                       </div>
                       <div className="text-[11px] opacity-80 leading-tight">{color.etiqueta}</div>
                     </td>
