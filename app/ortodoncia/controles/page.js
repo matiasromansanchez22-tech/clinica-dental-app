@@ -66,6 +66,7 @@ export default function ControlesOrtodonciaPage() {
         const { mesesAdeudados, mesesVencidos } = calcularMesesAdeudados({
           control,
           fechaInstalacion: p.fechaInstalacion,
+          valorControl: p.valorControl,
           anio,
           hoy,
           fechaInicioSeguimiento: fechaInicioDeuda,

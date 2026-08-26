@@ -59,6 +59,7 @@ export default function CuentasPorCobrarOrtodonciaPage() {
         const { mesesAdeudados } = calcularMesesAdeudados({
           control,
           fechaInstalacion: p.fechaInstalacion,
+          valorControl: p.valorControl,
           anio,
           hoy,
           fechaInicioSeguimiento: fechaInicioDeuda,
