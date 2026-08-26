@@ -129,6 +129,9 @@ export default function NavBar() {
         })}
         <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
           {perfil?.nombre || user.email}
+          <Link href="/cambiar-password" className="hover:underline">
+            Cambiar contraseña
+          </Link>
           <button onClick={cerrarSesion} className="text-red-700 hover:underline">
             Cerrar sesión
           </button>
