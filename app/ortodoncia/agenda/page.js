@@ -2,14 +2,22 @@
 
 import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
+import AgendaSemanalGrid from "@/components/AgendaSemanalGrid";
 import ConfiguracionDuracionOrtodonciaModal from "@/components/ConfiguracionDuracionOrtodonciaModal";
 import NuevoTurnoOrtodonciaModal from "@/components/NuevoTurnoOrtodonciaModal";
 import TurnoOrtodonciaDetalleModal from "@/components/TurnoOrtodonciaDetalleModal";
-import { diaSemanaDeFecha, fechaDeHoyISO, generarBloquesHorarios, NOMBRES_DIA_SEMANA, sumarDias } from "@/lib/agenda";
+import {
+  diaSemanaDeFecha,
+  fechaDeHoyISO,
+  generarBloquesHorarios,
+  inicioDeSemana,
+  NOMBRES_DIA_SEMANA,
+  sumarDias,
+} from "@/lib/agenda";
 import { obtenerDuracionesOrtodoncia } from "@/lib/data/duracionOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
+import { obtenerTurnosOrtodonciaPorFecha, obtenerTurnosOrtodonciaPorRango } from "@/lib/data/turnosOrtodoncia";
 
 const CONSULTORIOS_ORTO = [2, 3];
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
@@ -29,6 +37,7 @@ const leyenda = [
 
 export default function AgendaOrtodonciaPage() {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
+  const [vista, setVista] = useState("dia"); // "dia" | "semana"
   const [turnos, setTurnos] = useState([]);
   const [ortodoncistas, setOrtodoncistas] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -40,20 +49,24 @@ export default function AgendaOrtodonciaPage() {
   const [mostrarConfigDuracion, setMostrarConfigDuracion] = useState(false);
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
+  const inicioSemana = inicioDeSemana(fecha);
+  const finSemana = sumarDias(inicioSemana, 6);
 
   async function recargarTurnos() {
-    const data = await obtenerTurnosOrtodonciaPorFecha(fecha);
+    const data =
+      vista === "semana"
+        ? await obtenerTurnosOrtodonciaPorRango(inicioSemana, finSemana)
+        : await obtenerTurnosOrtodonciaPorFecha(fecha);
     setTurnos(data);
   }
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([
-      obtenerTurnosOrtodonciaPorFecha(fecha),
-      obtenerProfesionales(),
-      obtenerPacientesOrtodoncia(),
-      obtenerDuracionesOrtodoncia(),
-    ])
+    const turnosPromise =
+      vista === "semana"
+        ? obtenerTurnosOrtodonciaPorRango(inicioSemana, finSemana)
+        : obtenerTurnosOrtodonciaPorFecha(fecha);
+    Promise.all([turnosPromise, obtenerProfesionales(), obtenerPacientesOrtodoncia(), obtenerDuracionesOrtodoncia()])
       .then(([t, prof, pac, dur]) => {
         setTurnos(t);
         setOrtodoncistas(prof.filter((p) => p.especialidad === "Ortodoncia"));
@@ -62,26 +75,35 @@ export default function AgendaOrtodonciaPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
-  }, [fecha]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha, vista]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Agenda — Ortodoncia</h1>
-        <button
-          onClick={() => setMostrarConfigDuracion(true)}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          ⚙ Configurar duración
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setVista((v) => (v === "dia" ? "semana" : "dia"))}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {vista === "dia" ? "📅 Ver semana" : "📆 Ver día"}
+          </button>
+          <button
+            onClick={() => setMostrarConfigDuracion(true)}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            ⚙ Configurar duración
+          </button>
+        </div>
       </div>
 
       <div className="mt-2 flex items-center gap-2">
         <button
-          onClick={() => setFecha((f) => sumarDias(f, -1))}
+          onClick={() => setFecha((f) => sumarDias(f, vista === "semana" ? -7 : -1))}
           className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
         >
-          ← Día anterior
+          {vista === "semana" ? "← Semana anterior" : "← Día anterior"}
         </button>
         <input
           type="date"
@@ -90,10 +112,10 @@ export default function AgendaOrtodonciaPage() {
           className="rounded-md border border-gray-300 px-2 py-1 text-sm"
         />
         <button
-          onClick={() => setFecha((f) => sumarDias(f, 1))}
+          onClick={() => setFecha((f) => sumarDias(f, vista === "semana" ? 7 : 1))}
           className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
         >
-          Día siguiente →
+          {vista === "semana" ? "Semana siguiente →" : "Día siguiente →"}
         </button>
         <button
           onClick={() => setFecha(fechaDeHoyISO())}
@@ -101,7 +123,9 @@ export default function AgendaOrtodonciaPage() {
         >
           Hoy
         </button>
-        <span className="ml-2 text-sm capitalize text-gray-500">{nombreDia}</span>
+        <span className="ml-2 text-sm capitalize text-gray-500">
+          {vista === "semana" ? `Semana del ${inicioSemana} al ${finSemana}` : nombreDia}
+        </span>
       </div>
 
       {error && (
@@ -110,7 +134,9 @@ export default function AgendaOrtodonciaPage() {
 
       {!error && !cargando && turnos.length === 0 && (
         <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-          No hay turnos cargados para este día. Hacé clic en un horario libre de la grilla para cargar el primero.
+          {vista === "semana"
+            ? "No hay turnos cargados para esta semana."
+            : "No hay turnos cargados para este día. Hacé clic en un horario libre de la grilla para cargar el primero."}
         </div>
       )}
 
@@ -126,6 +152,13 @@ export default function AgendaOrtodonciaPage() {
       <div className="mt-4">
         {cargando ? (
           <p className="text-sm text-gray-500">Cargando turnos...</p>
+        ) : vista === "semana" ? (
+          <AgendaSemanalGrid
+            fechaInicio={inicioSemana}
+            turnos={turnos}
+            bloques={bloques}
+            onTurnoClick={(turno) => setTurnoElegido(turno)}
+          />
         ) : (
           <AgendaGrid
             turnos={turnos}
@@ -141,7 +174,7 @@ export default function AgendaOrtodonciaPage() {
       {turnoElegido && (
         <TurnoOrtodonciaDetalleModal
           turno={turnoElegido}
-          fecha={fecha}
+          fecha={turnoElegido.fecha || fecha}
           onClose={() => setTurnoElegido(null)}
           onCambiado={recargarTurnos}
         />

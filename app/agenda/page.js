@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
+import AgendaSemanalGrid from "@/components/AgendaSemanalGrid";
 import NuevoTurnoModal from "@/components/NuevoTurnoModal";
 import TurnoDetalleModal from "@/components/TurnoDetalleModal";
 import {
   diaSemanaDeFecha,
   fechaDeHoyISO,
   generarBloquesHorarios,
+  inicioDeSemana,
   NOMBRES_DIA_SEMANA,
   sumarDias,
 } from "@/lib/agenda";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+import { obtenerTurnosGeneralPorFecha, obtenerTurnosGeneralPorRango } from "@/lib/data/turnosGeneral";
 import { supabase } from "@/lib/supabaseClient";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
@@ -33,6 +35,7 @@ const leyenda = [
 
 export default function AgendaPage() {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
+  const [vista, setVista] = useState("dia"); // "dia" | "semana"
   const [turnos, setTurnos] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -42,9 +45,14 @@ export default function AgendaPage() {
   const [turnoElegido, setTurnoElegido] = useState(null);
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
+  const inicioSemana = inicioDeSemana(fecha);
+  const finSemana = sumarDias(inicioSemana, 6);
 
   async function recargarTurnos() {
-    const data = await obtenerTurnosGeneralPorFecha(fecha);
+    const data =
+      vista === "semana"
+        ? await obtenerTurnosGeneralPorRango(inicioSemana, finSemana)
+        : await obtenerTurnosGeneralPorFecha(fecha);
     setTurnos(data);
   }
 
@@ -55,7 +63,9 @@ export default function AgendaPage() {
       return;
     }
     setCargando(true);
-    Promise.all([obtenerTurnosGeneralPorFecha(fecha), obtenerProfesionales(), obtenerPacientesActivos()])
+    const turnosPromise =
+      vista === "semana" ? obtenerTurnosGeneralPorRango(inicioSemana, finSemana) : obtenerTurnosGeneralPorFecha(fecha);
+    Promise.all([turnosPromise, obtenerProfesionales(), obtenerPacientesActivos()])
       .then(([turnosData, profesionalesData, pacientesData]) => {
         setTurnos(turnosData);
         setProfesionales(profesionalesData);
@@ -63,18 +73,27 @@ export default function AgendaPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
-  }, [fecha]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha, vista]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Agenda — Odontología General</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Agenda — Odontología General</h1>
+        <button
+          onClick={() => setVista((v) => (v === "dia" ? "semana" : "dia"))}
+          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          {vista === "dia" ? "📅 Ver semana" : "📆 Ver día"}
+        </button>
+      </div>
 
       <div className="mt-2 flex items-center gap-2">
         <button
-          onClick={() => setFecha((f) => sumarDias(f, -1))}
+          onClick={() => setFecha((f) => sumarDias(f, vista === "semana" ? -7 : -1))}
           className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
         >
-          ← Día anterior
+          {vista === "semana" ? "← Semana anterior" : "← Día anterior"}
         </button>
         <input
           type="date"
@@ -83,10 +102,10 @@ export default function AgendaPage() {
           className="rounded-md border border-gray-300 px-2 py-1 text-sm"
         />
         <button
-          onClick={() => setFecha((f) => sumarDias(f, 1))}
+          onClick={() => setFecha((f) => sumarDias(f, vista === "semana" ? 7 : 1))}
           className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
         >
-          Día siguiente →
+          {vista === "semana" ? "Semana siguiente →" : "Día siguiente →"}
         </button>
         <button
           onClick={() => setFecha(fechaDeHoyISO())}
@@ -94,7 +113,9 @@ export default function AgendaPage() {
         >
           Hoy
         </button>
-        <span className="ml-2 text-sm text-gray-500">{nombreDia}</span>
+        <span className="ml-2 text-sm text-gray-500">
+          {vista === "semana" ? `Semana del ${inicioSemana} al ${finSemana}` : nombreDia}
+        </span>
       </div>
 
       {error && (
@@ -105,7 +126,9 @@ export default function AgendaPage() {
 
       {!error && !cargando && turnos.length === 0 && (
         <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-          No hay turnos cargados para este día. Hacé clic en un horario libre de la grilla para cargar el primero.
+          {vista === "semana"
+            ? "No hay turnos cargados para esta semana."
+            : "No hay turnos cargados para este día. Hacé clic en un horario libre de la grilla para cargar el primero."}
         </div>
       )}
 
@@ -121,6 +144,13 @@ export default function AgendaPage() {
       <div className="mt-4">
         {cargando ? (
           <p className="text-sm text-gray-500">Cargando turnos...</p>
+        ) : vista === "semana" ? (
+          <AgendaSemanalGrid
+            fechaInicio={inicioSemana}
+            turnos={turnos}
+            bloques={bloques}
+            onTurnoClick={(turno) => setTurnoElegido(turno)}
+          />
         ) : (
           <AgendaGrid
             turnos={turnos}
@@ -134,7 +164,7 @@ export default function AgendaPage() {
       {turnoElegido && (
         <TurnoDetalleModal
           turno={turnoElegido}
-          fecha={fecha}
+          fecha={turnoElegido.fecha || fecha}
           onClose={() => setTurnoElegido(null)}
           onCambiado={recargarTurnos}
         />
