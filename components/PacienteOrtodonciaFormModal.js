@@ -7,6 +7,7 @@ import { actualizarPacienteOrtodoncia, crearPacienteOrtodoncia } from "@/lib/dat
 const TIPOS_BRACKETS = ["Metalicos", "Porcelana"];
 const ESTADOS_PACIENTE = ["Activo", "Inactivo", "Finalizado", "Abandonó"];
 const FORMAS_PAGO = ["Contado", "2 Cuotas"];
+const ORIGENES_PACIENTE = ["Nuevo", "Continuación de otra clínica"];
 
 const VACIO = {
   nombre: "",
@@ -26,6 +27,14 @@ const VACIO = {
   ultimoAumento: "",
   referidoPor: "",
   email: "",
+  origenPaciente: "Nuevo",
+  clinicaProcedencia: "",
+  historialClinico: "",
+  fotografias: "",
+  rxInicial: "",
+  rx6Meses: "",
+  rx12Meses: "",
+  consentimiento: "",
 };
 
 export default function PacienteOrtodonciaFormModal({ paciente, profesionales, config, onClose, onGuardado }) {
@@ -49,6 +58,14 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
           ultimoAumento: paciente.ultimoAumento || "",
           referidoPor: paciente.referidoPor || "",
           email: paciente.email || "",
+          origenPaciente: paciente.origenPaciente || "Nuevo",
+          clinicaProcedencia: paciente.clinicaProcedencia || "",
+          historialClinico: paciente.historialClinico || "",
+          fotografias: paciente.fotografias || "",
+          rxInicial: paciente.rxInicial || "",
+          rx6Meses: paciente.rx6Meses || "",
+          rx12Meses: paciente.rx12Meses || "",
+          consentimiento: paciente.consentimiento || "",
         }
       : VACIO
   );
@@ -139,6 +156,35 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 {edad === null ? "—" : `${edad} años`}
               </div>
             </div>
+          </div>
+
+          <hr className="border-gray-200" />
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Origen del paciente
+              <select
+                value={form.origenPaciente}
+                onChange={(e) => set("origenPaciente", e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5"
+              >
+                {ORIGENES_PACIENTE.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {form.origenPaciente === "Continuación de otra clínica" && (
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Clínica de procedencia
+                <input
+                  value={form.clinicaProcedencia}
+                  onChange={(e) => set("clinicaProcedencia", e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+            )}
           </div>
 
           <hr className="border-gray-200" />
@@ -285,6 +331,70 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
             </label>
+          </div>
+
+          <hr className="border-gray-200" />
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase text-gray-400">
+              Documentación clínica — dónde está guardada (link de Drive, carpeta, etc.)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Historial clínico
+                <input
+                  value={form.historialClinico}
+                  onChange={(e) => set("historialClinico", e.target.value)}
+                  placeholder="Link o ubicación"
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Fotografías
+                <input
+                  value={form.fotografias}
+                  onChange={(e) => set("fotografias", e.target.value)}
+                  placeholder="Link o ubicación"
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                RX inicial
+                <input
+                  value={form.rxInicial}
+                  onChange={(e) => set("rxInicial", e.target.value)}
+                  placeholder="Link o ubicación"
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                RX 6 meses
+                <input
+                  value={form.rx6Meses}
+                  onChange={(e) => set("rx6Meses", e.target.value)}
+                  placeholder="Link o ubicación"
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                RX 12 meses
+                <input
+                  value={form.rx12Meses}
+                  onChange={(e) => set("rx12Meses", e.target.value)}
+                  placeholder="Link o ubicación"
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Consentimiento firmado
+                <input
+                  value={form.consentimiento}
+                  onChange={(e) => set("consentimiento", e.target.value)}
+                  placeholder="Link o ubicación"
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+            </div>
           </div>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

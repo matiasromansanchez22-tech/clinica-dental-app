@@ -76,25 +76,28 @@ export default function PacientesOrtodonciaPage() {
               <th className="px-3 py-2 text-right font-semibold">Cuota</th>
               <th className="px-3 py-2 text-left font-semibold">Próximo aumento</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
+              <th className="px-3 py-2 text-left font-semibold">Documentación</th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && pacientes.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No se encontraron pacientes.
                 </td>
               </tr>
             )}
             {pacientes.map((p) => {
               const aumento = calcularEstadoAumento(p.proximoAumento);
+              const documentos = [p.historialClinico, p.fotografias, p.rxInicial, p.rx6Meses, p.rx12Meses, p.consentimiento];
+              const completos = documentos.filter(Boolean).length;
               return (
                 <tr
                   key={p.id}
@@ -111,6 +114,13 @@ export default function PacientesOrtodonciaPage() {
                   <td className="px-3 py-2 text-gray-600">{p.proximoAumento || "—"}</td>
                   <td className={`px-3 py-2 font-medium ${aumento.color}`}>
                     {aumento.emoji} {aumento.texto}
+                  </td>
+                  <td
+                    className={`px-3 py-2 font-medium ${
+                      completos === documentos.length ? "text-emerald-600" : "text-amber-600"
+                    }`}
+                  >
+                    📎 {completos}/{documentos.length}
                   </td>
                 </tr>
               );
