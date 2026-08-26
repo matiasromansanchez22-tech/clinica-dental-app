@@ -36,6 +36,7 @@ const GRUPOS = [
       { href: "/ortodoncia/controles", label: "Controles" },
       { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar" },
       { href: "/ortodoncia/caja", label: "Caja" },
+      { href: "/ortodoncia/cierre-turno", label: "Cierre de Turno" },
     ],
   },
   {
@@ -44,6 +45,7 @@ const GRUPOS = [
     soloDuena: true,
     items: [
       { href: "/gerencial/profesionales", label: "Profesionales" },
+      { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
       { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
