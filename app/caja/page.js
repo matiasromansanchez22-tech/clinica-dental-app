@@ -198,7 +198,7 @@ export default function CajaPage() {
 
       {mostrarNuevoPago && (
         <GastoFormModal
-          categorias={categoriasGasto}
+          categorias={categoriasGasto.filter((c) => c.visible_secretarios)}
           onClose={() => setMostrarNuevoPago(false)}
           onGuardado={() => setMostrarNuevoPago(false)}
         />
