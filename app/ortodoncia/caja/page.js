@@ -193,7 +193,7 @@ export default function CajaOrtodonciaPage() {
 
       {mostrarNuevoPago && (
         <GastoFormModal
-          categorias={categoriasGasto.filter((c) => c.visible_secretarios)}
+          categorias={esDuena ? categoriasGasto : categoriasGasto.filter((c) => c.visible_secretarios)}
           onClose={() => setMostrarNuevoPago(false)}
           onGuardado={() => setMostrarNuevoPago(false)}
         />
