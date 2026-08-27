@@ -234,6 +234,7 @@ function BalanceMensualContenido() {
               <TablaDesglose titulo="Ingresos por especialidad" filas={balance.ingresosPorEspecialidad} />
               <TablaDesglose titulo="Ingresos por medio de pago" filas={balance.ingresosPorMedioPago} />
               <TablaDesglose titulo="Egresos por categoría" filas={balance.egresosPorCategoria} />
+              <TablaDesglose titulo="Egresos por especialidad" filas={balance.egresosPorEspecialidad} />
               <TablaDesglose titulo="Egresos por medio de pago" filas={balance.egresosPorMedioPago} />
             </div>
 
