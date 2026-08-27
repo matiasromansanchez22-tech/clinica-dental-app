@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import CobroFormModal from "@/components/CobroFormModal";
+import GastoFormModal from "@/components/GastoFormModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
+import { obtenerCategoriasGasto } from "@/lib/data/gastos";
 
 export default function CajaPage() {
   const { perfil } = useAuth();
@@ -15,9 +17,11 @@ export default function CajaPage() {
   const [cobros, setCobros] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
+  const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [mostrarNuevoPago, setMostrarNuevoPago] = useState(false);
 
   async function recargar() {
     const data = await obtenerCobrosPorFecha(fecha);
@@ -26,11 +30,12 @@ export default function CajaPage() {
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerCobrosPorFecha(fecha), obtenerPacientesActivos(), obtenerProfesionales()])
-      .then(([c, p, prof]) => {
+    Promise.all([obtenerCobrosPorFecha(fecha), obtenerPacientesActivos(), obtenerProfesionales(), obtenerCategoriasGasto()])
+      .then(([c, p, prof, cat]) => {
         setCobros(c);
         setPacientes(p);
         setProfesionales(prof);
+        setCategoriasGasto(cat);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -62,12 +67,20 @@ export default function CajaPage() {
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Caja General</h1>
-        <button
-          onClick={() => setMostrarNuevo(true)}
-          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-        >
-          + Nuevo cobro
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMostrarNuevoPago(true)}
+            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+          >
+            💸 Registrar pago
+          </button>
+          <button
+            onClick={() => setMostrarNuevo(true)}
+            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+          >
+            + Nuevo cobro
+          </button>
+        </div>
       </div>
 
       <div className="mt-2 flex items-center gap-2">
@@ -180,6 +193,14 @@ export default function CajaPage() {
             await recargar();
             setMostrarNuevo(false);
           }}
+        />
+      )}
+
+      {mostrarNuevoPago && (
+        <GastoFormModal
+          categorias={categoriasGasto}
+          onClose={() => setMostrarNuevoPago(false)}
+          onGuardado={() => setMostrarNuevoPago(false)}
         />
       )}
     </main>

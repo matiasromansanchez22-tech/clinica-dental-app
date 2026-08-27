@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import CobroOrtodonciaFormModal from "@/components/CobroOrtodonciaFormModal";
+import GastoFormModal from "@/components/GastoFormModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { eliminarCobroOrtodoncia, obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import { obtenerCategoriasGasto } from "@/lib/data/gastos";
 
 export default function CajaOrtodonciaPage() {
   const { perfil } = useAuth();
@@ -13,9 +15,11 @@ export default function CajaOrtodonciaPage() {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [cobros, setCobros] = useState([]);
   const [pacientes, setPacientes] = useState([]);
+  const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [mostrarNuevoPago, setMostrarNuevoPago] = useState(false);
 
   async function recargar() {
     const data = await obtenerCobrosOrtodonciaPorFecha(fecha);
@@ -24,10 +28,11 @@ export default function CajaOrtodonciaPage() {
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerCobrosOrtodonciaPorFecha(fecha), obtenerPacientesOrtodoncia()])
-      .then(([c, p]) => {
+    Promise.all([obtenerCobrosOrtodonciaPorFecha(fecha), obtenerPacientesOrtodoncia(), obtenerCategoriasGasto()])
+      .then(([c, p, cat]) => {
         setCobros(c);
         setPacientes(p);
+        setCategoriasGasto(cat);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -59,12 +64,20 @@ export default function CajaOrtodonciaPage() {
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Caja — Ortodoncia</h1>
-        <button
-          onClick={() => setMostrarNuevo(true)}
-          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-        >
-          + Nuevo cobro
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMostrarNuevoPago(true)}
+            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+          >
+            💸 Registrar pago
+          </button>
+          <button
+            onClick={() => setMostrarNuevo(true)}
+            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+          >
+            + Nuevo cobro
+          </button>
+        </div>
       </div>
 
       <div className="mt-2 flex items-center gap-2">
@@ -175,6 +188,14 @@ export default function CajaOrtodonciaPage() {
             await recargar();
             setMostrarNuevo(false);
           }}
+        />
+      )}
+
+      {mostrarNuevoPago && (
+        <GastoFormModal
+          categorias={categoriasGasto}
+          onClose={() => setMostrarNuevoPago(false)}
+          onGuardado={() => setMostrarNuevoPago(false)}
         />
       )}
     </main>
