@@ -2,16 +2,50 @@
 
 import { useEffect, useState } from "react";
 import GestionarRodantesModal from "@/components/GestionarRodantesModal";
+import RegistrarTraspasoStockModal from "@/components/RegistrarTraspasoStockModal";
 import SoloDuena from "@/components/SoloDuena";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   actualizarCantidadStock,
+  cerrarSemanaStock,
   crearInsumoStock,
   eliminarInsumoStock,
+  eliminarMovimientoStock,
   obtenerCantidadesStock,
+  obtenerCierreSemanal,
   obtenerInsumosStock,
+  obtenerMovimientosSemana,
   obtenerRodantes,
   SECTORES_STOCK,
 } from "@/lib/data/stock";
+
+function fmt(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function lunesYViernesDeSemana(fechaISO) {
+  const [anio, mes, dia] = fechaISO.split("-").map(Number);
+  const fecha = new Date(anio, mes - 1, dia);
+  const diasDesdeLunes = (fecha.getDay() + 6) % 7;
+  const lunes = new Date(fecha);
+  lunes.setDate(fecha.getDate() - diasDesdeLunes);
+  const viernes = new Date(lunes);
+  viernes.setDate(lunes.getDate() + 4);
+  return { lunes: fmt(lunes), viernes: fmt(viernes) };
+}
+
+function sumarSemanas(fechaISO, delta) {
+  const [anio, mes, dia] = fechaISO.split("-").map(Number);
+  const fecha = new Date(anio, mes - 1, dia);
+  fecha.setDate(fecha.getDate() + delta * 7);
+  return fmt(fecha);
+}
+
+function formatoFechaCorta(fechaISO) {
+  const [, mes, dia] = fechaISO.split("-");
+  return `${dia}/${mes}`;
+}
 
 function CeldaCantidad({ valor, onGuardar }) {
   return (
@@ -26,15 +60,28 @@ function CeldaCantidad({ valor, onGuardar }) {
 }
 
 function StockContenido() {
+  const { user, perfil } = useAuth();
+  const hoy = fechaDeHoyISO();
   const [rodantes, setRodantes] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [cantidades, setCantidades] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarRodantes, setMostrarRodantes] = useState(false);
+  const [mostrarTraspaso, setMostrarTraspaso] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoSector, setNuevoSector] = useState(SECTORES_STOCK[0]);
   const [guardandoInsumo, setGuardandoInsumo] = useState(false);
+
+  const [semanaRef, setSemanaRef] = useState(hoy);
+  const [movimientos, setMovimientos] = useState([]);
+  const [cierreSemanal, setCierreSemanal] = useState(null);
+  const [cerrando, setCerrando] = useState(false);
+  const [mensajeSemana, setMensajeSemana] = useState(null);
+  const { lunes, viernes } = lunesYViernesDeSemana(semanaRef);
+
+  const deposito = rodantes.find((r) => r.es_deposito);
+  const rodantesDestino = rodantes.filter((r) => !r.es_deposito);
 
   async function recargar() {
     setCargando(true);
@@ -50,9 +97,25 @@ function StockContenido() {
     }
   }
 
+  async function recargarSemana() {
+    setMensajeSemana(null);
+    try {
+      const [mov, cierre] = await Promise.all([obtenerMovimientosSemana(lunes, viernes), obtenerCierreSemanal(lunes, viernes)]);
+      setMovimientos(mov);
+      setCierreSemanal(cierre);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   useEffect(() => {
     recargar();
   }, []);
+
+  useEffect(() => {
+    recargarSemana();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semanaRef]);
 
   function cantidadDe(insumoId, rodanteId) {
     return cantidades.find((c) => c.insumo_id === insumoId && c.rodante_id === rodanteId)?.cantidad || 0;
@@ -62,19 +125,19 @@ function StockContenido() {
     return cantidades.filter((c) => c.insumo_id === insumoId).reduce((acc, c) => acc + Number(c.cantidad), 0);
   }
 
-  async function guardarCantidad(insumoId, rodanteId, valor) {
+  async function guardarCantidadDeposito(insumoId, valor) {
     setError(null);
     try {
-      await actualizarCantidadStock(insumoId, rodanteId, valor);
+      await actualizarCantidadStock(insumoId, deposito.id, valor);
       setCantidades((c) => {
-        const idx = c.findIndex((x) => x.insumo_id === insumoId && x.rodante_id === rodanteId);
+        const idx = c.findIndex((x) => x.insumo_id === insumoId && x.rodante_id === deposito.id);
         const nuevaCantidad = Number(valor) || 0;
         if (idx >= 0) {
           const copia = [...c];
           copia[idx] = { ...copia[idx], cantidad: nuevaCantidad };
           return copia;
         }
-        return [...c, { insumo_id: insumoId, rodante_id: rodanteId, cantidad: nuevaCantidad }];
+        return [...c, { insumo_id: insumoId, rodante_id: deposito.id, cantidad: nuevaCantidad }];
       });
     } catch (e) {
       setError(e.message);
@@ -108,6 +171,59 @@ function StockContenido() {
     }
   }
 
+  async function borrarMovimiento(mov) {
+    if (!window.confirm(`¿Deshacer el traspaso de ${mov.cantidad} × ${mov.insumo?.nombre} a ${mov.rodante?.nombre}?`)) return;
+    try {
+      await eliminarMovimientoStock(mov);
+      await recargar();
+      await recargarSemana();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  const resumenPorInsumo = (() => {
+    const mapa = {};
+    movimientos.forEach((m) => {
+      const id = m.insumo?.id;
+      if (!id) return;
+      if (!mapa[id]) mapa[id] = { insumoId: id, insumo: m.insumo.nombre, trasladado: 0 };
+      mapa[id].trasladado += Number(m.cantidad);
+    });
+    return Object.values(mapa)
+      .map((f) => ({ ...f, stockRestante: cantidadDe(f.insumoId, deposito?.id) }))
+      .sort((a, b) => b.trasladado - a.trasladado);
+  })();
+
+  async function handleCerrarSemana() {
+    setCerrando(true);
+    setError(null);
+    try {
+      const detalle = {
+        porInsumo: resumenPorInsumo,
+        totalTrasladado: resumenPorInsumo.reduce((acc, f) => acc + f.trasladado, 0),
+        cantidadMovimientos: movimientos.length,
+      };
+      const cierre = await cerrarSemanaStock({
+        semanaInicio: lunes,
+        semanaFin: viernes,
+        detalle,
+        nombreDuena: perfil?.nombre || user?.email,
+      });
+      setCierreSemanal(cierre);
+      setMensajeSemana("Semana cerrada y congelada correctamente.");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCerrando(false);
+    }
+  }
+
+  const detalleMostrado = cierreSemanal?.detalle || {
+    porInsumo: resumenPorInsumo,
+    totalTrasladado: resumenPorInsumo.reduce((acc, f) => acc + f.trasladado, 0),
+  };
+
   const grupos = SECTORES_STOCK.map((sector) => ({
     sector,
     items: insumos.filter((i) => i.sector === sector),
@@ -117,16 +233,25 @@ function StockContenido() {
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Stock de Insumos</h1>
-        <button
-          onClick={() => setMostrarRodantes(true)}
-          className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-        >
-          Gestionar ubicaciones
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMostrarRodantes(true)}
+            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+          >
+            Gestionar ubicaciones
+          </button>
+          <button
+            onClick={() => setMostrarTraspaso(true)}
+            disabled={!deposito || insumos.length === 0}
+            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            + Completar rodante
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-500">
-        Cuánto de cada insumo hay en el depósito/mueble central y en cada rodante. Las filas en rojo no tienen nada
-        en ningún lado.
+        El Stock se edita directo (lo que comprás/tenés guardado). Los rodantes se completan con el botón de arriba,
+        que resta del Stock automáticamente. Las filas en rojo no tienen nada en ningún lado.
       </p>
 
       {error && (
@@ -160,14 +285,20 @@ function StockContenido() {
                       return (
                         <tr key={insumo.id} className={`border-t border-gray-100 ${total === 0 ? "bg-red-50" : ""}`}>
                           <td className="px-3 py-2 font-medium text-gray-900">{insumo.nombre}</td>
-                          {rodantes.map((r) => (
-                            <td key={r.id} className="px-3 py-2 text-right">
-                              <CeldaCantidad
-                                valor={cantidadDe(insumo.id, r.id)}
-                                onGuardar={(v) => guardarCantidad(insumo.id, r.id, v)}
-                              />
-                            </td>
-                          ))}
+                          {rodantes.map((r) =>
+                            r.es_deposito ? (
+                              <td key={r.id} className="px-3 py-2 text-right">
+                                <CeldaCantidad
+                                  valor={cantidadDe(insumo.id, r.id)}
+                                  onGuardar={(v) => guardarCantidadDeposito(insumo.id, v)}
+                                />
+                              </td>
+                            ) : (
+                              <td key={r.id} className="px-3 py-2 text-right text-gray-600">
+                                {cantidadDe(insumo.id, r.id)}
+                              </td>
+                            )
+                          )}
                           <td className={`px-3 py-2 text-right font-semibold ${total === 0 ? "text-red-700" : "text-gray-900"}`}>
                             {total}
                           </td>
@@ -221,6 +352,99 @@ function StockContenido() {
               </button>
             </form>
           </div>
+
+          <div className="mt-8 rounded-lg border border-brand-tan bg-brand-tan/10 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-sm font-semibold text-brand-brown">
+                Resumen semanal ({formatoFechaCorta(lunes)} al {formatoFechaCorta(viernes)})
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSemanaRef((f) => sumarSemanas(f, -1))}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+                >
+                  ← Semana anterior
+                </button>
+                <button
+                  onClick={() => setSemanaRef(hoy)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+                >
+                  Esta semana
+                </button>
+                <button
+                  onClick={() => setSemanaRef((f) => sumarSemanas(f, 1))}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+                >
+                  Semana siguiente →
+                </button>
+              </div>
+            </div>
+
+            {cierreSemanal ? (
+              <p className="mt-2 text-sm text-brand-green">
+                🔒 Semana cerrada por {cierreSemanal.nombre_duena} el{" "}
+                {new Date(cierreSemanal.aprobado_en).toLocaleString("es-AR")}. Se muestran los números congelados de
+                ese momento.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-gray-500">Esta semana todavía no se cerró — números en vivo.</p>
+            )}
+            {mensajeSemana && <p className="mt-1 text-sm text-emerald-700">{mensajeSemana}</p>}
+
+            <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-brand-brown text-white">
+                    <th className="px-3 py-2 text-left font-semibold">Insumo</th>
+                    <th className="px-3 py-2 text-right font-semibold">Trasladado esta semana</th>
+                    <th className="px-3 py-2 text-right font-semibold">Stock {cierreSemanal ? "al cerrar" : "actual"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detalleMostrado.porInsumo.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-3 py-4 text-center text-gray-500">
+                        No hubo traspasos esta semana.
+                      </td>
+                    </tr>
+                  )}
+                  {detalleMostrado.porInsumo.map((f) => (
+                    <tr key={f.insumoId} className="border-t border-gray-100">
+                      <td className="px-3 py-2 font-medium text-gray-900">{f.insumo}</td>
+                      <td className="px-3 py-2 text-right text-gray-600">{f.trasladado}</td>
+                      <td className="px-3 py-2 text-right text-gray-600">{f.stockRestante}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {!cierreSemanal && movimientos.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Traspasos de la semana</p>
+                <ul className="flex flex-col gap-1 text-xs text-gray-600">
+                  {movimientos.map((m) => (
+                    <li key={m.id} className="flex items-center justify-between rounded-md border border-gray-100 bg-white px-2 py-1">
+                      <span>
+                        {formatoFechaCorta(m.fecha)} — {m.cantidad} × {m.insumo?.nombre} → {m.rodante?.nombre}
+                      </span>
+                      <button onClick={() => borrarMovimiento(m)} className="text-red-600 hover:underline">
+                        Deshacer
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button
+              onClick={handleCerrarSemana}
+              disabled={cerrando}
+              className="mt-4 rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+            >
+              {cerrando ? "Guardando..." : cierreSemanal ? "Actualizar cierre de la semana" : "✅ Cerrar semana"}
+            </button>
+          </div>
         </>
       )}
 
@@ -231,6 +455,19 @@ function StockContenido() {
           onCambiado={async () => {
             const r = await obtenerRodantes();
             setRodantes(r);
+          }}
+        />
+      )}
+
+      {mostrarTraspaso && (
+        <RegistrarTraspasoStockModal
+          insumos={insumos}
+          rodantes={rodantes}
+          onClose={() => setMostrarTraspaso(false)}
+          onGuardado={async () => {
+            await recargar();
+            await recargarSemana();
+            setMostrarTraspaso(false);
           }}
         />
       )}
