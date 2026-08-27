@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { crearPedido, crearProveedor } from "@/lib/data/pedidosInsumos";
+import { crearPedido, crearProveedor, SECTORES_INSUMO } from "@/lib/data/pedidosInsumos";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 
 function itemVacio() {
-  return { insumo: "", cantidad: 1, precioUnitario: "" };
+  return { insumo: "", cantidad: 1, precioUnitario: "", sector: SECTORES_INSUMO[0] };
 }
 
 export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardado }) {
@@ -64,6 +64,7 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
           insumo: i.insumo.trim(),
           cantidad: Number(i.cantidad),
           precioUnitario: Number(i.precioUnitario) || 0,
+          sector: i.sector || SECTORES_INSUMO[0],
         })),
         medioPago,
         estado,
@@ -157,13 +158,24 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
             </div>
             <div className="flex flex-col gap-2">
               {items.map((it, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border border-gray-100 p-2">
                   <input
                     value={it.insumo}
                     onChange={(e) => actualizarItem(i, { insumo: e.target.value })}
                     placeholder="Insumo"
-                    className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    className="min-w-[10rem] flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   />
+                  <select
+                    value={it.sector || SECTORES_INSUMO[0]}
+                    onChange={(e) => actualizarItem(i, { sector: e.target.value })}
+                    className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    {SECTORES_INSUMO.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="number"
                     value={it.cantidad}

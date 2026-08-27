@@ -13,7 +13,57 @@ import {
   obtenerPedidos,
   obtenerProveedores,
   obtenerSaldoAFavorPorProveedor,
+  SECTORES_INSUMO,
 } from "@/lib/data/pedidosInsumos";
+
+const COLOR_SECTOR = {
+  "Odontología General": "border-sky-200 bg-sky-50",
+  "Tratamiento de Conducto": "border-amber-200 bg-amber-50",
+  "Ortodoncia": "border-violet-200 bg-violet-50",
+  "Otros": "border-gray-200 bg-gray-50",
+};
+
+function agruparPorSector(items) {
+  const grupos = {};
+  for (const it of items) {
+    const sector = it.sector || "Otros";
+    if (!grupos[sector]) grupos[sector] = [];
+    grupos[sector].push(it);
+  }
+  return SECTORES_INSUMO.filter((s) => grupos[s]?.length).map((sector) => ({
+    sector,
+    items: grupos[sector],
+    subtotal: grupos[sector].reduce((acc, it) => acc + it.cantidad * it.precioUnitario, 0),
+  }));
+}
+
+function GrillaItemsPorSector({ items }) {
+  const grupos = agruparPorSector(items);
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {grupos.map((g) => (
+        <div key={g.sector} className={`rounded-lg border p-3 ${COLOR_SECTOR[g.sector] || COLOR_SECTOR.Otros}`}>
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="font-heading text-xs font-bold uppercase text-brand-charcoal">{g.sector}</h4>
+            <span className="text-xs font-semibold text-gray-600">${g.subtotal.toLocaleString("es-AR")}</span>
+          </div>
+          <ul className="flex flex-col gap-1 text-xs text-gray-700">
+            {g.items.map((it, i) => (
+              <li key={i} className="flex justify-between gap-2">
+                <span>
+                  {it.insumo} <span className="text-gray-400">× {it.cantidad}</span>
+                </span>
+                <span className="whitespace-nowrap text-gray-500">
+                  ${(it.cantidad * it.precioUnitario).toLocaleString("es-AR")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function primerYUltimoDiaDelMes(fechaISO) {
   const [anio, mes] = fechaISO.split("-").map(Number);
@@ -224,16 +274,9 @@ function PedidosContenido() {
                 </tr>
                 {expandido === p.id && (
                   <tr className="bg-gray-50">
-                    <td colSpan={6} className="px-3 py-2">
-                      <ul className="text-xs text-gray-600">
-                        {p.items.map((it, i) => (
-                          <li key={i}>
-                            {it.insumo} — {it.cantidad} × ${Number(it.precioUnitario).toLocaleString("es-AR")} = $
-                            {(it.cantidad * it.precioUnitario).toLocaleString("es-AR")}
-                          </li>
-                        ))}
-                      </ul>
-                      {p.observaciones && <p className="mt-1 text-xs text-gray-400">{p.observaciones}</p>}
+                    <td colSpan={6} className="px-3 py-3">
+                      <GrillaItemsPorSector items={p.items} />
+                      {p.observaciones && <p className="mt-2 text-xs text-gray-400">{p.observaciones}</p>}
                     </td>
                   </tr>
                 )}
