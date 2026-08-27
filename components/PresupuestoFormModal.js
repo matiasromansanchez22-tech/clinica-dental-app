@@ -8,6 +8,7 @@ import {
   redondear,
 } from "@/lib/presupuestos";
 import { crearPresupuesto, actualizarPresupuesto } from "@/lib/data/presupuestos";
+import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 
 const MAX_PRESTACIONES = 6;
 
@@ -36,10 +37,21 @@ export default function PresupuestoFormModal({
   const [cantidadCuotas, setCantidadCuotas] = useState(presupuesto?.cantidadCuotas || 2);
   const [anticipo, setAnticipo] = useState(presupuesto?.anticipo ?? "");
   const [observaciones, setObservaciones] = useState(presupuesto?.observaciones || "");
+  const [prestacionesObraSocial, setPrestacionesObraSocial] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
-  const pacientesParticulares = pacientes.filter((p) => p.tipo_paciente !== "Obra Social");
+  const paciente = pacientes.find((p) => p.id === pacienteId);
+  const esObraSocial = paciente?.tipo_paciente === "Obra Social" || paciente?.tipo_paciente === "Mixto";
+
+  useEffect(() => {
+    if (esObraSocial && paciente?.obra_social) {
+      obtenerPrestacionesObraSocial(paciente.obra_social).then(setPrestacionesObraSocial);
+    } else {
+      setPrestacionesObraSocial([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacienteId]);
 
   const total = useMemo(() => calcularTotalPrestaciones(prestaciones), [prestaciones]);
 
@@ -63,10 +75,16 @@ export default function PresupuestoFormModal({
       const fila = { ...nuevas[indice], ...cambios };
 
       if ("catalogoId" in cambios || "cantidad" in cambios || "tipoPrecio" in cambios) {
-        const item = catalogo.find((c) => c.id === fila.catalogoId);
-        fila.importe = calcularImportePrestacion(item, fila.cantidad, fila.tipoPrecio);
-        if (item && !fila.prestacion) fila.prestacion = item.prestacion;
-        if (item) fila.prestacion = item.prestacion;
+        if (esObraSocial) {
+          const item = prestacionesObraSocial.find((c) => c.id === fila.catalogoId);
+          fila.importe = redondear((Number(fila.cantidad) || 0) * (Number(item?.copago_oficial) || 0));
+          if (item) fila.prestacion = item.prestacion_os;
+          fila.tipoPrecio = "Copago";
+        } else {
+          const item = catalogo.find((c) => c.id === fila.catalogoId);
+          fila.importe = calcularImportePrestacion(item, fila.cantidad, fila.tipoPrecio);
+          if (item) fila.prestacion = item.prestacion;
+        }
       }
       nuevas[indice] = fila;
       return nuevas;
@@ -172,20 +190,27 @@ export default function PresupuestoFormModal({
           </div>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
-            Paciente (solo Particular o Mixto)
+            Paciente
             <select
               value={pacienteId}
               onChange={(e) => setPacienteId(e.target.value)}
               className="rounded-md border border-gray-300 px-2 py-1.5"
             >
               <option value="">Elegí un paciente...</option>
-              {pacientesParticulares.map((p) => (
+              {pacientes.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.apellido_y_nombre}
+                  {p.tipo_paciente === "Obra Social" || p.tipo_paciente === "Mixto" ? ` (${p.obra_social || "Obra Social"})` : ""}
                 </option>
               ))}
             </select>
           </label>
+          {esObraSocial && (
+            <p className="-mt-2 text-xs text-gray-500">
+              Este paciente tiene obra social — las prestaciones de abajo muestran el copago que le corresponde pagar
+              según {paciente.obra_social}, no el valor particular.
+            </p>
+          )}
 
           <div>
             <div className="mb-1 flex items-center justify-between">
@@ -205,11 +230,18 @@ export default function PresupuestoFormModal({
                     className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   >
                     <option value="">(elegir prestación)</option>
-                    {catalogo.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.prestacion}
-                      </option>
-                    ))}
+                    {esObraSocial
+                      ? prestacionesObraSocial.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.codigo ? `${c.codigo} — ` : ""}
+                            {c.prestacion_os}
+                          </option>
+                        ))
+                      : catalogo.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.prestacion}
+                          </option>
+                        ))}
                   </select>
                   <input
                     type="number"
@@ -218,14 +250,20 @@ export default function PresupuestoFormModal({
                     onChange={(e) => actualizarFila(i, { cantidad: Number(e.target.value) })}
                     className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   />
-                  <select
-                    value={fila.tipoPrecio}
-                    onChange={(e) => actualizarFila(i, { tipoPrecio: e.target.value })}
-                    className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                  >
-                    <option value="Lista">Lista</option>
-                    <option value="Efectivo">Efectivo</option>
-                  </select>
+                  {esObraSocial ? (
+                    <span className="w-24 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-center text-xs text-gray-500">
+                      Copago
+                    </span>
+                  ) : (
+                    <select
+                      value={fila.tipoPrecio}
+                      onChange={(e) => actualizarFila(i, { tipoPrecio: e.target.value })}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    >
+                      <option value="Lista">Lista</option>
+                      <option value="Efectivo">Efectivo</option>
+                    </select>
+                  )}
                   <span className="w-24 text-right text-sm text-gray-600">
                     ${Number(fila.importe || 0).toLocaleString("es-AR")}
                   </span>

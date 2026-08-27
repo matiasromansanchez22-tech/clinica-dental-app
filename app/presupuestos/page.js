@@ -78,7 +78,10 @@ export default function PresupuestosPage() {
           + Nuevo presupuesto
         </button>
       </div>
-      <p className="mt-1 text-sm text-gray-500">Solo para pacientes Particulares o Mixtos.</p>
+      <p className="mt-1 text-sm text-gray-500">
+        Para pacientes particulares usa la lista de precios; para pacientes con obra social usa el copago que le
+        corresponde pagar según el Nomenclador.
+      </p>
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
