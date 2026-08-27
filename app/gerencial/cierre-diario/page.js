@@ -123,6 +123,27 @@ function CierreDiarioContenido() {
   }, {});
   const totalNeto = totalCombinado - totalEgresos;
 
+  const detalleEnVivo = {
+    totalesGeneral,
+    totalesOrto,
+    totalesCombinados,
+    totalCombinado,
+    totalesEgresos,
+    totalEgresos,
+    totalesNeto,
+    totalNeto,
+    cantidadGastos: gastos.length,
+    cantidadPagosProfesionales: pagosProfesionales.length,
+  };
+
+  const detalleCongelado = cierreAprobado?.detalle || null;
+  const detalleMostrado = detalleCongelado || detalleEnVivo;
+  const hayDiscrepancia =
+    detalleCongelado &&
+    (detalleCongelado.totalCombinado !== totalCombinado ||
+      detalleCongelado.totalEgresos !== totalEgresos ||
+      detalleCongelado.totalNeto !== totalNeto);
+
   const nombrePorUsuario = (usuarioId) => perfiles.find((p) => p.id === usuarioId)?.nombre || "—";
 
   const movimientos = [
@@ -158,9 +179,15 @@ function CierreDiarioContenido() {
     setError(null);
     setMensaje(null);
     try {
-      const aprobado = await aprobarCierreDelDia(fecha, user.id, perfil?.nombre || user.email, observacionesAprobacion);
+      const aprobado = await aprobarCierreDelDia(
+        fecha,
+        user.id,
+        perfil?.nombre || user.email,
+        observacionesAprobacion,
+        detalleEnVivo
+      );
       setCierreAprobado(aprobado);
-      setMensaje("Día aprobado correctamente.");
+      setMensaje("Día aprobado y congelado correctamente.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -218,48 +245,66 @@ function CierreDiarioContenido() {
         </div>
       )}
 
+      {detalleCongelado && (
+        <div className="mt-4 rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-sm text-brand-brown">
+          🔒 Este día ya está cerrado — se muestran los números <strong>congelados</strong> del momento de la
+          aprobación, no los que se calculan en vivo.
+        </div>
+      )}
+      {hayDiscrepancia && (
+        <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          ⚠️ Los datos en vivo cambiaron desde que se cerró este día (por ejemplo, se cargó o borró un gasto/pago
+          después). Neto congelado: ${Number(detalleCongelado.totalNeto).toLocaleString("es-AR")} — neto en vivo
+          ahora: ${totalNeto.toLocaleString("es-AR")}. Si esto es correcto, volvé a aprobar el cierre para
+          actualizarlo.
+        </div>
+      )}
+
       {cargando || !totalesGeneral || !totalesOrto ? (
         <p className="mt-6 text-sm text-gray-500">Calculando...</p>
       ) : (
         <>
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
-            Odontología General ({totalesGeneral.cantidadCobros} cobros)
+            Odontología General ({detalleMostrado.totalesGeneral.cantidadCobros} cobros)
           </h2>
-          <TarjetasMedioPago totales={totalesGeneral} />
+          <TarjetasMedioPago totales={detalleMostrado.totalesGeneral} />
           <p className="mt-1 text-right text-sm font-semibold text-gray-700">
-            Total: ${totalesGeneral.totalGeneral.toLocaleString("es-AR")}
+            Total: ${detalleMostrado.totalesGeneral.totalGeneral.toLocaleString("es-AR")}
           </p>
 
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
-            Ortodoncia ({totalesOrto.cantidadCobros} cobros)
+            Ortodoncia ({detalleMostrado.totalesOrto.cantidadCobros} cobros)
           </h2>
-          <TarjetasMedioPago totales={totalesOrto} />
+          <TarjetasMedioPago totales={detalleMostrado.totalesOrto} />
           <p className="mt-1 text-right text-sm font-semibold text-gray-700">
-            Total: ${totalesOrto.totalGeneral.toLocaleString("es-AR")}
+            Total: ${detalleMostrado.totalesOrto.totalGeneral.toLocaleString("es-AR")}
           </p>
 
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">Total combinado</h2>
-          <TarjetasMedioPago totales={totalesCombinados} />
+          <TarjetasMedioPago totales={detalleMostrado.totalesCombinados} />
           <div className="mt-3 rounded-md bg-brand-brown px-4 py-3 text-white">
             <span className="text-sm">Total del día (ambas especialidades): </span>
-            <span className="text-xl font-bold">${totalCombinado.toLocaleString("es-AR")}</span>
+            <span className="text-xl font-bold">${detalleMostrado.totalCombinado.toLocaleString("es-AR")}</span>
           </div>
 
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
-            Egresos del día ({gastos.length} gastos + {pagosProfesionales.length} pagos a profesionales)
+            Egresos del día ({detalleMostrado.cantidadGastos} gastos + {detalleMostrado.cantidadPagosProfesionales}{" "}
+            pagos a profesionales)
           </h2>
-          <TarjetasMedioPago totales={totalesEgresos} />
+          <TarjetasMedioPago totales={detalleMostrado.totalesEgresos} />
           <p className="mt-1 text-right text-sm font-semibold text-gray-700">
-            Total: ${totalEgresos.toLocaleString("es-AR")}
+            Total: ${detalleMostrado.totalEgresos.toLocaleString("es-AR")}
           </p>
 
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
             Lo que queda limpio (ingresos − egresos)
           </h2>
-          <TarjetasMedioPago totales={totalesNeto} coloreado />
-          <div className={`mt-3 rounded-md px-4 py-3 text-white ${totalNeto >= 0 ? "bg-brand-green" : "bg-red-700"}`}>
+          <TarjetasMedioPago totales={detalleMostrado.totalesNeto} coloreado />
+          <div
+            className={`mt-3 rounded-md px-4 py-3 text-white ${detalleMostrado.totalNeto >= 0 ? "bg-brand-green" : "bg-red-700"}`}
+          >
             <span className="text-sm">Neto del día: </span>
-            <span className="text-xl font-bold">${totalNeto.toLocaleString("es-AR")}</span>
+            <span className="text-xl font-bold">${detalleMostrado.totalNeto.toLocaleString("es-AR")}</span>
           </div>
 
           <h2 className="mt-8 mb-2 font-heading text-sm font-semibold text-brand-brown">
@@ -324,8 +369,8 @@ function CierreDiarioContenido() {
             {cierreAprobado ? (
               <p className="mt-1 text-sm text-brand-green">
                 ✅ Aprobado por {cierreAprobado.nombre_duena} el{" "}
-                {new Date(cierreAprobado.aprobado_en).toLocaleString("es-AR")}. Si volvés a aprobar, se actualiza la
-                fecha/hora.
+                {new Date(cierreAprobado.aprobado_en).toLocaleString("es-AR")}, con los números de ese momento
+                congelados. Si volvés a aprobar, se vuelve a congelar con los números actuales.
               </p>
             ) : (
               <p className="mt-1 text-sm text-gray-500">Todavía no aprobaste este día.</p>
