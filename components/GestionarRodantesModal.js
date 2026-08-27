@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { crearRodante, eliminarRodante, renombrarRodante } from "@/lib/data/stock";
 
-export default function GestionarRodantesModal({ rodantes, onClose, onCambiado }) {
+export default function GestionarRodantesModal({ rodantes: ubicaciones, onClose, onCambiado }) {
   const [nuevo, setNuevo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -48,7 +48,7 @@ export default function GestionarRodantesModal({ rodantes, onClose, onCambiado }
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">Rodantes</h2>
+          <h2 className="text-lg font-bold text-gray-900">Ubicaciones</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
             ✕
           </button>
@@ -58,8 +58,11 @@ export default function GestionarRodantesModal({ rodantes, onClose, onCambiado }
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
 
+        <p className="mb-2 text-xs text-gray-500">
+          Incluí acá tanto el mueble/depósito central de donde sale todo, como cada rodante.
+        </p>
         <ul className="mb-4 flex flex-col gap-1.5 text-sm text-gray-700">
-          {rodantes.map((r) => (
+          {ubicaciones.map((r) => (
             <li key={r.id} className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1.5">
               <input
                 defaultValue={r.nombre}
@@ -77,7 +80,7 @@ export default function GestionarRodantesModal({ rodantes, onClose, onCambiado }
           <input
             value={nuevo}
             onChange={(e) => setNuevo(e.target.value)}
-            placeholder="Nuevo rodante..."
+            placeholder="Ej. Stock / Depósito"
             className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
           />
           <button

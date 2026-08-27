@@ -121,11 +121,12 @@ function StockContenido() {
           onClick={() => setMostrarRodantes(true)}
           className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
         >
-          Gestionar rodantes
+          Gestionar ubicaciones
         </button>
       </div>
       <p className="mt-1 text-sm text-gray-500">
-        Cuánto de cada insumo hay cargado en cada rodante. Las filas en rojo no tienen nada en ningún rodante.
+        Cuánto de cada insumo hay en el depósito/mueble central y en cada rodante. Las filas en rojo no tienen nada
+        en ningún lado.
       </p>
 
       {error && (
