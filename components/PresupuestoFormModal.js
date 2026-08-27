@@ -36,6 +36,7 @@ export default function PresupuestoFormModal({
   const [modalidadPago, setModalidadPago] = useState(presupuesto?.modalidadPago || "");
   const [cantidadCuotas, setCantidadCuotas] = useState(presupuesto?.cantidadCuotas || 2);
   const [anticipo, setAnticipo] = useState(presupuesto?.anticipo ?? "");
+  const [anticipoEditadoManualmente, setAnticipoEditadoManualmente] = useState(Boolean(presupuesto));
   const [observaciones, setObservaciones] = useState(presupuesto?.observaciones || "");
   const [prestacionesObraSocial, setPrestacionesObraSocial] = useState([]);
   const [guardando, setGuardando] = useState(false);
@@ -60,7 +61,7 @@ export default function PresupuestoFormModal({
     const sugerido = calcularAnticipoSugerido(total, modalidadPago, config);
     if (modalidadPago === "Contado") {
       setAnticipo(total);
-    } else if (anticipo === "" || anticipo === null) {
+    } else if (!anticipoEditadoManualmente) {
       setAnticipo(sugerido);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -301,6 +302,7 @@ export default function PresupuestoFormModal({
                 onChange={(e) => {
                   setModalidadPago(e.target.value);
                   setAnticipo("");
+                  setAnticipoEditadoManualmente(false);
                 }}
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               >
@@ -331,7 +333,10 @@ export default function PresupuestoFormModal({
                   type="number"
                   value={anticipo}
                   disabled={modalidadPago === "Contado"}
-                  onChange={(e) => setAnticipo(e.target.value)}
+                  onChange={(e) => {
+                    setAnticipo(e.target.value);
+                    setAnticipoEditadoManualmente(true);
+                  }}
                   className="rounded-md border border-gray-300 px-2 py-1.5 disabled:bg-gray-50"
                 />
               </label>
