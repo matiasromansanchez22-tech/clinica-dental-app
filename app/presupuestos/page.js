@@ -176,6 +176,15 @@ export default function PresupuestosPage() {
                         Anular
                       </button>
                     )}
+                    {p.estado === "Anulado" && (
+                      <button
+                        disabled={procesando === p.id}
+                        onClick={() => handleCambiarEstado(p, "Pendiente")}
+                        className="text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
+                      >
+                        Reabrir
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
