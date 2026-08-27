@@ -151,13 +151,21 @@ export default function PresupuestosPage() {
                       🖨 Imprimir
                     </Link>
                     {p.estado === "Pendiente" && (
-                      <button
-                        disabled={procesando === p.id}
-                        onClick={() => handleCambiarEstado(p, "Aceptado")}
-                        className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
-                      >
-                        Aceptar
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setPresupuestoEnEdicion(p)}
+                          className="text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          Modificar
+                        </button>
+                        <button
+                          disabled={procesando === p.id}
+                          onClick={() => handleCambiarEstado(p, "Aceptado")}
+                          className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                        >
+                          Aceptar
+                        </button>
+                      </>
                     )}
                     {p.estado !== "Anulado" && (
                       <button

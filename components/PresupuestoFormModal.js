@@ -214,7 +214,9 @@ export default function PresupuestoFormModal({
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase text-gray-400">Prestaciones (hasta {MAX_PRESTACIONES})</p>
+              <p className="text-xs font-semibold uppercase text-gray-400">
+                Prestaciones (hasta {MAX_PRESTACIONES}) — el precio se sugiere solo, pero se puede corregir a mano
+              </p>
               {prestaciones.length < MAX_PRESTACIONES && (
                 <button type="button" onClick={agregarFila} className="text-xs text-blue-600 hover:underline">
                   + Agregar prestación
@@ -264,9 +266,14 @@ export default function PresupuestoFormModal({
                       <option value="Efectivo">Efectivo</option>
                     </select>
                   )}
-                  <span className="w-24 text-right text-sm text-gray-600">
-                    ${Number(fila.importe || 0).toLocaleString("es-AR")}
-                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={fila.importe || 0}
+                    onChange={(e) => actualizarFila(i, { importe: Number(e.target.value) })}
+                    title="Precio sugerido según catálogo/obra social — se puede corregir a mano"
+                    className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                  />
                   <button
                     type="button"
                     onClick={() => quitarFila(i)}
