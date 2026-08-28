@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   actualizarConfiguracionCopagoParticular,
   actualizarExcepcionCopago,
+  aplicarPorcentajeExcepcion,
   crearExcepcionCopago,
   eliminarExcepcionCopago,
   recalcularCopagosSobreParticular,
@@ -16,8 +17,10 @@ export default function ConfiguracionCopagoModal({ porcentajeParticular, excepci
   const [nuevoPorcentaje, setNuevoPorcentaje] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [recalculando, setRecalculando] = useState(false);
+  const [aplicandoId, setAplicandoId] = useState(null);
   const [resultado, setResultado] = useState(null);
   const [error, setError] = useState(null);
+  const inputsPorcentaje = useRef({});
 
   async function guardarPorcentaje() {
     setError(null);
@@ -70,6 +73,29 @@ export default function ConfiguracionCopagoModal({ porcentajeParticular, excepci
       onCambiado();
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function aplicarPorcentaje(fila) {
+    const porcentajeActual = Number(inputsPorcentaje.current[fila.id]?.value ?? fila.porcentaje);
+    if (
+      !window.confirm(
+        `¿Aplicar ${porcentajeActual}% sobre el valor de "${fila.obra_social}" a TODAS sus prestaciones del Nomenclador? Esto pisa el copago que tengan cargado ahora.`
+      )
+    )
+      return;
+    setAplicandoId(fila.id);
+    setError(null);
+    setResultado(null);
+    try {
+      await guardarExcepcion(fila.id, porcentajeActual);
+      const r = await aplicarPorcentajeExcepcion(fila.obra_social, porcentajeActual);
+      setResultado({ actualizadas: r.actualizadas, omitidas: 0 });
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAplicandoId(null);
     }
   }
 
@@ -144,11 +170,19 @@ export default function ConfiguracionCopagoModal({ porcentajeParticular, excepci
             <div key={fila.id} className="flex items-center gap-2 text-sm">
               <span className="w-32 truncate text-gray-800">{fila.obra_social}</span>
               <input
+                ref={(el) => (inputsPorcentaje.current[fila.id] = el)}
                 type="number"
                 defaultValue={fila.porcentaje}
                 onBlur={(e) => guardarExcepcion(fila.id, e.target.value)}
                 className="w-20 rounded-md border border-gray-300 px-2 py-1"
               />
+              <button
+                onClick={() => aplicarPorcentaje(fila)}
+                disabled={aplicandoId === fila.id}
+                className="text-xs text-brand-brown hover:underline disabled:opacity-50"
+              >
+                {aplicandoId === fila.id ? "Aplicando..." : "Aplicar %"}
+              </button>
               <span className="text-gray-500">%</span>
               <button onClick={() => borrarExcepcion(fila.id)} className="ml-auto text-xs text-red-600 hover:underline">
                 Quitar
