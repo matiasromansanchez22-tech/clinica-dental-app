@@ -493,6 +493,7 @@ function PagosAsorContenido() {
       {mostrarImportar && (
         <ImportarPdfAsorModal
           obrasSocialesExistentes={obrasSocialesExistentes}
+          facturacionExistente={facturacionPacientes}
           onClose={() => setMostrarImportar(false)}
           onGuardado={async () => {
             await recargar();

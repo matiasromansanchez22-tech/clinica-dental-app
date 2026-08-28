@@ -3,7 +3,16 @@
 import { useRef, useState } from "react";
 import { crearFacturacionAsorPacientesMasivo } from "@/lib/data/facturacionObrasSociales";
 
-export default function ImportarPdfAsorModal({ obrasSocialesExistentes, onClose, onGuardado }) {
+function esMismaLinea(a, b) {
+  return (
+    (a.nroPresupuesto || "").trim() === (b.nroPresupuesto || "").trim() &&
+    (a.paciente || "").trim().toUpperCase() === (b.paciente || "").trim().toUpperCase() &&
+    (a.codigoPrestacion || "") === (b.codigoPrestacion || "") &&
+    Math.abs((a.total || 0) - (b.total || 0)) < 1
+  );
+}
+
+export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturacionExistente, onClose, onGuardado }) {
   const [obraSocial, setObraSocial] = useState("");
   const [archivo, setArchivo] = useState(null);
   const [lineas, setLineas] = useState(null);
@@ -62,6 +71,17 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, onClose,
       )
     : [];
   const totalGeneral = lineas ? lineas.reduce((acc, l) => acc + l.pendiente, 0) : 0;
+
+  // Compara contra lo ya cargado para esa obra social — para avisar si este
+  // PDF (o parte de él) parece que ya se importó antes.
+  const existentesDeEstaObraSocial = (facturacionExistente || []).filter(
+    (f) => f.obraSocial.trim().toUpperCase() === obraSocial.trim().toUpperCase()
+  );
+  const lineasDuplicadas =
+    lineas && obraSocial.trim() && existentesDeEstaObraSocial.length > 0
+      ? lineas.filter((l) => existentesDeEstaObraSocial.some((e) => esMismaLinea(l, e)))
+      : [];
+  const pacientesDuplicados = [...new Set(lineasDuplicadas.map((l) => l.paciente))];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -125,6 +145,14 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, onClose,
               {pacientes.length} paciente{pacientes.length === 1 ? "" : "s"} — {lineas.length} líneas — Total
               pendiente: ${totalGeneral.toLocaleString("es-AR")}
             </div>
+
+            {lineasDuplicadas.length > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                ⚠️ {lineasDuplicadas.length} de {lineas.length} líneas ya están cargadas para "{obraSocial}" — parece
+                que este PDF (o parte) ya se importó antes. Pacientes repetidos: {pacientesDuplicados.join(", ")}.
+                Revisá antes de confirmar para no duplicar.
+              </div>
+            )}
 
             <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200">
               <table className="w-full border-collapse text-sm">
