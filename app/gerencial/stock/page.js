@@ -69,6 +69,7 @@ function StockContenido() {
   const [error, setError] = useState(null);
   const [mostrarRodantes, setMostrarRodantes] = useState(false);
   const [mostrarTraspaso, setMostrarTraspaso] = useState(false);
+  const [sectoresAbiertos, setSectoresAbiertos] = useState(() => new Set());
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoSector, setNuevoSector] = useState(SECTORES_STOCK[0]);
   const [guardandoInsumo, setGuardandoInsumo] = useState(false);
@@ -158,6 +159,15 @@ function StockContenido() {
     } finally {
       setGuardandoInsumo(false);
     }
+  }
+
+  function toggleSector(sector) {
+    setSectoresAbiertos((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(sector)) nuevo.delete(sector);
+      else nuevo.add(sector);
+      return nuevo;
+    });
   }
 
   async function borrarInsumo(insumo) {
@@ -262,62 +272,80 @@ function StockContenido() {
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>
       ) : (
         <>
-          {grupos.map((g) => (
-            <div key={g.sector} className="mt-6">
-              <h2 className="mb-2 font-heading text-sm font-semibold text-brand-brown">{g.sector}</h2>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-brand-brown text-white">
-                      <th className="px-3 py-2 text-left font-semibold">Insumo</th>
-                      {rodantes.map((r) => (
-                        <th key={r.id} className="px-3 py-2 text-right font-semibold">
-                          {r.nombre}
-                        </th>
-                      ))}
-                      <th className="px-3 py-2 text-right font-semibold">Total</th>
-                      <th className="px-3 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.items.map((insumo) => {
-                      const total = totalDe(insumo.id);
-                      return (
-                        <tr key={insumo.id} className={`border-t border-gray-100 ${total === 0 ? "bg-red-50" : ""}`}>
-                          <td className="px-3 py-2 font-medium text-gray-900">{insumo.nombre}</td>
-                          {rodantes.map((r) =>
-                            r.es_deposito ? (
-                              <td key={r.id} className="px-3 py-2 text-right">
-                                <CeldaCantidad
-                                  valor={cantidadDe(insumo.id, r.id)}
-                                  onGuardar={(v) => guardarCantidadDeposito(insumo.id, v)}
-                                />
-                              </td>
-                            ) : (
-                              <td key={r.id} className="px-3 py-2 text-right text-gray-600">
-                                {cantidadDe(insumo.id, r.id)}
-                              </td>
-                            )
-                          )}
-                          <td className={`px-3 py-2 text-right font-semibold ${total === 0 ? "text-red-700" : "text-gray-900"}`}>
-                            {total}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <button
-                              onClick={() => borrarInsumo(insumo)}
-                              className="text-xs text-red-600 hover:underline"
-                            >
-                              Borrar
-                            </button>
-                          </td>
+          {grupos.map((g) => {
+            const abierto = sectoresAbiertos.has(g.sector);
+            const sinStock = g.items.filter((i) => totalDe(i.id) === 0).length;
+            return (
+              <div key={g.sector} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => toggleSector(g.sector)}
+                  className="flex w-full items-center justify-between bg-brand-tan/20 px-4 py-3 text-left hover:bg-brand-tan/30"
+                >
+                  <span className="font-heading text-sm font-semibold text-brand-brown">
+                    {abierto ? "▾" : "▸"} {g.sector}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {g.items.length} insumo{g.items.length === 1 ? "" : "s"}
+                    {sinStock > 0 && <span className="ml-2 text-red-600">· {sinStock} sin stock</span>}
+                  </span>
+                </button>
+                {abierto && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-brand-brown text-white">
+                          <th className="px-3 py-2 text-left font-semibold">Insumo</th>
+                          {rodantes.map((r) => (
+                            <th key={r.id} className="px-3 py-2 text-right font-semibold">
+                              {r.nombre}
+                            </th>
+                          ))}
+                          <th className="px-3 py-2 text-right font-semibold">Total</th>
+                          <th className="px-3 py-2"></th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {g.items.map((insumo) => {
+                          const total = totalDe(insumo.id);
+                          return (
+                            <tr key={insumo.id} className={`border-t border-gray-100 ${total === 0 ? "bg-red-50" : ""}`}>
+                              <td className="px-3 py-2 font-medium text-gray-900">{insumo.nombre}</td>
+                              {rodantes.map((r) =>
+                                r.es_deposito ? (
+                                  <td key={r.id} className="px-3 py-2 text-right">
+                                    <CeldaCantidad
+                                      valor={cantidadDe(insumo.id, r.id)}
+                                      onGuardar={(v) => guardarCantidadDeposito(insumo.id, v)}
+                                    />
+                                  </td>
+                                ) : (
+                                  <td key={r.id} className="px-3 py-2 text-right text-gray-600">
+                                    {cantidadDe(insumo.id, r.id)}
+                                  </td>
+                                )
+                              )}
+                              <td className={`px-3 py-2 text-right font-semibold ${total === 0 ? "text-red-700" : "text-gray-900"}`}>
+                                {total}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <button
+                                  onClick={() => borrarInsumo(insumo)}
+                                  className="text-xs text-red-600 hover:underline"
+                                >
+                                  Borrar
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {insumos.length === 0 && (
             <p className="mt-6 text-sm text-gray-500">Todavía no cargaste ningún insumo para controlar.</p>
