@@ -7,8 +7,10 @@ import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   eliminarPagoAsor,
+  eliminarRemitoAsor,
   obtenerFichasVinculadasAPago,
   obtenerPagosAsor,
+  obtenerRemitosAsor,
 } from "@/lib/data/facturacionObrasSociales";
 
 function primerYUltimoDiaDelMes(fechaISO) {
@@ -29,12 +31,15 @@ function PagosAsorContenido() {
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [conciliando, setConciliando] = useState(null);
+  const [remitos, setRemitos] = useState([]);
+  const [obrasSocialesAbiertas, setObrasSocialesAbiertas] = useState(() => new Set());
 
   async function recargar() {
     setCargando(true);
     try {
-      const data = await obtenerPagosAsor(fechaInicio, fechaFin);
+      const [data, remitosData] = await Promise.all([obtenerPagosAsor(fechaInicio, fechaFin), obtenerRemitosAsor()]);
       setPagos(data);
+      setRemitos(remitosData);
       const detalle = {};
       await Promise.all(
         data.map(async (p) => {
@@ -47,6 +52,26 @@ function PagosAsorContenido() {
       setError(e.message);
     } finally {
       setCargando(false);
+    }
+  }
+
+  function toggleObraSocial(obraSocial) {
+    setObrasSocialesAbiertas((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(obraSocial)) nuevo.delete(obraSocial);
+      else nuevo.add(obraSocial);
+      return nuevo;
+    });
+  }
+
+  async function borrarRemito(remito) {
+    if (!window.confirm(`¿Borrar el remito ${remito.numeroRemito} de "${remito.obraSocial}" ($${remito.pendienteLiquidar.toLocaleString("es-AR")})?`))
+      return;
+    try {
+      await eliminarRemitoAsor(remito.id);
+      setRemitos((r) => r.filter((x) => x.id !== remito.id));
+    } catch (e) {
+      setError(e.message);
     }
   }
 
@@ -186,6 +211,88 @@ function PagosAsorContenido() {
           </tbody>
         </table>
       </div>
+
+      <h2 className="mt-8 mb-1 font-heading text-lg font-semibold text-brand-brown">Remitos pendientes de ASOR</h2>
+      <p className="mb-3 text-sm text-gray-500">
+        Lo que reporta ASOR por remito (no por paciente) — cuánto queda pendiente de liquidar, agrupado por obra
+        social.
+      </p>
+
+      {(() => {
+        const grupos = Object.values(
+          remitos.reduce((acc, r) => {
+            if (!acc[r.obraSocial]) acc[r.obraSocial] = { obraSocial: r.obraSocial, items: [] };
+            acc[r.obraSocial].items.push(r);
+            return acc;
+          }, {})
+        ).sort((a, b) => a.obraSocial.localeCompare(b.obraSocial));
+
+        if (remitos.length === 0) {
+          return <p className="text-sm text-gray-500">Todavía no cargaste ningún remito de ASOR.</p>;
+        }
+
+        return grupos.map((g) => {
+          const abierto = obrasSocialesAbiertas.has(g.obraSocial);
+          const totalPendiente = g.items.reduce((acc, r) => acc + r.pendienteLiquidar, 0);
+          return (
+            <div key={g.obraSocial} className="mt-3 overflow-hidden rounded-lg border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleObraSocial(g.obraSocial)}
+                className="flex w-full items-center justify-between bg-brand-tan/20 px-4 py-3 text-left hover:bg-brand-tan/30"
+              >
+                <span className="font-heading text-sm font-semibold text-brand-brown">
+                  {abierto ? "▾" : "▸"} {g.obraSocial}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {g.items.length} remito{g.items.length === 1 ? "" : "s"} — pendiente: $
+                  {totalPendiente.toLocaleString("es-AR")}
+                </span>
+              </button>
+              {abierto && (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-brand-brown text-white">
+                        <th className="px-3 py-2 text-left font-semibold">Plan</th>
+                        <th className="px-3 py-2 text-left font-semibold">Período</th>
+                        <th className="px-3 py-2 text-left font-semibold">Remito</th>
+                        <th className="px-3 py-2 text-right font-semibold">Presupuestado</th>
+                        <th className="px-3 py-2 text-right font-semibold">Descuentos</th>
+                        <th className="px-3 py-2 text-right font-semibold">Pendiente</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.items.map((r) => (
+                        <tr key={r.id} className="border-t border-gray-100">
+                          <td className="px-3 py-2 text-gray-600">{r.plan || "—"}</td>
+                          <td className="px-3 py-2 text-gray-600">{r.periodo}</td>
+                          <td className="px-3 py-2 text-gray-600">{r.numeroRemito}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">
+                            ${r.totalPresupuestado.toLocaleString("es-AR")}
+                          </td>
+                          <td className="px-3 py-2 text-right text-red-600">
+                            ${r.descuentos.toLocaleString("es-AR")}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                            ${r.pendienteLiquidar.toLocaleString("es-AR")}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button onClick={() => borrarRemito(r)} className="text-xs text-red-600 hover:underline">
+                              Borrar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        });
+      })()}
 
       {mostrarNuevo && (
         <NuevoPagoAsorModal
