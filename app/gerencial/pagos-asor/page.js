@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import ConciliarPagoAsorModal from "@/components/ConciliarPagoAsorModal";
 import NuevoPagoAsorModal from "@/components/NuevoPagoAsorModal";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
+  eliminarFacturacionAsorPaciente,
   eliminarPagoAsor,
   eliminarRemitoAsor,
+  obtenerFacturacionAsorPacientes,
   obtenerFichasVinculadasAPago,
   obtenerPagosAsor,
   obtenerRemitosAsor,
@@ -33,13 +35,21 @@ function PagosAsorContenido() {
   const [conciliando, setConciliando] = useState(null);
   const [remitos, setRemitos] = useState([]);
   const [obrasSocialesAbiertas, setObrasSocialesAbiertas] = useState(() => new Set());
+  const [facturacionPacientes, setFacturacionPacientes] = useState([]);
+  const [obrasSocialesPacAbiertas, setObrasSocialesPacAbiertas] = useState(() => new Set());
+  const [pacientesAbiertos, setPacientesAbiertos] = useState(() => new Set());
 
   async function recargar() {
     setCargando(true);
     try {
-      const [data, remitosData] = await Promise.all([obtenerPagosAsor(fechaInicio, fechaFin), obtenerRemitosAsor()]);
+      const [data, remitosData, facturacionPacientesData] = await Promise.all([
+        obtenerPagosAsor(fechaInicio, fechaFin),
+        obtenerRemitosAsor(),
+        obtenerFacturacionAsorPacientes(),
+      ]);
       setPagos(data);
       setRemitos(remitosData);
+      setFacturacionPacientes(facturacionPacientesData);
       const detalle = {};
       await Promise.all(
         data.map(async (p) => {
@@ -70,6 +80,34 @@ function PagosAsorContenido() {
     try {
       await eliminarRemitoAsor(remito.id);
       setRemitos((r) => r.filter((x) => x.id !== remito.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function toggleObraSocialPac(obraSocial) {
+    setObrasSocialesPacAbiertas((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(obraSocial)) nuevo.delete(obraSocial);
+      else nuevo.add(obraSocial);
+      return nuevo;
+    });
+  }
+
+  function togglePaciente(clave) {
+    setPacientesAbiertos((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(clave)) nuevo.delete(clave);
+      else nuevo.add(clave);
+      return nuevo;
+    });
+  }
+
+  async function borrarLineaFacturacion(linea) {
+    if (!window.confirm(`¿Borrar esta línea de "${linea.paciente}" ($${linea.pendienteLiquidar.toLocaleString("es-AR")})?`)) return;
+    try {
+      await eliminarFacturacionAsorPaciente(linea.id);
+      setFacturacionPacientes((f) => f.filter((x) => x.id !== linea.id));
     } catch (e) {
       setError(e.message);
     }
@@ -285,6 +323,127 @@ function PagosAsorContenido() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        });
+      })()}
+
+      <h2 className="mt-8 mb-1 font-heading text-lg font-semibold text-brand-brown">
+        Facturación detallada por paciente (ASOR)
+      </h2>
+      <p className="mb-3 text-sm text-gray-500">
+        El detalle línea por línea que manda ASOR, por paciente y prestación — separado de lo que se va facturando
+        solo día a día en el consultorio, para cruzarlo más adelante.
+      </p>
+
+      {(() => {
+        const grupos = Object.values(
+          facturacionPacientes.reduce((acc, f) => {
+            if (!acc[f.obraSocial]) acc[f.obraSocial] = { obraSocial: f.obraSocial, items: [] };
+            acc[f.obraSocial].items.push(f);
+            return acc;
+          }, {})
+        ).sort((a, b) => a.obraSocial.localeCompare(b.obraSocial));
+
+        if (facturacionPacientes.length === 0) {
+          return <p className="text-sm text-gray-500">Todavía no cargaste facturación detallada de ASOR.</p>;
+        }
+
+        return grupos.map((g) => {
+          const abierto = obrasSocialesPacAbiertas.has(g.obraSocial);
+          const totalPendiente = g.items.reduce((acc, f) => acc + f.pendienteLiquidar, 0);
+
+          const pacientes = Object.values(
+            g.items.reduce((acc, f) => {
+              const clave = `${g.obraSocial}-${f.nroPresupuesto}`;
+              if (!acc[clave]) acc[clave] = { clave, nroPresupuesto: f.nroPresupuesto, paciente: f.paciente, nroDoc: f.nroDoc, items: [] };
+              acc[clave].items.push(f);
+              return acc;
+            }, {})
+          ).sort((a, b) => a.paciente.localeCompare(b.paciente));
+
+          return (
+            <div key={g.obraSocial} className="mt-3 overflow-hidden rounded-lg border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleObraSocialPac(g.obraSocial)}
+                className="flex w-full items-center justify-between bg-brand-tan/20 px-4 py-3 text-left hover:bg-brand-tan/30"
+              >
+                <span className="font-heading text-sm font-semibold text-brand-brown">
+                  {abierto ? "▾" : "▸"} {g.obraSocial}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {pacientes.length} paciente{pacientes.length === 1 ? "" : "s"} — pendiente: $
+                  {totalPendiente.toLocaleString("es-AR")}
+                </span>
+              </button>
+              {abierto && (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-brand-brown text-white">
+                        <th className="px-2 py-2"></th>
+                        <th className="px-3 py-2 text-left font-semibold">Paciente</th>
+                        <th className="px-3 py-2 text-left font-semibold">DNI</th>
+                        <th className="px-3 py-2 text-left font-semibold">N° Presup. ASOR</th>
+                        <th className="px-3 py-2 text-right font-semibold">Pendiente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pacientes.map((p) => {
+                        const abiertoPaciente = pacientesAbiertos.has(p.clave);
+                        const subtotal = p.items.reduce((acc, f) => acc + f.pendienteLiquidar, 0);
+                        return (
+                          <Fragment key={p.clave}>
+                            <tr
+                              onClick={() => togglePaciente(p.clave)}
+                              className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
+                            >
+                              <td className="px-2 py-2 text-gray-400">{abiertoPaciente ? "▾" : "▸"}</td>
+                              <td className="px-3 py-2 font-medium text-gray-900">{p.paciente}</td>
+                              <td className="px-3 py-2 text-gray-600">{p.nroDoc || "—"}</td>
+                              <td className="px-3 py-2 text-gray-600">{p.nroPresupuesto}</td>
+                              <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                ${subtotal.toLocaleString("es-AR")}
+                              </td>
+                            </tr>
+                            {abiertoPaciente && (
+                              <tr className="bg-gray-50">
+                                <td></td>
+                                <td colSpan={4} className="px-3 py-2">
+                                  <ul className="flex flex-col gap-1 text-xs text-gray-600">
+                                    {p.items.map((f) => (
+                                      <li key={f.id} className="flex items-center justify-between">
+                                        <span>
+                                          {f.codigoPrestacion ? `[${f.codigoPrestacion}] ` : ""}
+                                          {f.concepto} — ${f.totalPrestacion.toLocaleString("es-AR")}
+                                        </span>
+                                        <span className="flex items-center gap-2">
+                                          <span
+                                            className={f.pendienteLiquidar < 0 ? "text-red-600" : "text-gray-700"}
+                                          >
+                                            ${f.pendienteLiquidar.toLocaleString("es-AR")}
+                                          </span>
+                                          <button
+                                            onClick={() => borrarLineaFacturacion(f)}
+                                            className="text-red-600 hover:underline"
+                                          >
+                                            Borrar
+                                          </button>
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
