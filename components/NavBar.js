@@ -49,6 +49,7 @@ const GRUPOS = [
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
       { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
+      { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },
       { href: "/gerencial/aumentos-ortodoncia", label: "Aumento de cuota (Ortodoncia)" },
       { href: "/gerencial/gastos", label: "Gastos" },
       { href: "/gerencial/pedidos", label: "Pedidos de Insumos" },
