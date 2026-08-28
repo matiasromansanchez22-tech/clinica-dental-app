@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import ConciliarPagoAsorModal from "@/components/ConciliarPagoAsorModal";
+import ImportarPdfAsorModal from "@/components/ImportarPdfAsorModal";
 import NuevoPagoAsorModal from "@/components/NuevoPagoAsorModal";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
@@ -38,6 +39,12 @@ function PagosAsorContenido() {
   const [facturacionPacientes, setFacturacionPacientes] = useState([]);
   const [obrasSocialesPacAbiertas, setObrasSocialesPacAbiertas] = useState(() => new Set());
   const [pacientesAbiertos, setPacientesAbiertos] = useState(() => new Set());
+  const [mostrarImportar, setMostrarImportar] = useState(false);
+
+  const obrasSocialesExistentes = useMemo(
+    () => [...new Set(facturacionPacientes.map((f) => f.obraSocial))].sort(),
+    [facturacionPacientes]
+  );
 
   async function recargar() {
     setCargando(true);
@@ -332,9 +339,17 @@ function PagosAsorContenido() {
         });
       })()}
 
-      <h2 className="mt-8 mb-1 font-heading text-lg font-semibold text-brand-brown">
-        Facturación detallada por paciente (ASOR)
-      </h2>
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="font-heading text-lg font-semibold text-brand-brown">
+          Facturación detallada por paciente (ASOR)
+        </h2>
+        <button
+          onClick={() => setMostrarImportar(true)}
+          className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+        >
+          📄 Importar PDF (beta)
+        </button>
+      </div>
       <p className="mb-3 text-sm text-gray-500">
         El detalle línea por línea que manda ASOR, por paciente y prestación — separado de lo que se va facturando
         solo día a día en el consultorio, para cruzarlo más adelante.
@@ -471,6 +486,17 @@ function PagosAsorContenido() {
           onGuardado={async () => {
             await recargar();
             setConciliando(null);
+          }}
+        />
+      )}
+
+      {mostrarImportar && (
+        <ImportarPdfAsorModal
+          obrasSocialesExistentes={obrasSocialesExistentes}
+          onClose={() => setMostrarImportar(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarImportar(false);
           }}
         />
       )}
