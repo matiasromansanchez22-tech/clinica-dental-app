@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
 import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
 import { obtenerConfiguracionOrtodoncia, obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
@@ -42,6 +42,15 @@ export default function PacientesOrtodonciaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
+  const resumenAumento = useMemo(() => {
+    const conteo = { "Al día": 0, "Próximo aumento": 0, Aumentar: 0, "Sin definir": 0 };
+    for (const p of pacientes) {
+      const { texto } = calcularEstadoAumento(p.proximoAumento);
+      conteo[texto] = (conteo[texto] || 0) + 1;
+    }
+    return conteo;
+  }, [pacientes]);
+
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
@@ -58,6 +67,23 @@ export default function PacientesOrtodonciaPage() {
           + Nuevo paciente
         </button>
       </div>
+
+      {!cargando && (
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          <span className="rounded-md bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">
+            🟢 Al día: {resumenAumento["Al día"]}
+          </span>
+          <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">
+            🟡 Próximo aumento: {resumenAumento["Próximo aumento"]}
+          </span>
+          <span className="rounded-md bg-red-50 px-3 py-1.5 font-medium text-red-700">
+            🔴 Aumentar (vencido): {resumenAumento["Aumentar"]}
+          </span>
+          <span className="rounded-md bg-gray-100 px-3 py-1.5 font-medium text-gray-500">
+            ⚪ Sin fecha de aumento: {resumenAumento["Sin definir"]}
+          </span>
+        </div>
+      )}
 
       <input
         value={busqueda}
