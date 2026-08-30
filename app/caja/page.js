@@ -32,7 +32,7 @@ export default function CajaPage() {
     const [c, g, pp] = await Promise.all([
       obtenerCobrosPorFecha(fecha),
       obtenerGastos(fecha, fecha),
-      obtenerPagosProfesionales(fecha, fecha),
+      obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
     ]);
     setCobros(c);
     setGastos(g);
@@ -44,7 +44,7 @@ export default function CajaPage() {
     Promise.all([
       obtenerCobrosPorFecha(fecha),
       obtenerGastos(fecha, fecha),
-      obtenerPagosProfesionales(fecha, fecha),
+      obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
       obtenerPacientesActivos(),
       obtenerProfesionales(),
       obtenerCategoriasGasto(),

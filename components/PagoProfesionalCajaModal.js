@@ -28,7 +28,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
     }
     setGuardando(true);
     try {
-      await crearPagoProfesional({ fecha, profesionalId, tipo, monto: Number(monto), medioPago, observaciones });
+      await crearPagoProfesional({ fecha, profesionalId, tipo, monto: Number(monto), medioPago, observaciones, origen: "Caja" });
       onGuardado();
     } catch (err) {
       setError(err.message);
