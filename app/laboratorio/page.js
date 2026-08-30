@@ -9,6 +9,7 @@ import {
   obtenerConfiguracionLaboratorio,
   obtenerTrabajosLaboratorio,
 } from "@/lib/data/laboratorio";
+import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
@@ -18,6 +19,7 @@ function PaginaLaboratorio() {
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
+  const [catalogo, setCatalogo] = useState([]);
   const [config, setConfig] = useState({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -50,13 +52,15 @@ function PaginaLaboratorio() {
       obtenerPacientesOrtodoncia(),
       obtenerProfesionales(),
       obtenerConfiguracionLaboratorio(),
-    ]).then(([t, pg, po, prof, conf]) => {
+      obtenerCatalogo(),
+    ]).then(([t, pg, po, prof, conf, cat]) => {
       if (t.status === "fulfilled") setTrabajos(t.value);
       if (pg.status === "fulfilled") setPacientesGeneral(pg.value);
       if (po.status === "fulfilled") setPacientesOrtodoncia(po.value);
       if (prof.status === "fulfilled") setProfesionales(prof.value);
       if (conf.status === "fulfilled") setConfig(conf.value);
-      const primerError = [t, pg, po, prof, conf].find((r) => r.status === "rejected");
+      if (cat.status === "fulfilled") setCatalogo(cat.value);
+      const primerError = [t, pg, po, prof, conf, cat].find((r) => r.status === "rejected");
       if (primerError) setError(primerError.reason.message);
       setCargando(false);
     });
@@ -177,6 +181,7 @@ function PaginaLaboratorio() {
           pacientesGeneral={pacientesGeneral}
           pacientesOrtodoncia={pacientesOrtodoncia}
           profesionales={profesionales}
+          catalogo={catalogo}
           config={config}
           onClose={() => {
             setMostrarNuevo(false);

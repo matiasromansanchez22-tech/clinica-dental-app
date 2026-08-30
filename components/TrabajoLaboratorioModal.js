@@ -11,9 +11,7 @@ import {
   obtenerEventosTrabajo,
 } from "@/lib/data/laboratorio";
 
-const TIPOS_TRABAJO_SUGERIDOS = ["Prótesis", "Corona", "Placa", "Férula", "Puente"];
-
-function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesionales, onClose, onGuardado }) {
+function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesionales, catalogo, onClose, onGuardado }) {
   const [tipoPaciente, setTipoPaciente] = useState("General");
   const [busquedaPaciente, setBusquedaPaciente] = useState("");
   const [pacienteElegido, setPacienteElegido] = useState(null);
@@ -142,8 +140,8 @@ function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesi
               className="rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             <datalist id="tipos-trabajo-sugeridos">
-              {TIPOS_TRABAJO_SUGERIDOS.map((t) => (
-                <option key={t} value={t} />
+              {catalogo.map((c) => (
+                <option key={c.id} value={c.prestacion} />
               ))}
             </datalist>
           </label>
@@ -402,6 +400,7 @@ export default function TrabajoLaboratorioModal({
   pacientesGeneral,
   pacientesOrtodoncia,
   profesionales,
+  catalogo,
   config,
   onClose,
   onGuardado,
@@ -417,6 +416,7 @@ export default function TrabajoLaboratorioModal({
       pacientesGeneral={pacientesGeneral}
       pacientesOrtodoncia={pacientesOrtodoncia}
       profesionales={profesionales}
+      catalogo={catalogo}
       onClose={onClose}
       onGuardado={onGuardado}
     />
