@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import {
   calcularTotalesDelDia,
@@ -19,10 +20,10 @@ const ETIQUETAS = [
 ];
 
 export default function CierrePage() {
+  const { perfil } = useAuth();
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [totales, setTotales] = useState(null);
   const [cierreExistente, setCierreExistente] = useState(null);
-  const [responsable, setResponsable] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [cierresRecientes, setCierresRecientes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -37,7 +38,6 @@ export default function CierrePage() {
       .then(([t, c, recientes]) => {
         setTotales(t);
         setCierreExistente(c);
-        setResponsable(c?.responsable || "");
         setObservaciones(c?.observaciones || "");
         setCierresRecientes(recientes);
       })
@@ -50,7 +50,7 @@ export default function CierrePage() {
     setError(null);
     setMensaje(null);
     try {
-      await guardarCierreDiario(fecha, totales, responsable, observaciones);
+      await guardarCierreDiario(fecha, totales, perfil?.nombre, observaciones);
       const [nuevoCierre, recientes] = await Promise.all([obtenerCierre(fecha), obtenerCierresRecientes()]);
       setCierreExistente(nuevoCierre);
       setCierresRecientes(recientes);
@@ -132,15 +132,12 @@ export default function CierrePage() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
+            <div className="flex flex-col gap-1 text-sm text-gray-700">
               Responsable
-              <input
-                value={responsable}
-                onChange={(e) => setResponsable(e.target.value)}
-                placeholder="Nombre de quien cierra la caja"
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              />
-            </label>
+              <p className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-gray-600">
+                {perfil?.nombre || "—"} <span className="text-xs text-gray-400">(según tu usuario)</span>
+              </p>
+            </div>
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Observaciones
               <input
