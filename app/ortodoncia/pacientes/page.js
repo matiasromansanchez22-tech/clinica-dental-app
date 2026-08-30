@@ -45,7 +45,12 @@ export default function PacientesOrtodonciaPage() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Pacientes de Ortodoncia</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Pacientes de Ortodoncia</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {cargando ? "Cargando..." : `${pacientes.length} paciente${pacientes.length === 1 ? "" : "s"}${busqueda ? " (filtrado)" : ""}`}
+          </p>
+        </div>
         <button
           onClick={() => setMostrarNuevo(true)}
           className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
