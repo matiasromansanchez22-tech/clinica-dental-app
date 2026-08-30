@@ -56,6 +56,7 @@ const GRUPOS = [
       { href: "/gerencial/stock", label: "Stock de Insumos" },
       { href: "/gerencial/balance-mensual", label: "Balance Mensual" },
       { href: "/gerencial/balance-anual", label: "Balance Anual" },
+      { href: "/gerencial/papelera", label: "🗑️ Papelera de reciclaje" },
     ],
   },
 ];
