@@ -51,6 +51,12 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
           Se descuenta del total disponible de la caja del día {fecha}.
         </p>
 
+        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          ⚠️ Usar solo si le pagás <strong>hoy mismo</strong>, con la plata que entró hoy. Si el pago es para más
+          adelante (por ejemplo, cuando el paciente vuelva a atenderse), no lo cargues acá — registralo desde{" "}
+          <strong>Gerencial → Producción y liquidación</strong>.
+        </div>
+
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
