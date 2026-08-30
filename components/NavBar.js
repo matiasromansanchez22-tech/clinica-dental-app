@@ -45,12 +45,12 @@ const GRUPOS = [
     ocultarRoles: ["Secretaria"],
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
+  { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Estadísticas", soloDuena: true },
   {
     tipo: "grupo",
     label: "Gerencial",
     soloDuena: true,
     items: [
-      { href: "/gerencial/estadisticas", label: "📊 Panel de Estadísticas" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
