@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
-import { obtenerPacientes } from "@/lib/data/pacientes";
+import { actualizarBanderasPaciente, obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
 export default function PacientesPage() {
@@ -14,6 +14,8 @@ export default function PacientesPage() {
   const [error, setError] = useState(null);
   const [pacienteEnEdicion, setPacienteEnEdicion] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [soloIncompletos, setSoloIncompletos] = useState(false);
+  const [actualizando, setActualizando] = useState(null);
 
   async function recargar() {
     const data = await obtenerPacientes({ busqueda });
@@ -50,6 +52,28 @@ export default function PacientesPage() {
     return { total, conHistorial, conConsentimiento, incompletos: total - completos };
   }, [pacientes]);
 
+  const pacientesMostrados = soloIncompletos
+    ? pacientes.filter((p) => !p.historiaClinicaCompleta || !p.consentimientosFirmados)
+    : pacientes;
+
+  async function alternarBandera(paciente, campo, e) {
+    e.stopPropagation();
+    setActualizando(paciente.id);
+    setError(null);
+    try {
+      const nuevoValor = !paciente[campo];
+      await actualizarBanderasPaciente(paciente.id, {
+        historiaClinicaCompleta: campo === "historiaClinicaCompleta" ? nuevoValor : paciente.historiaClinicaCompleta,
+        consentimientosFirmados: campo === "consentimientosFirmados" ? nuevoValor : paciente.consentimientosFirmados,
+      });
+      setPacientes((ps) => ps.map((p) => (p.id === paciente.id ? { ...p, [campo]: nuevoValor } : p)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActualizando(null);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
@@ -81,12 +105,18 @@ export default function PacientesPage() {
         </div>
       )}
 
-      <input
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar por nombre, DNI o celular..."
-        className="mt-4 w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
-      />
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, DNI o celular..."
+          className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+        <label className="flex items-center gap-1.5 text-sm text-gray-700">
+          <input type="checkbox" checked={soloIncompletos} onChange={(e) => setSoloIncompletos(e.target.checked)} />
+          Mostrar solo incompletos
+        </label>
+      </div>
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -105,24 +135,26 @@ export default function PacientesPage() {
               <th className="px-3 py-2 text-left font-semibold">Cobertura</th>
               <th className="px-3 py-2 text-left font-semibold">Profesional habitual</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
+              <th className="px-2 py-2 text-center font-semibold">Historia clínica</th>
+              <th className="px-2 py-2 text-center font-semibold">Consentimiento</th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
-            {!cargando && pacientes.length === 0 && (
+            {!cargando && pacientesMostrados.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   No se encontraron pacientes.
                 </td>
               </tr>
             )}
-            {pacientes.map((p) => (
+            {pacientesMostrados.map((p) => (
               <tr
                 key={p.id}
                 onClick={() => setPacienteEnEdicion(p)}
@@ -144,6 +176,26 @@ export default function PacientesPage() {
                   >
                     {p.estado}
                   </span>
+                </td>
+                <td className="px-2 py-2 text-center">
+                  <button
+                    onClick={(e) => alternarBandera(p, "historiaClinicaCompleta", e)}
+                    disabled={actualizando === p.id}
+                    title="Marcar historia clínica completa"
+                    className="text-lg disabled:opacity-40"
+                  >
+                    {p.historiaClinicaCompleta ? "✅" : "⬜"}
+                  </button>
+                </td>
+                <td className="px-2 py-2 text-center">
+                  <button
+                    onClick={(e) => alternarBandera(p, "consentimientosFirmados", e)}
+                    disabled={actualizando === p.id}
+                    title="Marcar consentimiento firmado"
+                    className="text-lg disabled:opacity-40"
+                  >
+                    {p.consentimientosFirmados ? "✅" : "⬜"}
+                  </button>
                 </td>
               </tr>
             ))}
