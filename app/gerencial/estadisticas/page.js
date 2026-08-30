@@ -145,6 +145,20 @@ function PaginaEstadisticas() {
     );
   }
 
+  if (error || !actividadHoy || !resumenMes) {
+    return (
+      <main className="mx-auto max-w-6xl p-6">
+        <h1 className="text-2xl font-bold text-gray-900">Panel de Estadísticas</h1>
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error || "No se pudieron cargar los datos."}
+          {error?.includes("column") && (
+            <p className="mt-1">¿Ya corriste la migración 042 en Supabase? Hace falta para que existan las columnas nuevas.</p>
+          )}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Panel de Estadísticas</h1>
