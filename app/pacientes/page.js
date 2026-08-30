@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
 import { obtenerPacientes } from "@/lib/data/pacientes";
@@ -40,10 +40,25 @@ export default function PacientesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
+  const resumen = useMemo(() => {
+    const total = pacientes.length;
+    const conHistorial = pacientes.filter((p) => p.historiaClinicaCompleta).length;
+    const conConsentimiento = pacientes.filter((p) => p.consentimientosFirmados).length;
+    const completos = pacientes.filter(
+      (p) => p.dni && p.celular && p.fechaNacimiento && p.historiaClinicaCompleta && p.consentimientosFirmados
+    ).length;
+    return { total, conHistorial, conConsentimiento, incompletos: total - completos };
+  }, [pacientes]);
+
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Alta de Pacientes</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Alta de Pacientes</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {cargando ? "Cargando..." : `${resumen.total} paciente${resumen.total === 1 ? "" : "s"}${busqueda ? " (filtrado)" : ""}`}
+          </p>
+        </div>
         <button
           onClick={() => setMostrarNuevo(true)}
           className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
@@ -51,6 +66,20 @@ export default function PacientesPage() {
           + Nuevo paciente
         </button>
       </div>
+
+      {!cargando && (
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          <span className="rounded-md bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">
+            📋 Con historia clínica: {resumen.conHistorial}
+          </span>
+          <span className="rounded-md bg-sky-50 px-3 py-1.5 font-medium text-sky-700">
+            ✍️ Con consentimiento firmado: {resumen.conConsentimiento}
+          </span>
+          <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">
+            ⚠️ Les falta información para estar completos: {resumen.incompletos}
+          </span>
+        </div>
+      )}
 
       <input
         value={busqueda}
