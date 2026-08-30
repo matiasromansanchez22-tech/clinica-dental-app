@@ -6,6 +6,10 @@ import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
 import { obtenerConfiguracionOrtodoncia, obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
+function documentosDe(p) {
+  return [p.historialClinico, p.fotografias, p.rxInicial, p.rx6Meses, p.rx12Meses, p.consentimiento];
+}
+
 export default function PacientesOrtodonciaPage() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
@@ -15,6 +19,7 @@ export default function PacientesOrtodonciaPage() {
   const [error, setError] = useState(null);
   const [pacienteEnEdicion, setPacienteEnEdicion] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [soloDocIncompleta, setSoloDocIncompleta] = useState(false);
 
   async function recargar() {
     const data = await obtenerPacientesOrtodoncia({ busqueda });
@@ -51,6 +56,22 @@ export default function PacientesOrtodonciaPage() {
     return conteo;
   }, [pacientes]);
 
+  const resumenDocumentacion = useMemo(() => {
+    let completos = 0;
+    for (const p of pacientes) {
+      const documentos = documentosDe(p);
+      if (documentos.filter(Boolean).length === documentos.length) completos++;
+    }
+    return { completos, incompletos: pacientes.length - completos };
+  }, [pacientes]);
+
+  const pacientesMostrados = soloDocIncompleta
+    ? pacientes.filter((p) => {
+        const documentos = documentosDe(p);
+        return documentos.filter(Boolean).length < documentos.length;
+      })
+    : pacientes;
+
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
@@ -82,15 +103,31 @@ export default function PacientesOrtodonciaPage() {
           <span className="rounded-md bg-gray-100 px-3 py-1.5 font-medium text-gray-500">
             ⚪ Sin fecha de aumento: {resumenAumento["Sin definir"]}
           </span>
+          <span className="rounded-md bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">
+            📎 Documentación completa: {resumenDocumentacion.completos}
+          </span>
+          <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">
+            📎 Documentación incompleta: {resumenDocumentacion.incompletos}
+          </span>
         </div>
       )}
 
-      <input
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar por nombre o WhatsApp..."
-        className="mt-4 w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
-      />
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre o WhatsApp..."
+          className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+        <label className="flex items-center gap-1.5 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={soloDocIncompleta}
+            onChange={(e) => setSoloDocIncompleta(e.target.checked)}
+          />
+          Mostrar solo documentación incompleta
+        </label>
+      </div>
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
@@ -118,16 +155,16 @@ export default function PacientesOrtodonciaPage() {
                 </td>
               </tr>
             )}
-            {!cargando && pacientes.length === 0 && (
+            {!cargando && pacientesMostrados.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No se encontraron pacientes.
                 </td>
               </tr>
             )}
-            {pacientes.map((p) => {
+            {pacientesMostrados.map((p) => {
               const aumento = calcularEstadoAumento(p.proximoAumento);
-              const documentos = [p.historialClinico, p.fotografias, p.rxInicial, p.rx6Meses, p.rx12Meses, p.consentimiento];
+              const documentos = documentosDe(p);
               const completos = documentos.filter(Boolean).length;
               return (
                 <tr

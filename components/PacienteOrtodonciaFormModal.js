@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { calcularEdad } from "@/lib/ortodoncia";
-import { actualizarPacienteOrtodoncia, crearPacienteOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import {
+  actualizarPacienteOrtodoncia,
+  buscarPosiblesDuplicadosOrtodoncia,
+  crearPacienteOrtodoncia,
+} from "@/lib/data/pacientesOrtodoncia";
 import {
   crearEntradaHistorial,
   eliminarEntradaHistorial,
@@ -86,12 +90,28 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+  const [duplicados, setDuplicados] = useState([]);
 
   function set(campo, valor) {
     setForm((f) => ({ ...f, [campo]: valor }));
   }
 
   const edad = calcularEdad(form.fechaNacimiento);
+
+  useEffect(() => {
+    const nombre = form.nombre.trim();
+    if (nombre.length < 3) {
+      setDuplicados([]);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      buscarPosiblesDuplicadosOrtodoncia(nombre, paciente?.id)
+        .then(setDuplicados)
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.nombre, paciente?.id]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -128,6 +148,13 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+        )}
+
+        {duplicados.length > 0 && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            ⚠ Posible duplicado: ya existe {duplicados.map((d) => d.nombre).join(", ")} con un nombre parecido.
+            Revisá si es la misma persona antes de guardar (podés guardar igual si son distintas).
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
