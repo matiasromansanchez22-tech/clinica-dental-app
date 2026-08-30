@@ -41,6 +41,12 @@ const GRUPOS = [
   },
   {
     tipo: "grupo",
+    label: "Laboratorio",
+    ocultarRoles: ["Secretaria"],
+    items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
+  },
+  {
+    tipo: "grupo",
     label: "Gerencial",
     soloDuena: true,
     items: [
@@ -117,7 +123,7 @@ export default function NavBar() {
           <Image src="/icon.png" alt="" width={32} height={32} className="rounded-md" />
           <span className="font-heading text-lg font-semibold text-brand-brown">Clínica Dental</span>
         </Link>
-        {GRUPOS.filter((g) => !g.soloDuena || esDuena).map((g) => {
+        {GRUPOS.filter((g) => (!g.soloDuena || esDuena) && !(g.ocultarRoles || []).includes(perfil?.rol)).map((g) => {
           if (g.tipo === "link") {
             const activo = pathname === g.href;
             return (

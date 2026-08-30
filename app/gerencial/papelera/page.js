@@ -26,10 +26,13 @@ const ETIQUETAS_TABLA = {
   stock_movimientos: "Movimiento de stock",
   cierres_turno: "Cierre de turno",
   cierres_turno_ortodoncia: "Cierre de turno (Ortodoncia)",
+  laboratorio_trabajos: "Trabajo de laboratorio",
 };
 
 const CAMPOS_PREFERIDOS = [
   "nombre",
+  "paciente_nombre",
+  "tipo_trabajo",
   "nota",
   "concepto",
   "categoria",
