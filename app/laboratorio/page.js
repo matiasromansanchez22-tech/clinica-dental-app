@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloConAccesoLaboratorio from "@/components/SoloConAccesoLaboratorio";
 import TrabajoLaboratorioModal from "@/components/TrabajoLaboratorioModal";
-import { calcularEstadoDemora, obtenerConfiguracionLaboratorio, obtenerTrabajosLaboratorio } from "@/lib/data/laboratorio";
+import {
+  calcularEstadoDemora,
+  eliminarTrabajoLaboratorio,
+  obtenerConfiguracionLaboratorio,
+  obtenerTrabajosLaboratorio,
+} from "@/lib/data/laboratorio";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
@@ -22,6 +27,13 @@ function PaginaLaboratorio() {
 
   async function recargarTrabajos() {
     setTrabajos(await obtenerTrabajosLaboratorio());
+  }
+
+  async function borrarTrabajo(id, e) {
+    e.stopPropagation();
+    if (!window.confirm("¿Enviar este trabajo a la papelera de reciclaje?")) return;
+    await eliminarTrabajoLaboratorio(id);
+    await recargarTrabajos();
   }
 
   async function recargarSinCerrar() {
@@ -106,19 +118,20 @@ function PaginaLaboratorio() {
               <th className="px-3 py-2 text-left font-semibold">Laboratorio</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Demora</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && trabajosMostrados.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   No hay trabajos cargados.
                 </td>
               </tr>
@@ -141,6 +154,15 @@ function PaginaLaboratorio() {
                   <td className="px-3 py-2 text-gray-600">{t.estado}</td>
                   <td className={`px-3 py-2 font-medium ${demora.color}`}>
                     {demora.emoji} {demora.texto}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      onClick={(e) => borrarTrabajo(t.id, e)}
+                      className="text-xs text-red-600 hover:underline"
+                      title="Enviar a la papelera"
+                    >
+                      🗑️
+                    </button>
                   </td>
                 </tr>
               );
