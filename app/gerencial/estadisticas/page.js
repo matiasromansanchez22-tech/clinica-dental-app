@@ -103,7 +103,9 @@ function IndicadorInversion({ acumulado, umbral, onGuardarUmbral }) {
 
 function PaginaEstadisticas() {
   const hoy = fechaDeHoyISO();
+  const [fechaElegida, setFechaElegida] = useState(hoy);
   const [actividadHoy, setActividadHoy] = useState(null);
+  const [cargandoDia, setCargandoDia] = useState(false);
   const [resumenMes, setResumenMes] = useState(null);
   const [tendencia, setTendencia] = useState([]);
   const [acumulado, setAcumulado] = useState(null);
@@ -131,6 +133,16 @@ function PaginaEstadisticas() {
       .finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (fechaElegida === hoy) return;
+    setCargandoDia(true);
+    obtenerActividadDelDia(fechaElegida)
+      .then(setActividadHoy)
+      .catch((e) => setError(e.message))
+      .finally(() => setCargandoDia(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaElegida]);
 
   async function guardarUmbral(nuevoValor) {
     await actualizarConfiguracionGeneral("monto_umbral_invertir", nuevoValor);
@@ -170,8 +182,26 @@ function PaginaEstadisticas() {
         <IndicadorInversion acumulado={acumulado} umbral={umbral} onGuardarUmbral={guardarUmbral} />
       </div>
 
-      <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">Hoy ({hoy})</h2>
-      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase text-gray-500">
+          Actividad del día {fechaElegida === hoy ? "(hoy)" : ""}
+        </h2>
+        <div className="flex items-center gap-2 text-sm">
+          <input
+            type="date"
+            value={fechaElegida}
+            max={hoy}
+            onChange={(e) => setFechaElegida(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1"
+          />
+          {fechaElegida !== hoy && (
+            <button onClick={() => setFechaElegida(hoy)} className="text-xs text-brand-brown hover:underline">
+              Volver a hoy
+            </button>
+          )}
+        </div>
+      </div>
+      <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${cargandoDia ? "opacity-50" : ""}`}>
         <Tarjeta
           etiqueta="Pacientes nuevos"
           valor={actividadHoy.pacientesNuevosTotal}
@@ -184,7 +214,7 @@ function PaginaEstadisticas() {
           valor={actividadHoy.turnosAtendidosTotal}
           sub={`General ${actividadHoy.turnosAtendidosGeneral} · Orto ${actividadHoy.turnosAtendidosOrtodoncia}`}
         />
-        <Tarjeta etiqueta="Cobrado hoy" valor={formatoPesos(actividadHoy.cobradoHoy)} sub={`${actividadHoy.cantidadCobrosHoy} cobros`} />
+        <Tarjeta etiqueta="Cobrado ese día" valor={formatoPesos(actividadHoy.cobradoHoy)} sub={`${actividadHoy.cantidadCobrosHoy} cobros`} />
       </div>
 
       <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
