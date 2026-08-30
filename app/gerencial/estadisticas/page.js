@@ -103,10 +103,13 @@ function IndicadorInversion({ acumulado, umbral, onGuardarUmbral }) {
 
 function PaginaEstadisticas() {
   const hoy = fechaDeHoyISO();
+  const mesActual = hoy.slice(0, 7);
   const [fechaElegida, setFechaElegida] = useState(hoy);
   const [actividadHoy, setActividadHoy] = useState(null);
   const [cargandoDia, setCargandoDia] = useState(false);
+  const [mesElegido, setMesElegido] = useState(mesActual);
   const [resumenMes, setResumenMes] = useState(null);
+  const [cargandoMes, setCargandoMes] = useState(false);
   const [tendencia, setTendencia] = useState([]);
   const [acumulado, setAcumulado] = useState(null);
   const [umbral, setUmbral] = useState(0);
@@ -143,6 +146,17 @@ function PaginaEstadisticas() {
       .finally(() => setCargandoDia(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaElegida]);
+
+  useEffect(() => {
+    if (mesElegido === mesActual) return;
+    const [anio, mes] = mesElegido.split("-").map(Number);
+    setCargandoMes(true);
+    obtenerResumenMensual(anio, mes)
+      .then(setResumenMes)
+      .catch((e) => setError(e.message))
+      .finally(() => setCargandoMes(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesElegido]);
 
   async function guardarUmbral(nuevoValor) {
     await actualizarConfiguracionGeneral("monto_umbral_invertir", nuevoValor);
@@ -217,10 +231,26 @@ function PaginaEstadisticas() {
         <Tarjeta etiqueta="Cobrado ese día" valor={formatoPesos(actividadHoy.cobradoHoy)} sub={`${actividadHoy.cantidadCobrosHoy} cobros`} />
       </div>
 
-      <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
-        Este mes ({NOMBRES_MES[resumenMes.mes - 1]} {resumenMes.anio})
-      </h2>
-      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase text-gray-500">
+          {NOMBRES_MES[resumenMes.mes - 1]} {resumenMes.anio}
+        </h2>
+        <div className="flex items-center gap-2 text-sm">
+          <input
+            type="month"
+            value={mesElegido}
+            max={mesActual}
+            onChange={(e) => setMesElegido(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1"
+          />
+          {mesElegido !== mesActual && (
+            <button onClick={() => setMesElegido(mesActual)} className="text-xs text-brand-brown hover:underline">
+              Volver a este mes
+            </button>
+          )}
+        </div>
+      </div>
+      <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 ${cargandoMes ? "opacity-50" : ""}`}>
         <Tarjeta etiqueta="Pacientes nuevos" valor={resumenMes.pacientesNuevosTotal} />
         <Tarjeta etiqueta="Historiales marcados" valor={resumenMes.historialesMarcados} />
         <Tarjeta etiqueta="Consentimientos marcados" valor={resumenMes.consentimientosMarcados} />
