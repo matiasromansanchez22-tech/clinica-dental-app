@@ -126,12 +126,12 @@ export default function CajaPage() {
 
   return (
     <main className="mx-auto max-w-5xl p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900">Caja General</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setMostrarNuevoPagoProfesional(true)}
-            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+            className="rounded-md border border-brand-brown/40 px-2.5 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
           >
             💰 Pago a profesional
           </button>
