@@ -4,11 +4,11 @@ import { useState } from "react";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
-const TIPOS = ["Copago", "Obra Social"];
+const TIPOS = ["Copago/Particular", "Particular", "Copago"];
 
 export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose, onGuardado }) {
   const [profesionalId, setProfesionalId] = useState("");
-  const [tipo, setTipo] = useState("Copago");
+  const [tipo, setTipo] = useState("Copago/Particular");
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
