@@ -5,12 +5,13 @@ import CatalogoFilaModal from "@/components/CatalogoFilaModal";
 import NuevaPrestacionModal from "@/components/NuevaPrestacionModal";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 
-const ORDEN_SECTORES = ["Periodoncia", "Endodoncia", "Odontopediatría", "Odontología General"];
+const ORDEN_SECTORES = ["Periodoncia", "Endodoncia", "Odontopediatría", "Implantes", "Odontología General"];
 
-function sectorDe(especialidad) {
-  if (especialidad === "Periodoncia") return "Periodoncia";
-  if (especialidad === "Endodoncia") return "Endodoncia";
-  if (especialidad === "Odontopediatría") return "Odontopediatría";
+function sectorDe(prestacion) {
+  if (prestacion.categoria === "Implantes") return "Implantes";
+  if (prestacion.especialidad === "Periodoncia") return "Periodoncia";
+  if (prestacion.especialidad === "Endodoncia") return "Endodoncia";
+  if (prestacion.especialidad === "Odontopediatría") return "Odontopediatría";
   return "Odontología General";
 }
 
@@ -112,7 +113,7 @@ export default function CatalogoPage() {
 
   const porSector = {};
   for (const sector of ORDEN_SECTORES) porSector[sector] = [];
-  for (const p of prestaciones) porSector[sectorDe(p.especialidad)].push(p);
+  for (const p of prestaciones) porSector[sectorDe(p)].push(p);
 
   function estaAbierto(sector) {
     return buscando || !!sectoresAbiertos[sector];
