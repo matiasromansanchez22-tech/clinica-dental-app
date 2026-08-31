@@ -8,6 +8,7 @@ import {
   crearPacienteOrtodoncia,
 } from "@/lib/data/pacientesOrtodoncia";
 import {
+  actualizarEntradaHistorial,
   crearEntradaHistorial,
   eliminarEntradaHistorial,
   obtenerHistorialClinico,
@@ -527,6 +528,7 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
   const [error, setError] = useState(null);
   const [mostrarNueva, setMostrarNueva] = useState(false);
   const [nueva, setNueva] = useState({ fecha: "", profesionalId: "", nota: "" });
+  const [editando, setEditando] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
   async function cargar() {
@@ -553,8 +555,13 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
     setGuardando(true);
     setError(null);
     try {
-      await crearEntradaHistorial({ pacienteId, ...nueva });
+      if (editando) {
+        await actualizarEntradaHistorial(editando, nueva);
+      } else {
+        await crearEntradaHistorial({ pacienteId, ...nueva });
+      }
       setNueva({ fecha: "", profesionalId: "", nota: "" });
+      setEditando(null);
       setMostrarNueva(false);
       await cargar();
     } catch (e) {
@@ -562,6 +569,18 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
     } finally {
       setGuardando(false);
     }
+  }
+
+  function editar(entrada) {
+    setEditando(entrada.id);
+    setNueva({ fecha: entrada.fecha, profesionalId: entrada.profesionalId || "", nota: entrada.nota });
+    setMostrarNueva(true);
+  }
+
+  function cancelar() {
+    setEditando(null);
+    setNueva({ fecha: "", profesionalId: "", nota: "" });
+    setMostrarNueva(false);
   }
 
   async function borrar(id) {
@@ -581,7 +600,7 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
         <p className="text-xs font-semibold uppercase text-gray-400">Historial clínico</p>
         <button
           type="button"
-          onClick={() => setMostrarNueva((v) => !v)}
+          onClick={() => (mostrarNueva ? cancelar() : setMostrarNueva(true))}
           className="rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
         >
           + Nuevo historial clínico
@@ -592,6 +611,7 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
 
       {mostrarNueva && (
         <div className="mb-3 flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">{editando ? "Editando entrada" : "Nueva entrada"}</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
               Fecha
@@ -631,7 +651,7 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setMostrarNueva(false)}
+              onClick={cancelar}
               className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white"
             >
               Cancelar
@@ -642,7 +662,7 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
               disabled={guardando}
               className="rounded-md bg-brand-brown px-3 py-1 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
-              {guardando ? "Guardando..." : "Guardar"}
+              {guardando ? "Guardando..." : editando ? "Guardar cambios" : "Guardar"}
             </button>
           </div>
         </div>
@@ -661,9 +681,14 @@ function HistorialClinicoSeccion({ pacienteId, profesionales }) {
                   {e.fecha}
                   {e.profesional ? ` — ${e.profesional}` : ""}
                 </span>
-                <button type="button" onClick={() => borrar(e.id)} className="text-red-600 hover:underline">
-                  Borrar
-                </button>
+                <span className="flex gap-2">
+                  <button type="button" onClick={() => editar(e)} className="text-brand-brown hover:underline">
+                    Editar
+                  </button>
+                  <button type="button" onClick={() => borrar(e.id)} className="text-red-600 hover:underline">
+                    Borrar
+                  </button>
+                </span>
               </div>
               <p className="whitespace-pre-wrap text-gray-700">{e.nota}</p>
             </li>
