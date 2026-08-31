@@ -27,10 +27,12 @@ const ETIQUETAS_TABLA = {
   cierres_turno: "Cierre de turno",
   cierres_turno_ortodoncia: "Cierre de turno (Ortodoncia)",
   laboratorio_trabajos: "Trabajo de laboratorio",
+  mecanicos_precios: "Precio de mecánico",
 };
 
 const CAMPOS_PREFERIDOS = [
   "nombre",
+  "trabajo",
   "paciente_nombre",
   "tipo_trabajo",
   "nota",

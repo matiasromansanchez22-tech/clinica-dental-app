@@ -51,6 +51,7 @@ const GRUPOS = [
     label: "Gerencial",
     soloDuena: true,
     items: [
+      { href: "/gerencial/comparativa-mecanicos", label: "🔧 Comparativa de mecánicos" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
