@@ -215,9 +215,10 @@ export default function NuevoTurnoModal({
       setTipoPaciente("Particular");
       setObraSocial(pacienteExistente.obra_social || "");
     }
-    if (pacienteExistente.profesional_responsable_id) {
-      setProfesionalDeTurnoId(pacienteExistente.profesional_responsable_id);
-    }
+    // No autocompletar el profesional de turno con el "habitual" del
+    // paciente: son dos cosas distintas (a quién pertenece la ficha vs.
+    // quién lo atiende hoy), y forzarlo acá generaba falsos choques de
+    // horario cuando el habitual estaba ocupado pero hoy lo atendía otro.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteExistente?.id]);
 
@@ -270,6 +271,7 @@ export default function NuevoTurnoModal({
         pacienteId,
         celular,
         profesionalDeTurnoId,
+        profesionalResponsableId: pacienteExistente?.profesional_responsable_id || null,
         tipoAtencion,
         cobertura: tipoPaciente === "Obra Social" ? obraSocial || "Obra social" : "Particular",
         prestaciones: prestacionesTurno
