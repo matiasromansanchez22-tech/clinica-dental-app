@@ -12,6 +12,7 @@ export default function PrecioMecanicoModal({ precio, categoriaSugerida, categor
   const [observaciones, setObservaciones] = useState(precio?.observaciones || "");
   const [contacto, setContacto] = useState(precio?.contacto || "");
   const [actualizadoEn, setActualizadoEn] = useState(precio?.actualizadoEn || fechaDeHoyISO());
+  const [preferido, setPreferido] = useState(precio?.preferido || false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -24,7 +25,7 @@ export default function PrecioMecanicoModal({ precio, categoriaSugerida, categor
     }
     setGuardando(true);
     try {
-      const datos = { laboratorio, categoria, trabajo, precio: precioValor, observaciones, contacto, actualizadoEn };
+      const datos = { laboratorio, categoria, trabajo, precio: precioValor, observaciones, contacto, actualizadoEn, preferido };
       if (precio) {
         await actualizarPrecioMecanico(precio.id, datos);
       } else {
@@ -143,6 +144,11 @@ export default function PrecioMecanicoModal({ precio, categoriaSugerida, categor
               onChange={(e) => setActualizadoEn(e.target.value)}
               className="rounded-md border border-gray-300 px-2 py-1.5"
             />
+          </label>
+
+          <label className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-800">
+            <input type="checkbox" checked={preferido} onChange={(e) => setPreferido(e.target.checked)} />
+            ⭐ Este es el laboratorio elegido para este trabajo
           </label>
 
           <div className="mt-2 flex items-center justify-between gap-2">

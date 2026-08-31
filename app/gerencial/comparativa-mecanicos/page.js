@@ -82,10 +82,17 @@ function TablaCategoria({ categoria, filas, onEditar, onNuevo }) {
                             key={l}
                             onClick={() => onEditar(entrada)}
                             className={`cursor-pointer px-3 py-2 text-right hover:underline ${
-                              esMin ? "font-bold text-emerald-600" : esMax ? "text-red-600" : "text-gray-700"
+                              entrada.preferido
+                                ? "bg-amber-50 font-bold text-amber-800"
+                                : esMin
+                                  ? "font-bold text-emerald-600"
+                                  : esMax
+                                    ? "text-red-600"
+                                    : "text-gray-700"
                             }`}
                             title={entrada.observaciones || ""}
                           >
+                            {entrada.preferido && "⭐ "}
                             {entrada.precio !== null ? formatoPesos(entrada.precio) : entrada.observaciones || "Consultar"}
                           </td>
                         );
@@ -105,6 +112,45 @@ function TablaCategoria({ categoria, filas, onEditar, onNuevo }) {
       )}
     </div>
   );
+}
+
+function PlanDerivacion({ precios }) {
+  const preferidos = precios.filter((p) => p.preferido);
+  if (preferidos.length === 0) return null;
+
+  const porLaboratorio = agruparPorLaboratorio(preferidos);
+
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-800">⭐ Plan de derivación decidido</p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Object.entries(porLaboratorio).map(([laboratorio, trabajos]) => (
+          <div key={laboratorio} className="rounded-md bg-white p-3 shadow-sm">
+            <p className="mb-2 font-semibold text-brand-brown">{laboratorio}</p>
+            <ul className="flex flex-col gap-1 text-xs text-gray-600">
+              {trabajos.map((t) => (
+                <li key={t.id} className="flex justify-between gap-2">
+                  <span>{t.trabajo}</span>
+                  <span className="whitespace-nowrap font-medium text-gray-900">
+                    {t.precio !== null ? formatoPesos(t.precio) : t.observaciones || "Consultar"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function agruparPorLaboratorio(preferidos) {
+  const mapa = {};
+  for (const p of preferidos) {
+    if (!mapa[p.laboratorio]) mapa[p.laboratorio] = [];
+    mapa[p.laboratorio].push(p);
+  }
+  return mapa;
 }
 
 function PaginaComparativa() {
@@ -165,6 +211,8 @@ function PaginaComparativa() {
       </div>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
+
+      {!cargando && <PlanDerivacion precios={precios} />}
 
       {cargando && <p className="mt-4 text-sm text-gray-500">Cargando...</p>}
 
