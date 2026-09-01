@@ -13,7 +13,7 @@ const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercad
 const MAX_PRESTACIONES = 3;
 
 function filaVacia() {
-  return { itemId: "", prestacion: "", codigo: "", cantidad: 1, valor: 0, valorOS: 0 };
+  return { itemId: "", prestacion: "", codigo: "", cantidad: 1, valor: 0, valorOS: 0, sinHonorarios: false };
 }
 
 export default function CobroFormModal({ fecha, pacientes, profesionales, onClose, onCreado }) {
@@ -161,6 +161,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                 cantidad: p.cantidad,
                 valor: p.valor,
                 valorOS: p.valorOS,
+                sinHonorarios: p.sinHonorarios,
               })),
         importeTotal: usaPlan ? Number(pago) : importeTotal,
         pago: Number(pago),
@@ -260,37 +261,49 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
               </div>
               <div className="flex flex-col gap-2">
                 {prestaciones.map((fila, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <select
-                      value={fila.itemId}
-                      onChange={(e) => actualizarFila(i, { itemId: e.target.value })}
-                      className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                    >
-                      <option value="">(elegir prestación)</option>
-                      {prestacionesDisponibles.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {esObraSocial ? p.prestacion_os : p.prestacion}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min={1}
-                      value={fila.cantidad}
-                      onChange={(e) => actualizarFila(i, { cantidad: Number(e.target.value) })}
-                      className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={fila.valor}
-                      onChange={(e) => actualizarFila(i, { valor: Number(e.target.value) })}
-                      title="El sistema sugiere el valor de catálogo — se puede ajustar si hace falta"
-                      className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
-                    />
-                    <button type="button" onClick={() => quitarFila(i)} className="text-gray-400 hover:text-red-600">
-                      ✕
-                    </button>
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={fila.itemId}
+                        onChange={(e) => actualizarFila(i, { itemId: e.target.value })}
+                        className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      >
+                        <option value="">(elegir prestación)</option>
+                        {prestacionesDisponibles.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {esObraSocial ? p.prestacion_os : p.prestacion}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        value={fila.cantidad}
+                        onChange={(e) => actualizarFila(i, { cantidad: Number(e.target.value) })}
+                        className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={fila.valor}
+                        onChange={(e) => actualizarFila(i, { valor: Number(e.target.value) })}
+                        title="El sistema sugiere el valor de catálogo — se puede ajustar si hace falta"
+                        className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                      />
+                      <button type="button" onClick={() => quitarFila(i)} className="text-gray-400 hover:text-red-600">
+                        ✕
+                      </button>
+                    </div>
+                    {fila.itemId && (
+                      <label className="flex items-center gap-1.5 pl-1 text-xs text-gray-500">
+                        <input
+                          type="checkbox"
+                          checked={fila.sinHonorarios}
+                          onChange={(e) => actualizarFila(i, { sinHonorarios: e.target.checked })}
+                        />
+                        Sin honorarios (no le genera % a nadie — ej. estampilla, consulta administrativa)
+                      </label>
+                    )}
                   </div>
                 ))}
               </div>
