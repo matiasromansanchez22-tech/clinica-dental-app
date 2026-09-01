@@ -13,6 +13,7 @@ import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
+import { obtenerPreciosMecanicos } from "@/lib/data/mecanicosPrecios";
 
 function PaginaLaboratorio() {
   const [trabajos, setTrabajos] = useState([]);
@@ -20,6 +21,7 @@ function PaginaLaboratorio() {
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
+  const [preciosMecanicos, setPreciosMecanicos] = useState([]);
   const [config, setConfig] = useState({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -53,14 +55,16 @@ function PaginaLaboratorio() {
       obtenerProfesionales(),
       obtenerConfiguracionLaboratorio(),
       obtenerCatalogo(),
-    ]).then(([t, pg, po, prof, conf, cat]) => {
+      obtenerPreciosMecanicos(),
+    ]).then(([t, pg, po, prof, conf, cat, precios]) => {
       if (t.status === "fulfilled") setTrabajos(t.value);
       if (pg.status === "fulfilled") setPacientesGeneral(pg.value);
       if (po.status === "fulfilled") setPacientesOrtodoncia(po.value);
       if (prof.status === "fulfilled") setProfesionales(prof.value);
       if (conf.status === "fulfilled") setConfig(conf.value);
       if (cat.status === "fulfilled") setCatalogo(cat.value);
-      const primerError = [t, pg, po, prof, conf, cat].find((r) => r.status === "rejected");
+      if (precios.status === "fulfilled") setPreciosMecanicos(precios.value);
+      const primerError = [t, pg, po, prof, conf, cat, precios].find((r) => r.status === "rejected");
       if (primerError) setError(primerError.reason.message);
       setCargando(false);
     });
@@ -162,6 +166,7 @@ function PaginaLaboratorio() {
               <th className="px-3 py-2 text-left font-semibold">Trabajo</th>
               <th className="px-3 py-2 text-left font-semibold">Profesional</th>
               <th className="px-3 py-2 text-left font-semibold">Laboratorio</th>
+              <th className="px-3 py-2 text-right font-semibold">Valor</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Demora</th>
               <th className="px-3 py-2"></th>
@@ -170,14 +175,14 @@ function PaginaLaboratorio() {
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && trabajosMostrados.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No hay trabajos cargados.
                 </td>
               </tr>
@@ -197,6 +202,9 @@ function PaginaLaboratorio() {
                   </td>
                   <td className="px-3 py-2 text-gray-600">{t.profesional}</td>
                   <td className="px-3 py-2 text-gray-600">{t.laboratorio || "—"}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">
+                    {t.valor ? `$${Number(t.valor).toLocaleString("es-AR")}` : "—"}
+                  </td>
                   <td className="px-3 py-2 text-gray-600">{t.estado}</td>
                   <td className={`px-3 py-2 font-medium ${demora.color}`}>
                     {demora.emoji} {demora.texto}
@@ -224,6 +232,7 @@ function PaginaLaboratorio() {
           pacientesOrtodoncia={pacientesOrtodoncia}
           profesionales={profesionales}
           catalogo={catalogo}
+          preciosMecanicos={preciosMecanicos}
           config={config}
           onClose={() => {
             setMostrarNuevo(false);

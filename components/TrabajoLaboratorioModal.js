@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   TIPOS_EVENTO,
+  actualizarValorTrabajo,
   agregarEventoTrabajo,
   calcularEstadoDemora,
   crearTrabajoLaboratorio,
@@ -11,7 +12,15 @@ import {
   obtenerEventosTrabajo,
 } from "@/lib/data/laboratorio";
 
-function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesionales, catalogo, onClose, onGuardado }) {
+function NuevoTrabajoFormulario({
+  pacientesGeneral,
+  pacientesOrtodoncia,
+  profesionales,
+  catalogo,
+  preciosMecanicos,
+  onClose,
+  onGuardado,
+}) {
   const [tipoPaciente, setTipoPaciente] = useState("General");
   const [busquedaPaciente, setBusquedaPaciente] = useState("");
   const [pacienteElegido, setPacienteElegido] = useState(null);
@@ -20,9 +29,26 @@ function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesi
   const [laboratorio, setLaboratorio] = useState("");
   const [profesionalId, setProfesionalId] = useState("");
   const [fechaInicio, setFechaInicio] = useState(fechaDeHoyISO());
+  const [valor, setValor] = useState("");
+  const [valorTocado, setValorTocado] = useState(false);
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  const laboratoriosSugeridos = [...new Set(preciosMecanicos.map((p) => p.laboratorio))].sort();
+
+  // Sugiere el valor de catálogo de ese mecánico para ese tipo de trabajo,
+  // pero sin pisar si ya lo tocaron a mano.
+  useEffect(() => {
+    if (valorTocado || !laboratorio.trim() || !tipoTrabajo.trim()) return;
+    const match = preciosMecanicos.find(
+      (p) =>
+        p.laboratorio.toLowerCase() === laboratorio.trim().toLowerCase() &&
+        p.trabajo.toLowerCase() === tipoTrabajo.trim().toLowerCase()
+    );
+    if (match && match.precio !== null) setValor(String(match.precio));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laboratorio, tipoTrabajo, preciosMecanicos]);
 
   const listaPacientes = tipoPaciente === "General" ? pacientesGeneral : pacientesOrtodoncia;
   const nombreDe = (p) => (tipoPaciente === "General" ? p.apellidoYNombre : p.nombre);
@@ -48,6 +74,7 @@ function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesi
         laboratorio: laboratorio.trim(),
         profesionalId: profesionalId || null,
         fechaInicio,
+        valor,
         observaciones: observaciones.trim(),
       });
       onGuardado();
@@ -158,12 +185,33 @@ function NuevoTrabajoFormulario({ pacientesGeneral, pacientesOrtodoncia, profesi
             <label className="flex flex-col gap-1 text-xs text-gray-700">
               Laboratorio / Mecánico (opcional)
               <input
+                list="laboratorios-sugeridos"
                 value={laboratorio}
                 onChange={(e) => setLaboratorio(e.target.value)}
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
+              <datalist id="laboratorios-sugeridos">
+                {laboratoriosSugeridos.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
             </label>
           </div>
+
+          <label className="flex flex-col gap-1 text-xs text-gray-700">
+            Valor a pagarle al mecánico (opcional)
+            <input
+              type="number"
+              min={0}
+              value={valor}
+              onChange={(e) => {
+                setValor(e.target.value);
+                setValorTocado(true);
+              }}
+              placeholder="El sistema sugiere el valor de la comparativa de mecánicos, si lo tiene cargado"
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
@@ -227,6 +275,21 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
   const [nuevo, setNuevo] = useState({ fecha: fechaDeHoyISO(), tipoEvento: "Recibido del mecánico", observaciones: "" });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+  const [valor, setValor] = useState(trabajo.valor ?? "");
+  const [guardandoValor, setGuardandoValor] = useState(false);
+
+  async function guardarValor() {
+    setGuardandoValor(true);
+    setError(null);
+    try {
+      await actualizarValorTrabajo(trabajo.id, valor);
+      await onEventoGuardado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoValor(false);
+    }
+  }
 
   async function cargar() {
     setCargando(true);
@@ -294,9 +357,30 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
           </button>
         </div>
 
-        <p className={`mb-4 text-sm font-medium ${demora.color}`}>
+        <p className={`mb-3 text-sm font-medium ${demora.color}`}>
           {demora.emoji} {trabajo.estado} — {demora.texto}
         </p>
+
+        <label className="mb-4 flex flex-col gap-1 text-xs text-gray-700">
+          Valor a pagarle al mecánico
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className="w-32 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            />
+            <button
+              type="button"
+              onClick={guardarValor}
+              disabled={guardandoValor || Number(valor || 0) === Number(trabajo.valor || 0)}
+              className="rounded-md border border-brand-brown/40 px-3 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-40"
+            >
+              {guardandoValor ? "Guardando..." : "Guardar valor"}
+            </button>
+          </div>
+        </label>
 
         {error && <p className="mb-2 text-sm text-red-700">{error}</p>}
 
@@ -401,6 +485,7 @@ export default function TrabajoLaboratorioModal({
   pacientesOrtodoncia,
   profesionales,
   catalogo,
+  preciosMecanicos,
   config,
   onClose,
   onGuardado,
@@ -417,6 +502,7 @@ export default function TrabajoLaboratorioModal({
       pacientesOrtodoncia={pacientesOrtodoncia}
       profesionales={profesionales}
       catalogo={catalogo}
+      preciosMecanicos={preciosMecanicos}
       onClose={onClose}
       onGuardado={onGuardado}
     />
