@@ -78,6 +78,29 @@ function PaginaLaboratorio() {
     return conteo;
   }, [trabajos, config]);
 
+  // Ficha de carga por laboratorio: cuántos trabajos activos tiene cada
+  // mecánico ahora mismo, y si alguno está demorado (para ver de un
+  // vistazo a qué laboratorio conviene dejar de mandarle trabajo).
+  const cargaPorLaboratorio = useMemo(() => {
+    const mapa = {};
+    for (const t of trabajos) {
+      if (t.estado === "Entregado") continue;
+      const nombre = t.laboratorio || "Sin asignar";
+      if (!mapa[nombre]) mapa[nombre] = { nombre, cantidad: 0, peorEmoji: "🟢" };
+      mapa[nombre].cantidad += 1;
+      const { emoji } = calcularEstadoDemora(t.fechaUltimoEvento, t.estado, config);
+      if (emoji === "🔴") mapa[nombre].peorEmoji = "🔴";
+      else if (emoji === "🟡" && mapa[nombre].peorEmoji !== "🔴") mapa[nombre].peorEmoji = "🟡";
+    }
+    return Object.values(mapa).sort((a, b) => b.cantidad - a.cantidad);
+  }, [trabajos, config]);
+
+  const BORDE_POR_EMOJI = {
+    "🔴": "border-red-300 bg-red-50",
+    "🟡": "border-amber-300 bg-amber-50",
+    "🟢": "border-emerald-200 bg-emerald-50",
+  };
+
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
@@ -100,6 +123,25 @@ function PaginaLaboratorio() {
           <span className="rounded-md bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">🟢 Al día: {resumen["🟢"]}</span>
           <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">🟡 Por seguir de cerca: {resumen["🟡"]}</span>
           <span className="rounded-md bg-red-50 px-3 py-1.5 font-medium text-red-700">🔴 Demorados: {resumen["🔴"]}</span>
+        </div>
+      )}
+
+      {!cargando && cargaPorLaboratorio.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase text-gray-400">Carga por laboratorio (trabajos activos)</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {cargaPorLaboratorio.map((l) => (
+              <div
+                key={l.nombre}
+                className={`rounded-md border px-3 py-1.5 text-sm ${BORDE_POR_EMOJI[l.peorEmoji]}`}
+              >
+                <span className="font-medium text-gray-900">{l.nombre}</span>
+                <span className="ml-1.5 text-gray-600">
+                  {l.peorEmoji} {l.cantidad} trabajo{l.cantidad === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
