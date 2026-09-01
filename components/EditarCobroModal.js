@@ -10,6 +10,7 @@ export default function EditarCobroModal({ cobro, onClose, onGuardado }) {
   const [pago, setPago] = useState(cobro.pago);
   const [medioPago, setMedioPago] = useState(cobro.medioPago);
   const [observaciones, setObservaciones] = useState(cobro.observaciones || "");
+  const [precioAnterior, setPrecioAnterior] = useState(Boolean(cobro.precioAnterior));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,6 +28,7 @@ export default function EditarCobroModal({ cobro, onClose, onGuardado }) {
         pago: Number(pago),
         medioPago,
         observaciones,
+        precioAnterior,
       });
       onGuardado();
     } catch (err) {
@@ -96,6 +98,22 @@ export default function EditarCobroModal({ cobro, onClose, onGuardado }) {
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <input
+              type="checkbox"
+              checked={precioAnterior}
+              onChange={(e) => setPrecioAnterior(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Se cobró con precio anterior (todavía no actualizado)
+              <span className="block text-xs text-amber-700">
+                Al profesional se le liquida por lo cobrado acá, no por el valor de catálogo — útil si no se marcó
+                al cargar el cobro.
+              </span>
+            </span>
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

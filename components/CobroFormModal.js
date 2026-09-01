@@ -26,6 +26,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [pago, setPago] = useState(0);
   const [numeroCuota, setNumeroCuota] = useState("");
+  const [precioAnterior, setPrecioAnterior] = useState(false);
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -166,6 +167,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         medioPago,
         idDocumento: usaPlan ? planActivo.numero_plan : null,
         tipoDocumento: usaPlan ? "Plan de financiación" : null,
+        precioAnterior,
         observaciones,
       });
       onCreado();
@@ -278,9 +280,14 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                       onChange={(e) => actualizarFila(i, { cantidad: Number(e.target.value) })}
                       className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                     />
-                    <span className="w-24 text-right text-sm text-gray-600">
-                      ${Number(fila.valor || 0).toLocaleString("es-AR")}
-                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={fila.valor}
+                      onChange={(e) => actualizarFila(i, { valor: Number(e.target.value) })}
+                      title="El sistema sugiere el valor de catálogo — se puede ajustar si hace falta"
+                      className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                    />
                     <button type="button" onClick={() => quitarFila(i)} className="text-gray-400 hover:text-red-600">
                       ✕
                     </button>
@@ -320,6 +327,24 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
             <p className="text-right text-sm font-semibold text-gray-900">
               Total prestaciones: ${importeTotal.toLocaleString("es-AR")}
             </p>
+          )}
+
+          {!usaPlan && (
+            <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                checked={precioAnterior}
+                onChange={(e) => setPrecioAnterior(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Se cobró con precio anterior (todavía no actualizado)
+                <span className="block text-xs text-amber-700">
+                  Ajustá arriba el valor real de cada prestación si hace falta. Marcar esto además asegura que la
+                  liquidación tome siempre lo efectivamente cobrado, como resguardo.
+                </span>
+              </span>
+            </label>
           )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

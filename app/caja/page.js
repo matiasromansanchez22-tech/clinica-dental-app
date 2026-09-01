@@ -278,7 +278,14 @@ export default function CajaPage() {
             )}
             {cobros.map((c) => (
               <tr key={c.id} className="border-t border-gray-100">
-                <td className="px-3 py-2 font-medium text-gray-900">{c.paciente}</td>
+                <td className="px-3 py-2 font-medium text-gray-900">
+                  {c.paciente}
+                  {c.precioAnterior && (
+                    <span className="ml-1.5 text-xs font-normal text-amber-600" title="Cobrado con precio anterior: se liquida por lo cobrado, no por catálogo">
+                      🕰️ precio anterior
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-gray-600">{c.cobertura}</td>
                 <td className="px-3 py-2 text-gray-600">
                   {c.modalidad === "Plan de financiación"
