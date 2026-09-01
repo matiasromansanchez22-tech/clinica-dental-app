@@ -40,7 +40,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
       setPrestacionesDisponibles([]);
       return;
     }
-    setProfesionalAtencionId(paciente.profesional_responsable_id || "");
+    setProfesionalAtencionId("");
     setCargandoPlan(true);
     obtenerPlanActivoPaciente(paciente.id)
       .then((plan) => {
@@ -126,6 +126,10 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
 
     if (!pacienteId) {
       setError("Falta elegir el paciente.");
+      return;
+    }
+    if (!profesionalAtencionId) {
+      setError("Falta elegir el profesional que atendió.");
       return;
     }
     if (!usaPlan && prestaciones.every((p) => !p.itemId)) {
@@ -216,13 +220,16 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                   onChange={(e) => setProfesionalAtencionId(e.target.value)}
                   className="rounded-md border border-gray-300 px-2 py-1.5"
                 >
-                  <option value="">(sin asignar)</option>
+                  <option value="">Elegí quién atendió...</option>
                   {profesionales.map((pr) => (
                     <option key={pr.id} value={pr.id}>
                       {pr.nombre}
                     </option>
                   ))}
                 </select>
+                <span className="text-xs text-gray-400">
+                  Profesional habitual: {paciente.profesional_responsable?.nombre || "—"}
+                </span>
               </label>
             </div>
           )}
