@@ -16,8 +16,9 @@ const CONCEPTOS = [
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const BRACKETS = ["Metálico", "Porcelana"];
 
-export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, onCreado }) {
+export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncistas, onClose, onCreado }) {
   const [pacienteId, setPacienteId] = useState("");
+  const [ortodoncistaAtencionId, setOrtodoncistaAtencionId] = useState("");
   const [concepto, setConcepto] = useState("Control");
   const [cantidadControlesAbonados, setCantidadControlesAbonados] = useState(1);
   const [bracketReposicion, setBracketReposicion] = useState("Metálico");
@@ -35,6 +36,10 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
   }, []);
 
   const paciente = useMemo(() => pacientes.find((p) => p.id === pacienteId), [pacienteId, pacientes]);
+
+  useEffect(() => {
+    setOrtodoncistaAtencionId("");
+  }, [pacienteId]);
 
   const precioPorBracket =
     bracketReposicion === "Porcelana" ? precios.precio_bracket_porcelana : precios.precio_bracket_metalico;
@@ -57,6 +62,10 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
       setError("Falta elegir el paciente.");
       return;
     }
+    if (!ortodoncistaAtencionId) {
+      setError("Falta elegir el ortodoncista que atendió.");
+      return;
+    }
     if (!importe || Number(importe) <= 0) {
       setError("El importe tiene que ser mayor a cero.");
       return;
@@ -67,7 +76,8 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
       await crearCobroOrtodoncia({
         fecha,
         pacienteId,
-        ortodoncistaId: paciente.ortodoncistaId,
+        ortodoncistaId: ortodoncistaAtencionId,
+        ortodoncistaResponsableId: paciente.ortodoncistaId || null,
         concepto,
         cantidadControlesAbonados: concepto === "Control" ? Number(cantidadControlesAbonados) : null,
         bracketReposicion:
@@ -126,6 +136,24 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, onClose, on
               Ortodoncista habitual: <span className="font-medium">{paciente.ortodoncista}</span>
               {" · "}Cuota control: {paciente.valorControl ? `$${Number(paciente.valorControl).toLocaleString("es-AR")}` : "—"}
             </div>
+          )}
+
+          {paciente && (
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Ortodoncista que atendió
+              <select
+                value={ortodoncistaAtencionId}
+                onChange={(e) => setOrtodoncistaAtencionId(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5"
+              >
+                <option value="">Elegí quién atendió...</option>
+                {ortodoncistas.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

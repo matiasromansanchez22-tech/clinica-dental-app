@@ -8,6 +8,7 @@ import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { eliminarCobroOrtodoncia, obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerCategoriasGasto } from "@/lib/data/gastos";
+import { obtenerProfesionales } from "@/lib/data/profesionales";
 
 export default function CajaOrtodonciaPage() {
   const { perfil } = useAuth();
@@ -15,6 +16,7 @@ export default function CajaOrtodonciaPage() {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [cobros, setCobros] = useState([]);
   const [pacientes, setPacientes] = useState([]);
+  const [ortodoncistas, setOrtodoncistas] = useState([]);
   const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -28,11 +30,17 @@ export default function CajaOrtodonciaPage() {
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerCobrosOrtodonciaPorFecha(fecha), obtenerPacientesOrtodoncia(), obtenerCategoriasGasto()])
-      .then(([c, p, cat]) => {
+    Promise.all([
+      obtenerCobrosOrtodonciaPorFecha(fecha),
+      obtenerPacientesOrtodoncia(),
+      obtenerCategoriasGasto(),
+      obtenerProfesionales(),
+    ])
+      .then(([c, p, cat, prof]) => {
         setCobros(c);
         setPacientes(p);
         setCategoriasGasto(cat);
+        setOrtodoncistas(prof.filter((pr) => pr.especialidad === "Ortodoncia"));
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -129,7 +137,8 @@ export default function CajaOrtodonciaPage() {
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Concepto</th>
-              <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
+              <th className="px-3 py-2 text-left font-semibold">Ortodoncista responsable</th>
+              <th className="px-3 py-2 text-left font-semibold">Atendió</th>
               <th className="px-3 py-2 text-right font-semibold">Importe</th>
               <th className="px-3 py-2 text-left font-semibold">Medio</th>
               <th className="px-3 py-2"></th>
@@ -138,14 +147,14 @@ export default function CajaOrtodonciaPage() {
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && cobros.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                   No hay cobros registrados este día.
                 </td>
               </tr>
@@ -159,6 +168,7 @@ export default function CajaOrtodonciaPage() {
                   {c.bracketReposicion &&
                     ` (${c.concepto === "Control" ? "+ " : ""}${c.bracketReposicion}${c.cantidadBrackets ? ` x${c.cantidadBrackets}` : ""}${c.concepto === "Control" ? " despegado" : ""})`}
                 </td>
+                <td className="px-3 py-2 text-gray-500">{c.ortodoncistaResponsable || "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{c.ortodoncista}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.importe).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
@@ -183,6 +193,7 @@ export default function CajaOrtodonciaPage() {
         <CobroOrtodonciaFormModal
           fecha={fecha}
           pacientes={pacientes}
+          ortodoncistas={ortodoncistas}
           onClose={() => setMostrarNuevo(false)}
           onCreado={async () => {
             await recargar();
