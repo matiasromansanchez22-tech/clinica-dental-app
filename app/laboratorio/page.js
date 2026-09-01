@@ -13,7 +13,7 @@ import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { obtenerPreciosMecanicos } from "@/lib/data/mecanicosPrecios";
+import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 
 function PaginaLaboratorio() {
   const [trabajos, setTrabajos] = useState([]);
@@ -21,7 +21,7 @@ function PaginaLaboratorio() {
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
-  const [preciosMecanicos, setPreciosMecanicos] = useState([]);
+  const [laboratoriosSugeridos, setLaboratoriosSugeridos] = useState([]);
   const [config, setConfig] = useState({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -55,16 +55,16 @@ function PaginaLaboratorio() {
       obtenerProfesionales(),
       obtenerConfiguracionLaboratorio(),
       obtenerCatalogo(),
-      obtenerPreciosMecanicos(),
-    ]).then(([t, pg, po, prof, conf, cat, precios]) => {
+      obtenerNombresLaboratoriosMecanicos(),
+    ]).then(([t, pg, po, prof, conf, cat, labs]) => {
       if (t.status === "fulfilled") setTrabajos(t.value);
       if (pg.status === "fulfilled") setPacientesGeneral(pg.value);
       if (po.status === "fulfilled") setPacientesOrtodoncia(po.value);
       if (prof.status === "fulfilled") setProfesionales(prof.value);
       if (conf.status === "fulfilled") setConfig(conf.value);
       if (cat.status === "fulfilled") setCatalogo(cat.value);
-      if (precios.status === "fulfilled") setPreciosMecanicos(precios.value);
-      const primerError = [t, pg, po, prof, conf, cat, precios].find((r) => r.status === "rejected");
+      if (labs.status === "fulfilled") setLaboratoriosSugeridos(labs.value);
+      const primerError = [t, pg, po, prof, conf, cat, labs].find((r) => r.status === "rejected");
       if (primerError) setError(primerError.reason.message);
       setCargando(false);
     });
@@ -232,7 +232,7 @@ function PaginaLaboratorio() {
           pacientesOrtodoncia={pacientesOrtodoncia}
           profesionales={profesionales}
           catalogo={catalogo}
-          preciosMecanicos={preciosMecanicos}
+          laboratoriosSugeridos={laboratoriosSugeridos}
           config={config}
           onClose={() => {
             setMostrarNuevo(false);

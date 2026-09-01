@@ -11,13 +11,14 @@ import {
   eliminarTrabajoLaboratorio,
   obtenerEventosTrabajo,
 } from "@/lib/data/laboratorio";
+import { obtenerPrecioMecanico } from "@/lib/data/mecanicosPrecios";
 
 function NuevoTrabajoFormulario({
   pacientesGeneral,
   pacientesOrtodoncia,
   profesionales,
   catalogo,
-  preciosMecanicos,
+  laboratoriosSugeridos,
   onClose,
   onGuardado,
 }) {
@@ -35,20 +36,23 @@ function NuevoTrabajoFormulario({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
-  const laboratoriosSugeridos = [...new Set(preciosMecanicos.map((p) => p.laboratorio))].sort();
-
-  // Sugiere el valor de catálogo de ese mecánico para ese tipo de trabajo,
-  // pero sin pisar si ya lo tocaron a mano.
+  // Sugiere el valor de la comparativa de mecánicos para ese laboratorio +
+  // tipo de trabajo (búsqueda puntual, no pisa si ya lo tocaron a mano).
   useEffect(() => {
     if (valorTocado || !laboratorio.trim() || !tipoTrabajo.trim()) return;
-    const match = preciosMecanicos.find(
-      (p) =>
-        p.laboratorio.toLowerCase() === laboratorio.trim().toLowerCase() &&
-        p.trabajo.toLowerCase() === tipoTrabajo.trim().toLowerCase()
-    );
-    if (match && match.precio !== null) setValor(String(match.precio));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laboratorio, tipoTrabajo, preciosMecanicos]);
+    let cancelado = false;
+    const timeoutId = setTimeout(() => {
+      obtenerPrecioMecanico(laboratorio, tipoTrabajo)
+        .then((precio) => {
+          if (!cancelado && precio !== null) setValor(String(precio));
+        })
+        .catch(() => {});
+    }, 400);
+    return () => {
+      cancelado = true;
+      clearTimeout(timeoutId);
+    };
+  }, [laboratorio, tipoTrabajo, valorTocado]);
 
   const listaPacientes = tipoPaciente === "General" ? pacientesGeneral : pacientesOrtodoncia;
   const nombreDe = (p) => (tipoPaciente === "General" ? p.apellidoYNombre : p.nombre);
@@ -485,7 +489,7 @@ export default function TrabajoLaboratorioModal({
   pacientesOrtodoncia,
   profesionales,
   catalogo,
-  preciosMecanicos,
+  laboratoriosSugeridos,
   config,
   onClose,
   onGuardado,
@@ -502,7 +506,7 @@ export default function TrabajoLaboratorioModal({
       pacientesOrtodoncia={pacientesOrtodoncia}
       profesionales={profesionales}
       catalogo={catalogo}
-      preciosMecanicos={preciosMecanicos}
+      laboratoriosSugeridos={laboratoriosSugeridos}
       onClose={onClose}
       onGuardado={onGuardado}
     />
