@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import CobroFormModal from "@/components/CobroFormModal";
+import EditarCobroModal from "@/components/EditarCobroModal";
 import GastoFormModal from "@/components/GastoFormModal";
 import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -27,6 +28,7 @@ export default function CajaPage() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [mostrarNuevoPago, setMostrarNuevoPago] = useState(false);
   const [mostrarNuevoPagoProfesional, setMostrarNuevoPagoProfesional] = useState(false);
+  const [cobroEnEdicion, setCobroEnEdicion] = useState(null);
 
   async function recargar() {
     const [c, g, pp] = await Promise.all([
@@ -291,9 +293,14 @@ export default function CajaPage() {
                       🔒 Cerrado
                     </span>
                   ) : (
-                    <button onClick={() => borrarCobro(c)} className="text-xs text-red-600 hover:underline">
-                      {c.cerrado ? "🔒 Borrar" : "Borrar"}
-                    </button>
+                    <>
+                      <button onClick={() => setCobroEnEdicion(c)} className="text-xs text-blue-600 hover:underline">
+                        {c.cerrado ? "🔒 Editar" : "Editar"}
+                      </button>
+                      <button onClick={() => borrarCobro(c)} className="ml-3 text-xs text-red-600 hover:underline">
+                        {c.cerrado ? "🔒 Borrar" : "Borrar"}
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -311,6 +318,17 @@ export default function CajaPage() {
           onCreado={async () => {
             await recargar();
             setMostrarNuevo(false);
+          }}
+        />
+      )}
+
+      {cobroEnEdicion && (
+        <EditarCobroModal
+          cobro={cobroEnEdicion}
+          onClose={() => setCobroEnEdicion(null)}
+          onGuardado={async () => {
+            await recargar();
+            setCobroEnEdicion(null);
           }}
         />
       )}
