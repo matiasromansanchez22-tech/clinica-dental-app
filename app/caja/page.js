@@ -254,7 +254,8 @@ export default function CajaPage() {
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Cobertura</th>
               <th className="px-3 py-2 text-left font-semibold">Concepto</th>
-              <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+              <th className="px-3 py-2 text-left font-semibold">Profesional responsable</th>
+              <th className="px-3 py-2 text-left font-semibold">Atendió</th>
               <th className="px-3 py-2 text-right font-semibold">Pago</th>
               <th className="px-3 py-2 text-left font-semibold">Medio</th>
               <th className="px-3 py-2"></th>
@@ -263,14 +264,14 @@ export default function CajaPage() {
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && cobros.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No hay cobros registrados este día.
                 </td>
               </tr>
@@ -284,6 +285,7 @@ export default function CajaPage() {
                     ? `Plan ${c.idDocumento} · ${c.numeroCuota === "Anticipo" ? "Anticipo" : `Cuota ${c.numeroCuota}`}`
                     : c.prestaciones.map((p) => p.prestacion).join(", ")}
                 </td>
+                <td className="px-3 py-2 text-gray-500">{c.profesionalResponsable || "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{c.profesionalAtencion}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.pago).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
