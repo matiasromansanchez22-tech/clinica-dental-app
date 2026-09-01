@@ -368,12 +368,13 @@ function ProduccionPorProfesionalContenido() {
               <th className="px-3 py-2 text-left font-semibold">Medio</th>
               <th className="px-3 py-2 text-left font-semibold">Observaciones</th>
               <th className="px-3 py-2"></th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {pagosDelPeriodo.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   Todavía no se registró ningún pago a profesionales en este período.
                 </td>
               </tr>
@@ -386,9 +387,12 @@ function ProduccionPorProfesionalContenido() {
                 <td className="px-3 py-2 text-right text-gray-600">${p.monto.toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{p.medioPago}</td>
                 <td className="px-3 py-2 text-gray-500">{p.observaciones || "—"}</td>
+                <td className="px-3 py-2 text-xs">
+                  {p.cerrado ? <span className="text-gray-400">🔒</span> : null}
+                </td>
                 <td className="px-3 py-2 text-right">
                   <button onClick={() => borrarPago(p)} className="text-xs text-red-600 hover:underline">
-                    Borrar
+                    {p.cerrado ? "🔒 Borrar" : "Borrar"}
                   </button>
                 </td>
               </tr>

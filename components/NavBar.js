@@ -54,6 +54,7 @@ const GRUPOS = [
       { href: "/gerencial/comparativa-mecanicos", label: "🔧 Comparativa de mecánicos" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
+      { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
       { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },

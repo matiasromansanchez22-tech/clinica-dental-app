@@ -28,6 +28,7 @@ const ETIQUETAS_TABLA = {
   cierres_turno_ortodoncia: "Cierre de turno (Ortodoncia)",
   laboratorio_trabajos: "Trabajo de laboratorio",
   mecanicos_precios: "Precio de mecánico",
+  cierres_mes_verificados: "Cierre de mes",
 };
 
 const CAMPOS_PREFERIDOS = [

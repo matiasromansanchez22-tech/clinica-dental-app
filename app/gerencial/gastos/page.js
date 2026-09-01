@@ -160,20 +160,21 @@ function GastosContenido() {
               <th className="px-3 py-2 text-left font-semibold">Especialidad</th>
               <th className="px-3 py-2 text-right font-semibold">Monto</th>
               <th className="px-3 py-2 text-left font-semibold">Medio</th>
+              <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && gastosFiltrados.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
                   No hay gastos registrados en este período.
                 </td>
               </tr>
@@ -186,12 +187,15 @@ function GastosContenido() {
                 <td className="px-3 py-2 text-gray-600">{g.especialidad || "General"}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${g.monto.toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{g.medioPago}</td>
+                <td className="px-3 py-2 text-xs">
+                  {g.cerrado ? <span className="text-gray-400">🔒 Cerrado</span> : <span className="text-amber-600">Abierto</span>}
+                </td>
                 <td className="px-3 py-2 text-right">
                   <button onClick={() => setGastoEnEdicion(g)} className="text-xs text-blue-600 hover:underline">
-                    Editar
+                    {g.cerrado ? "🔒 Editar" : "Editar"}
                   </button>
                   <button onClick={() => borrar(g)} className="ml-3 text-xs text-red-600 hover:underline">
-                    Borrar
+                    {g.cerrado ? "🔒 Borrar" : "Borrar"}
                   </button>
                 </td>
               </tr>
