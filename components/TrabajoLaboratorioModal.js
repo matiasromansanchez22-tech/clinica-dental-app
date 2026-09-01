@@ -234,7 +234,7 @@ function NuevoTrabajoFormulario({
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs text-gray-700">
-              Fecha de envío al mecánico
+              Fecha de carga
               <input
                 type="date"
                 value={fechaInicio}
@@ -243,6 +243,10 @@ function NuevoTrabajoFormulario({
               />
             </label>
           </div>
+
+          <p className="-mt-1 text-xs text-gray-400">
+            El trabajo queda "Pendiente de envío" — marcalo como enviado cuando realmente salga hacia el mecánico.
+          </p>
 
           <label className="flex flex-col gap-1 text-xs text-gray-700">
             Observaciones
@@ -281,6 +285,21 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
   const [error, setError] = useState(null);
   const [valor, setValor] = useState(trabajo.valor ?? "");
   const [guardandoValor, setGuardandoValor] = useState(false);
+  const [marcandoEnviado, setMarcandoEnviado] = useState(false);
+
+  async function marcarEnviadoAhora() {
+    setMarcandoEnviado(true);
+    setError(null);
+    try {
+      await agregarEventoTrabajo(trabajo.id, { fecha: fechaDeHoyISO(), tipoEvento: "Enviado al mecánico", observaciones: "" });
+      await cargar();
+      await onEventoGuardado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setMarcandoEnviado(false);
+    }
+  }
 
   async function guardarValor() {
     setGuardandoValor(true);
@@ -361,9 +380,20 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
           </button>
         </div>
 
-        <p className={`mb-3 text-sm font-medium ${demora.color}`}>
+        <p className={`mb-1 text-sm font-medium ${demora.color}`}>
           {demora.emoji} {trabajo.estado} — {demora.texto}
         </p>
+
+        {trabajo.estado === "Pendiente de envío" && (
+          <button
+            type="button"
+            onClick={marcarEnviadoAhora}
+            disabled={marcandoEnviado}
+            className="mb-3 w-fit rounded-md border border-sky-300 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+          >
+            {marcandoEnviado ? "Marcando..." : "📤 Marcar enviado al mecánico"}
+          </button>
+        )}
 
         <label className="mb-4 flex flex-col gap-1 text-xs text-gray-700">
           Valor a pagarle al mecánico

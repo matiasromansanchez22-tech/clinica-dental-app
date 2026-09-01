@@ -6,9 +6,11 @@ import TrabajoLaboratorioModal from "@/components/TrabajoLaboratorioModal";
 import {
   calcularEstadoDemora,
   eliminarTrabajoLaboratorio,
+  marcarTrabajoEnviado,
   obtenerConfiguracionLaboratorio,
   obtenerTrabajosLaboratorio,
 } from "@/lib/data/laboratorio";
+import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
@@ -37,6 +39,12 @@ function PaginaLaboratorio() {
     e.stopPropagation();
     if (!window.confirm("¿Enviar este trabajo a la papelera de reciclaje?")) return;
     await eliminarTrabajoLaboratorio(id);
+    await recargarTrabajos();
+  }
+
+  async function marcarEnviado(id, e) {
+    e.stopPropagation();
+    await marcarTrabajoEnviado(id, fechaDeHoyISO());
     await recargarTrabajos();
   }
 
@@ -82,6 +90,11 @@ function PaginaLaboratorio() {
     return conteo;
   }, [trabajos, config]);
 
+  const pendientesDeEnvio = useMemo(
+    () => trabajos.filter((t) => t.estado === "Pendiente de envío").length,
+    [trabajos]
+  );
+
   // Ficha de carga por laboratorio: cuántos trabajos activos tiene cada
   // mecánico ahora mismo, y si alguno está demorado (para ver de un
   // vistazo a qué laboratorio conviene dejar de mandarle trabajo).
@@ -124,6 +137,11 @@ function PaginaLaboratorio() {
 
       {!cargando && (
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          {pendientesDeEnvio > 0 && (
+            <span className="rounded-md bg-sky-50 px-3 py-1.5 font-medium text-sky-700">
+              📤 Pendientes de envío: {pendientesDeEnvio}
+            </span>
+          )}
           <span className="rounded-md bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">🟢 Al día: {resumen["🟢"]}</span>
           <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">🟡 Por seguir de cerca: {resumen["🟡"]}</span>
           <span className="rounded-md bg-red-50 px-3 py-1.5 font-medium text-red-700">🔴 Demorados: {resumen["🔴"]}</span>
@@ -210,13 +228,23 @@ function PaginaLaboratorio() {
                     {demora.emoji} {demora.texto}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={(e) => borrarTrabajo(t.id, e)}
-                      className="text-xs text-red-600 hover:underline"
-                      title="Enviar a la papelera"
-                    >
-                      🗑️
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      {t.estado === "Pendiente de envío" && (
+                        <button
+                          onClick={(e) => marcarEnviado(t.id, e)}
+                          className="rounded-md border border-sky-300 px-2 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50"
+                        >
+                          📤 Marcar enviado
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => borrarTrabajo(t.id, e)}
+                        className="text-xs text-red-600 hover:underline"
+                        title="Enviar a la papelera"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

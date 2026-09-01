@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { obtenerTrabajosLaboratorio } from "@/lib/data/laboratorio";
+import { obtenerFechasEnvioPorTrabajo, obtenerTrabajosLaboratorio } from "@/lib/data/laboratorio";
 
 function primerYUltimoDiaDelMes(fechaISO) {
   const [anio, mes] = fechaISO.split("-").map(Number);
@@ -25,8 +25,17 @@ function CuentasMecanicosContenido() {
 
   useEffect(() => {
     setCargando(true);
-    obtenerTrabajosLaboratorio()
-      .then(setTrabajos)
+    Promise.all([obtenerTrabajosLaboratorio(), obtenerFechasEnvioPorTrabajo()])
+      .then(([lista, fechasEnvio]) => {
+        // Solo entran acá los trabajos que ya se marcaron como enviados —
+        // mientras están "Pendiente de envío" no hay nada que cotejar
+        // todavía contra ninguna factura.
+        setTrabajos(
+          lista
+            .filter((t) => fechasEnvio[t.id])
+            .map((t) => ({ ...t, fechaEnvio: fechasEnvio[t.id] }))
+        );
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, []);
@@ -37,7 +46,7 @@ function CuentasMecanicosContenido() {
   }
 
   const trabajosDelPeriodo = useMemo(
-    () => trabajos.filter((t) => t.fechaInicio >= fechaInicio && t.fechaInicio <= fechaFin),
+    () => trabajos.filter((t) => t.fechaEnvio >= fechaInicio && t.fechaEnvio <= fechaFin),
     [trabajos, fechaInicio, fechaFin]
   );
 
@@ -162,10 +171,10 @@ function CuentasMecanicosContenido() {
                         </thead>
                         <tbody>
                           {l.trabajos
-                            .sort((a, b) => (a.fechaInicio < b.fechaInicio ? 1 : -1))
+                            .sort((a, b) => (a.fechaEnvio < b.fechaEnvio ? 1 : -1))
                             .map((t) => (
                               <tr key={t.id} className="border-t border-gray-200">
-                                <td className="px-2 py-1">{t.fechaInicio}</td>
+                                <td className="px-2 py-1">{t.fechaEnvio}</td>
                                 <td className="px-2 py-1">{t.pacienteNombre}</td>
                                 <td className="px-2 py-1">
                                   {t.tipoTrabajo}
