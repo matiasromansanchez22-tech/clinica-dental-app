@@ -83,6 +83,10 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         fila.codigo = item?.codigo || "";
         fila.valor = valor;
         fila.valorOS = valorOS;
+        // Prestaciones administrativas conocidas (no le corresponden % a
+        // ningún profesional) se marcan solas al elegirlas — se puede
+        // destildar a mano si hiciera falta.
+        fila.sinHonorarios = fila.prestacion === "Estampilla";
       }
       nuevas[indice] = fila;
       return nuevas;
