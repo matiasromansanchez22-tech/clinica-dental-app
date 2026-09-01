@@ -263,6 +263,23 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                 {prestaciones.map((fila, i) => (
                   <div key={i} className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
+                      {esObraSocial && (
+                        <input
+                          type="text"
+                          placeholder="Código"
+                          title="Escribí el código que te pasó el profesional y se elige sola la prestación"
+                          onChange={(e) => {
+                            const codigo = e.target.value.trim();
+                            if (!codigo) return;
+                            const item = prestacionesDisponibles.find((p) => p.codigo === codigo);
+                            if (item) {
+                              actualizarFila(i, { itemId: item.id });
+                              e.target.value = "";
+                            }
+                          }}
+                          className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                        />
+                      )}
                       <select
                         value={fila.itemId}
                         onChange={(e) => actualizarFila(i, { itemId: e.target.value })}
