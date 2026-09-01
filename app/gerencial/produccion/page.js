@@ -120,8 +120,10 @@ function ProduccionPorProfesionalContenido() {
       <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
       <p className="mt-1 text-sm text-gray-500">
         Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Lo que se liquida en el día
-        es el % sobre el copago/particular cobrado — la parte de obra social se liquida a mes vencido, recién cuando
-        la clínica cobra del intermediario, y se muestra aparte como pendiente.
+        es el % sobre el valor de catálogo de las prestaciones que cada uno cargó (no sobre lo que terminó pagando el
+        paciente) — las cuotas de plan de financiación se liquidan por lo cobrado en esa cuota. La parte de obra
+        social se liquida a mes vencido, recién cuando la clínica cobra del intermediario, y se muestra aparte como
+        pendiente.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -349,7 +351,8 @@ function ProduccionPorProfesionalContenido() {
       </div>
 
       <p className="mt-3 text-xs text-gray-500">
-        "A liquidar hoy" es solo el % sobre el copago/particular cobrado en el período. La columna "Pendiente O.Social
+        "A liquidar hoy" es solo el % sobre el valor de catálogo de lo cargado como copago/particular en el período.
+        La columna "Pendiente O.Social
         (mes vencido)" se calcula sobre lo facturado al intermediario y se liquida recién a mes vencido, cuando la
         clínica cobra esa parte — no está incluida en el total de hoy.
       </p>
