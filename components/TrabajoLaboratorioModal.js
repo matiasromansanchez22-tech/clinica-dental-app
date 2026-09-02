@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   TIPOS_EVENTO,
+  actualizarTrabajoLaboratorio,
   actualizarValorTrabajo,
   agregarEventoTrabajo,
   calcularEstadoDemora,
@@ -277,7 +278,7 @@ function NuevoTrabajoFormulario({
   );
 }
 
-function DetalleTrabajo({ trabajo, config, laboratoriosSugeridos, onClose, onGuardado, onEventoGuardado }) {
+function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratoriosSugeridos, onClose, onGuardado, onEventoGuardado }) {
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
@@ -287,6 +288,49 @@ function DetalleTrabajo({ trabajo, config, laboratoriosSugeridos, onClose, onGua
   const [valor, setValor] = useState(trabajo.valor ?? "");
   const [guardandoValor, setGuardandoValor] = useState(false);
   const [mostrarMarcarEnviado, setMostrarMarcarEnviado] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [editTipoTrabajo, setEditTipoTrabajo] = useState(trabajo.tipoTrabajo || "");
+  const [editPieza, setEditPieza] = useState(trabajo.pieza || "");
+  const [editLaboratorio, setEditLaboratorio] = useState(trabajo.laboratorio || "");
+  const [editProfesionalId, setEditProfesionalId] = useState(trabajo.profesionalId || "");
+  const [editObservaciones, setEditObservaciones] = useState(trabajo.observaciones || "");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
+  // Si se guardó una edición (o cambió el trabajo por otro motivo), el
+  // formulario de edición arranca siempre desde los datos más recientes.
+  useEffect(() => {
+    if (editando) return;
+    setEditTipoTrabajo(trabajo.tipoTrabajo || "");
+    setEditPieza(trabajo.pieza || "");
+    setEditLaboratorio(trabajo.laboratorio || "");
+    setEditProfesionalId(trabajo.profesionalId || "");
+    setEditObservaciones(trabajo.observaciones || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabajo.tipoTrabajo, trabajo.pieza, trabajo.laboratorio, trabajo.profesionalId, trabajo.observaciones]);
+
+  async function guardarEdicion() {
+    if (!editTipoTrabajo.trim()) {
+      setError("Completá el tipo de trabajo.");
+      return;
+    }
+    setGuardandoEdicion(true);
+    setError(null);
+    try {
+      await actualizarTrabajoLaboratorio(trabajo.id, {
+        tipoTrabajo: editTipoTrabajo.trim(),
+        pieza: editPieza.trim(),
+        laboratorio: editLaboratorio.trim(),
+        profesionalId: editProfesionalId,
+        observaciones: editObservaciones.trim(),
+      });
+      setEditando(false);
+      await onEventoGuardado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  }
 
   async function guardarValor() {
     setGuardandoValor(true);
@@ -356,20 +400,123 @@ function DetalleTrabajo({ trabajo, config, laboratoriosSugeridos, onClose, onGua
         <div className="mb-1 flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">{trabajo.pacienteNombre}</h2>
-            <p className="text-sm text-gray-500">
-              {trabajo.tipoTrabajo}
-              {trabajo.pieza ? ` — pieza ${trabajo.pieza}` : ""}
-              {trabajo.laboratorio ? ` — ${trabajo.laboratorio}` : ""}
-            </p>
+            {!editando && (
+              <p className="text-sm text-gray-500">
+                {trabajo.tipoTrabajo}
+                {trabajo.pieza ? ` — pieza ${trabajo.pieza}` : ""}
+                {trabajo.laboratorio ? ` — ${trabajo.laboratorio}` : ""}
+              </p>
+            )}
           </div>
-          <button onClick={onClose} className="text-sm text-gray-400 hover:text-gray-600">
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {!editando && (
+              <button
+                onClick={() => setEditando(true)}
+                className="text-xs font-medium text-blue-600 hover:underline"
+              >
+                ✏️ Editar
+              </button>
+            )}
+            <button onClick={onClose} className="text-sm text-gray-400 hover:text-gray-600">
+              ✕
+            </button>
+          </div>
         </div>
 
-        <p className={`mb-1 text-sm font-medium ${demora.color}`}>
-          {demora.emoji} {trabajo.estado} — {demora.texto}
-        </p>
+        {editando ? (
+          <div className="mt-2 mb-4 flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Tipo de trabajo
+              <input
+                list="tipos-trabajo-editar"
+                value={editTipoTrabajo}
+                onChange={(e) => setEditTipoTrabajo(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+              <datalist id="tipos-trabajo-editar">
+                {catalogo.map((c) => (
+                  <option key={c.id} value={c.prestacion} />
+                ))}
+              </datalist>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Pieza
+                <input
+                  value={editPieza}
+                  onChange={(e) => setEditPieza(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Laboratorio / Mecánico
+                <input
+                  list="laboratorios-sugeridos-editar"
+                  value={editLaboratorio}
+                  onChange={(e) => setEditLaboratorio(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+                <datalist id="laboratorios-sugeridos-editar">
+                  {laboratoriosSugeridos.map((l) => (
+                    <option key={l} value={l} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Profesional
+              <select
+                value={editProfesionalId}
+                onChange={(e) => setEditProfesionalId(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">(sin especificar)</option>
+                {profesionales.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Observaciones
+              <textarea
+                value={editObservaciones}
+                onChange={(e) => setEditObservaciones(e.target.value)}
+                rows={2}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditando(false);
+                  setEditTipoTrabajo(trabajo.tipoTrabajo || "");
+                  setEditPieza(trabajo.pieza || "");
+                  setEditLaboratorio(trabajo.laboratorio || "");
+                  setEditProfesionalId(trabajo.profesionalId || "");
+                  setEditObservaciones(trabajo.observaciones || "");
+                }}
+                className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardarEdicion}
+                disabled={guardandoEdicion}
+                className="rounded-md bg-brand-brown px-3 py-1 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+              >
+                {guardandoEdicion ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className={`mb-1 text-sm font-medium ${demora.color}`}>
+            {demora.emoji} {trabajo.estado} — {demora.texto}
+          </p>
+        )}
 
         {trabajo.estado === "Pendiente de envío" && (
           <button
@@ -529,6 +676,8 @@ export default function TrabajoLaboratorioModal({
       <DetalleTrabajo
         trabajo={trabajo}
         config={config}
+        catalogo={catalogo}
+        profesionales={profesionales}
         laboratoriosSugeridos={laboratoriosSugeridos}
         onClose={onClose}
         onGuardado={onGuardado}
