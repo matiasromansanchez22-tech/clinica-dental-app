@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloConAccesoLaboratorio from "@/components/SoloConAccesoLaboratorio";
 import TrabajoLaboratorioModal from "@/components/TrabajoLaboratorioModal";
+import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
 import {
   calcularEstadoDemora,
   eliminarTrabajoLaboratorio,
-  marcarTrabajoEnviado,
   obtenerConfiguracionLaboratorio,
   obtenerTrabajosLaboratorio,
 } from "@/lib/data/laboratorio";
-import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
@@ -30,6 +29,7 @@ function PaginaLaboratorio() {
   const [soloActivos, setSoloActivos] = useState(true);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [trabajoEnDetalle, setTrabajoEnDetalle] = useState(null);
+  const [trabajoAMarcarEnviado, setTrabajoAMarcarEnviado] = useState(null);
 
   async function recargarTrabajos() {
     setTrabajos(await obtenerTrabajosLaboratorio());
@@ -42,10 +42,9 @@ function PaginaLaboratorio() {
     await recargarTrabajos();
   }
 
-  async function marcarEnviado(id, e) {
+  function abrirMarcarEnviado(t, e) {
     e.stopPropagation();
-    await marcarTrabajoEnviado(id, fechaDeHoyISO());
-    await recargarTrabajos();
+    setTrabajoAMarcarEnviado(t);
   }
 
   async function recargarSinCerrar() {
@@ -231,7 +230,7 @@ function PaginaLaboratorio() {
                     <div className="flex items-center justify-end gap-2">
                       {t.estado === "Pendiente de envío" && (
                         <button
-                          onClick={(e) => marcarEnviado(t.id, e)}
+                          onClick={(e) => abrirMarcarEnviado(t, e)}
                           className="rounded-md border border-sky-300 px-2 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50"
                         >
                           📤 Marcar enviado
@@ -272,6 +271,18 @@ function PaginaLaboratorio() {
             setTrabajoEnDetalle(null);
           }}
           onEventoGuardado={recargarSinCerrar}
+        />
+      )}
+
+      {trabajoAMarcarEnviado && (
+        <MarcarEnviadoModal
+          trabajo={trabajoAMarcarEnviado}
+          laboratoriosSugeridos={laboratoriosSugeridos}
+          onClose={() => setTrabajoAMarcarEnviado(null)}
+          onGuardado={async () => {
+            await recargarTrabajos();
+            setTrabajoAMarcarEnviado(null);
+          }}
         />
       )}
     </main>

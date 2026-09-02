@@ -12,6 +12,7 @@ import {
   obtenerEventosTrabajo,
 } from "@/lib/data/laboratorio";
 import { obtenerPrecioMecanico } from "@/lib/data/mecanicosPrecios";
+import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
 
 function NuevoTrabajoFormulario({
   pacientesGeneral,
@@ -276,7 +277,7 @@ function NuevoTrabajoFormulario({
   );
 }
 
-function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado }) {
+function DetalleTrabajo({ trabajo, config, laboratoriosSugeridos, onClose, onGuardado, onEventoGuardado }) {
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
@@ -285,21 +286,7 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
   const [error, setError] = useState(null);
   const [valor, setValor] = useState(trabajo.valor ?? "");
   const [guardandoValor, setGuardandoValor] = useState(false);
-  const [marcandoEnviado, setMarcandoEnviado] = useState(false);
-
-  async function marcarEnviadoAhora() {
-    setMarcandoEnviado(true);
-    setError(null);
-    try {
-      await agregarEventoTrabajo(trabajo.id, { fecha: fechaDeHoyISO(), tipoEvento: "Enviado al mecánico", observaciones: "" });
-      await cargar();
-      await onEventoGuardado();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setMarcandoEnviado(false);
-    }
-  }
+  const [mostrarMarcarEnviado, setMostrarMarcarEnviado] = useState(false);
 
   async function guardarValor() {
     setGuardandoValor(true);
@@ -387,11 +374,10 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
         {trabajo.estado === "Pendiente de envío" && (
           <button
             type="button"
-            onClick={marcarEnviadoAhora}
-            disabled={marcandoEnviado}
-            className="mb-3 w-fit rounded-md border border-sky-300 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+            onClick={() => setMostrarMarcarEnviado(true)}
+            className="mb-3 w-fit rounded-md border border-sky-300 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50"
           >
-            {marcandoEnviado ? "Marcando..." : "📤 Marcar enviado al mecánico"}
+            📤 Marcar enviado al mecánico
           </button>
         )}
 
@@ -509,6 +495,19 @@ function DetalleTrabajo({ trabajo, config, onClose, onGuardado, onEventoGuardado
           </button>
         </div>
       </div>
+
+      {mostrarMarcarEnviado && (
+        <MarcarEnviadoModal
+          trabajo={trabajo}
+          laboratoriosSugeridos={laboratoriosSugeridos}
+          onClose={() => setMostrarMarcarEnviado(false)}
+          onGuardado={async () => {
+            setMostrarMarcarEnviado(false);
+            await cargar();
+            await onEventoGuardado();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -527,7 +526,14 @@ export default function TrabajoLaboratorioModal({
 }) {
   if (trabajo) {
     return (
-      <DetalleTrabajo trabajo={trabajo} config={config} onClose={onClose} onGuardado={onGuardado} onEventoGuardado={onEventoGuardado} />
+      <DetalleTrabajo
+        trabajo={trabajo}
+        config={config}
+        laboratoriosSugeridos={laboratoriosSugeridos}
+        onClose={onClose}
+        onGuardado={onGuardado}
+        onEventoGuardado={onEventoGuardado}
+      />
     );
   }
   return (
