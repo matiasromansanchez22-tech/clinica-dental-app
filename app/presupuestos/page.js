@@ -8,6 +8,7 @@ import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { cambiarEstadoPresupuesto, obtenerPresupuestos } from "@/lib/data/presupuestos";
+import { obtenerObrasSociales } from "@/lib/data/nomenclador";
 
 const ESTADO_COLOR = {
   Pendiente: "bg-gray-100 text-gray-600",
@@ -20,6 +21,7 @@ export default function PresupuestosPage() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
+  const [obrasSociales, setObrasSociales] = useState([]);
   const [config, setConfig] = useState({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -39,13 +41,15 @@ export default function PresupuestosPage() {
       obtenerProfesionales(),
       obtenerCatalogo(),
       obtenerConfiguracionGeneral(),
+      obtenerObrasSociales(),
     ])
-      .then(([p, pac, prof, cat, conf]) => {
+      .then(([p, pac, prof, cat, conf, os]) => {
         setPresupuestos(p);
         setPacientes(pac);
         setProfesionales(prof);
         setCatalogo(cat.filter((c) => c.estado === "Activo"));
         setConfig(conf);
+        setObrasSociales(os);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -199,6 +203,7 @@ export default function PresupuestosPage() {
           pacientes={pacientes}
           profesionales={profesionales}
           catalogo={catalogo}
+          obrasSociales={obrasSociales}
           config={config}
           onClose={() => {
             setMostrarNuevo(false);

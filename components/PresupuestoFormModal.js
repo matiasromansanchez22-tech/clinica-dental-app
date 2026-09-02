@@ -21,6 +21,7 @@ export default function PresupuestoFormModal({
   pacientes,
   profesionales,
   catalogo,
+  obrasSociales,
   config,
   onClose,
   onGuardado,
@@ -43,7 +44,13 @@ export default function PresupuestoFormModal({
   const [error, setError] = useState(null);
 
   const paciente = pacientes.find((p) => p.id === pacienteId);
-  const esObraSocial = paciente?.tipo_paciente === "Obra Social" || paciente?.tipo_paciente === "Mixto";
+  const tienePaciente = paciente?.tipo_paciente === "Obra Social" || paciente?.tipo_paciente === "Mixto";
+  // Si la obra social del paciente no cubre fija/prótesis, el presupuesto
+  // se arma con el valor particular (no tiene sentido usar el copago del
+  // nomenclador para algo que esa obra social no cubre).
+  const obraSocialInfo = obrasSociales.find((os) => os.nombre.toLowerCase() === (paciente?.obra_social || "").toLowerCase());
+  const cubreFijaProtesis = obraSocialInfo ? obraSocialInfo.cubre_fija_protesis : true;
+  const esObraSocial = tienePaciente && cubreFijaProtesis;
 
   useEffect(() => {
     if (esObraSocial && paciente?.obra_social) {
@@ -210,6 +217,11 @@ export default function PresupuestoFormModal({
             <p className="-mt-2 text-xs text-gray-500">
               Este paciente tiene obra social — las prestaciones de abajo muestran el copago que le corresponde pagar
               según {paciente.obra_social}, no el valor particular.
+            </p>
+          )}
+          {tienePaciente && !cubreFijaProtesis && (
+            <p className="-mt-2 text-xs text-amber-700">
+              {paciente.obra_social} no cubre fija/prótesis — este presupuesto se arma con el valor particular.
             </p>
           )}
 
