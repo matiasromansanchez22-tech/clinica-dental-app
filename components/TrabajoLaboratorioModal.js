@@ -15,6 +15,103 @@ import {
 import { obtenerPrecioMecanico } from "@/lib/data/mecanicosPrecios";
 import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
 
+// Para trabajos que se cobran "primera pieza + cada pieza/gancho adicional"
+// (prótesis parciales, reparaciones, etc.) — evita hacer la cuenta a mano
+// cada vez y deja el detalle del cálculo anotado.
+function CalculadoraPiezas({ onUsar }) {
+  const [abierta, setAbierta] = useState(false);
+  const [base, setBase] = useState("");
+  const [cantidad, setCantidad] = useState("");
+  const [porPieza, setPorPieza] = useState("");
+
+  const baseNum = Number(base) || 0;
+  const cantidadNum = Math.max(Number(cantidad) || 0, 0);
+  const porPiezaNum = Number(porPieza) || 0;
+  const adicionales = Math.max(cantidadNum - 1, 0);
+  const total = baseNum + adicionales * porPiezaNum;
+
+  function usar() {
+    const detalle =
+      adicionales > 0
+        ? `Cálculo: $${baseNum.toLocaleString("es-AR")} (primera pieza) + ${adicionales} pieza${adicionales === 1 ? "" : "s"} más x $${porPiezaNum.toLocaleString("es-AR")} = $${total.toLocaleString("es-AR")} (${cantidadNum} piezas en total)`
+        : `Cálculo: $${total.toLocaleString("es-AR")}${cantidadNum ? ` (${cantidadNum} pieza${cantidadNum === 1 ? "" : "s"})` : ""}`;
+    onUsar(total, detalle);
+    setAbierta(false);
+    setBase("");
+    setCantidad("");
+    setPorPieza("");
+  }
+
+  if (!abierta) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierta(true)}
+        className="w-fit text-xs font-medium text-brand-brown hover:underline"
+      >
+        🧮 Calcular por cantidad de piezas
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+      <p className="text-xs font-semibold text-gray-600">Calculadora por piezas</p>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="flex flex-col gap-1 text-xs text-gray-700">
+          Primera pieza
+          <input
+            type="number"
+            min={0}
+            value={base}
+            onChange={(e) => setBase(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-gray-700">
+          Cant. de piezas
+          <input
+            type="number"
+            min={1}
+            value={cantidad}
+            onChange={(e) => setCantidad(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-gray-700">
+          $ x pieza extra
+          <input
+            type="number"
+            min={0}
+            value={porPieza}
+            onChange={(e) => setPorPieza(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-900">Total: ${total.toLocaleString("es-AR")}</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setAbierta(false)}
+            className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white"
+          >
+            Cerrar
+          </button>
+          <button
+            type="button"
+            onClick={usar}
+            className="rounded-md bg-brand-brown px-3 py-1 text-xs font-medium text-white hover:bg-brand-brown-dark"
+          >
+            Usar este valor
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NuevoTrabajoFormulario({
   pacientesGeneral,
   pacientesOrtodoncia,
@@ -219,6 +316,14 @@ function NuevoTrabajoFormulario({
             />
           </label>
 
+          <CalculadoraPiezas
+            onUsar={(total, detalle) => {
+              setValor(String(total));
+              setValorTocado(true);
+              setObservaciones((o) => (o.trim() ? `${o}\n${detalle}` : detalle));
+            }}
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
               Profesional
@@ -286,6 +391,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [valor, setValor] = useState(trabajo.valor ?? "");
+  const [notaCalculo, setNotaCalculo] = useState(null);
   const [guardandoValor, setGuardandoValor] = useState(false);
   const [mostrarMarcarEnviado, setMostrarMarcarEnviado] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -336,7 +442,8 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     setGuardandoValor(true);
     setError(null);
     try {
-      await actualizarValorTrabajo(trabajo.id, valor);
+      await actualizarValorTrabajo(trabajo.id, valor, notaCalculo);
+      setNotaCalculo(null);
       await onEventoGuardado();
     } catch (e) {
       setError(e.message);
@@ -548,6 +655,15 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
             </button>
           </div>
         </label>
+
+        <div className="mb-4">
+          <CalculadoraPiezas
+            onUsar={(total, detalle) => {
+              setValor(String(total));
+              setNotaCalculo(detalle);
+            }}
+          />
+        </div>
 
         {error && <p className="mb-2 text-sm text-red-700">{error}</p>}
 
