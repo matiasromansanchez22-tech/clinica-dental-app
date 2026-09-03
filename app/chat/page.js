@@ -33,8 +33,21 @@ export default function ChatPage() {
   const [plantillas, setPlantillas] = useState([]);
   const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
   const [nuevaPlantilla, setNuevaPlantilla] = useState("");
+  const [indiceSugerencia, setIndiceSugerencia] = useState(0);
   const finRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Escribir "/" al principio del mensaje muestra las plantillas que
+  // coincidan, como en WhatsApp Business.
+  const mostrandoSugerencias = texto.startsWith("/");
+  const filtroSugerencias = texto.slice(1).toLowerCase();
+  const sugerencias = mostrandoSugerencias
+    ? plantillas.filter((p) => p.texto.toLowerCase().includes(filtroSugerencias))
+    : [];
+
+  useEffect(() => {
+    setIndiceSugerencia(0);
+  }, [texto]);
 
   function recargarPlantillas() {
     obtenerPlantillas()
@@ -91,6 +104,28 @@ export default function ChatPage() {
   }
 
   function alPresionarTecla(e) {
+    if (sugerencias.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setIndiceSugerencia((i) => Math.min(i + 1, sugerencias.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setIndiceSugerencia((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        usarPlantilla(sugerencias[indiceSugerencia]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setTexto("");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       enviar();
@@ -233,24 +268,42 @@ export default function ChatPage() {
         </div>
       )}
 
-      <div className="mt-3 flex items-end gap-2">
-        <textarea
-          ref={textareaRef}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={alPresionarTecla}
-          rows={1}
-          placeholder="Escribí un mensaje..."
-          className="flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
-        <button
-          type="button"
-          onClick={enviar}
-          disabled={enviando || !texto.trim()}
-          className="h-fit rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-        >
-          Enviar
-        </button>
+      <div className="relative mt-3">
+        {mostrandoSugerencias && sugerencias.length > 0 && (
+          <div className="absolute bottom-full left-0 mb-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+            {sugerencias.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => usarPlantilla(p)}
+                className={`block w-full px-3 py-2 text-left text-sm ${
+                  i === indiceSugerencia ? "bg-brand-tan/40" : "hover:bg-gray-50"
+                }`}
+              >
+                {p.texto}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={alPresionarTecla}
+            rows={1}
+            placeholder="Escribí un mensaje... (tip: / para plantillas)"
+            className="flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={enviar}
+            disabled={enviando || !texto.trim()}
+            className="h-fit rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            Enviar
+          </button>
+        </div>
       </div>
     </main>
   );
