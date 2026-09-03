@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   actualizarCantidadStock,
+  actualizarInsumoStock,
   cerrarSemanaStock,
   crearInsumoStock,
   eliminarInsumoStock,
@@ -73,6 +74,11 @@ function StockContenido() {
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoSector, setNuevoSector] = useState(SECTORES_STOCK[0]);
   const [guardandoInsumo, setGuardandoInsumo] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editSector, setEditSector] = useState(SECTORES_STOCK[0]);
+  const [editObservaciones, setEditObservaciones] = useState("");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const [semanaRef, setSemanaRef] = useState(hoy);
   const [movimientos, setMovimientos] = useState([]);
@@ -168,6 +174,32 @@ function StockContenido() {
       else nuevo.add(sector);
       return nuevo;
     });
+  }
+
+  function empezarEdicion(insumo) {
+    setEditandoId(insumo.id);
+    setEditNombre(insumo.nombre);
+    setEditSector(insumo.sector);
+    setEditObservaciones(insumo.observaciones || "");
+  }
+
+  async function guardarEdicion(insumo) {
+    if (!editNombre.trim()) return;
+    setGuardandoEdicion(true);
+    setError(null);
+    try {
+      const actualizado = await actualizarInsumoStock(insumo.id, {
+        nombre: editNombre.trim(),
+        sector: editSector,
+        observaciones: editObservaciones.trim(),
+      });
+      setInsumos((i) => i.map((x) => (x.id === insumo.id ? actualizado : x)).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setEditandoId(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoEdicion(false);
+    }
   }
 
   async function borrarInsumo(insumo) {
@@ -308,9 +340,65 @@ function StockContenido() {
                       <tbody>
                         {g.items.map((insumo) => {
                           const total = totalDe(insumo.id);
+                          const editando = editandoId === insumo.id;
+                          if (editando) {
+                            return (
+                              <tr key={insumo.id} className="border-t border-gray-100 bg-brand-tan/10">
+                                <td colSpan={rodantes.length + 2} className="px-3 py-3">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex flex-wrap gap-2">
+                                      <input
+                                        value={editNombre}
+                                        onChange={(e) => setEditNombre(e.target.value)}
+                                        placeholder="Nombre del insumo"
+                                        className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                                      />
+                                      <select
+                                        value={editSector}
+                                        onChange={(e) => setEditSector(e.target.value)}
+                                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                                      >
+                                        {SECTORES_STOCK.map((s) => (
+                                          <option key={s} value={s}>
+                                            {s}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <input
+                                      value={editObservaciones}
+                                      onChange={(e) => setEditObservaciones(e.target.value)}
+                                      placeholder="Observaciones (ej. 2 cajas, una ya abierta)"
+                                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => guardarEdicion(insumo)}
+                                        disabled={guardandoEdicion}
+                                        className="rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+                                      >
+                                        {guardandoEdicion ? "Guardando..." : "Guardar"}
+                                      </button>
+                                      <button
+                                        onClick={() => setEditandoId(null)}
+                                        className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-white"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          }
                           return (
                             <tr key={insumo.id} className={`border-t border-gray-100 ${total === 0 ? "bg-red-50" : ""}`}>
-                              <td className="px-3 py-2 font-medium text-gray-900">{insumo.nombre}</td>
+                              <td className="px-3 py-2 font-medium text-gray-900">
+                                {insumo.nombre}
+                                {insumo.observaciones && (
+                                  <p className="mt-0.5 text-xs font-normal text-gray-500">{insumo.observaciones}</p>
+                                )}
+                              </td>
                               {rodantes.map((r) =>
                                 r.es_deposito ? (
                                   <td key={r.id} className="px-3 py-2 text-right">
@@ -328,7 +416,13 @@ function StockContenido() {
                               <td className={`px-3 py-2 text-right font-semibold ${total === 0 ? "text-red-700" : "text-gray-900"}`}>
                                 {total}
                               </td>
-                              <td className="px-3 py-2 text-right">
+                              <td className="px-3 py-2 text-right whitespace-nowrap">
+                                <button
+                                  onClick={() => empezarEdicion(insumo)}
+                                  className="mr-2 text-xs text-brand-brown hover:underline"
+                                >
+                                  Editar
+                                </button>
                                 <button
                                   onClick={() => borrarInsumo(insumo)}
                                   className="text-xs text-red-600 hover:underline"
