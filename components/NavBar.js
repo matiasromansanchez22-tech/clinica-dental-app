@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
+  { tipo: "link", href: "/panoramicas", label: "🩻 Panorámicas" },
   {
     tipo: "grupo",
     label: "Sistema General",
