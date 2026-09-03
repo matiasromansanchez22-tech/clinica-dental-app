@@ -34,6 +34,8 @@ export default function PanoramicasPage() {
   const [observaciones, setObservaciones] = useState("");
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [arrastrando, setArrastrando] = useState(false);
+  const [urls, setUrls] = useState({});
+  const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const inputArchivoRef = useRef(null);
 
   function recargarCarpetas() {
@@ -61,7 +63,20 @@ export default function PanoramicasPage() {
     setCargandoCarpeta(true);
     setError(null);
     try {
-      setCarpeta(await obtenerPanoramicasPaciente(tipo, paciente.id));
+      const items = await obtenerPanoramicasPaciente(tipo, paciente.id);
+      setCarpeta(items);
+      // Pide de una todas las URLs para mostrar las miniaturas — son pocas
+      // fotos por paciente, no hace falta pedirlas de a una al hacer clic.
+      const entradas = await Promise.all(
+        items.map(async (item) => {
+          try {
+            return [item.id, await obtenerUrlPanoramica(item.storagePath)];
+          } catch {
+            return [item.id, null];
+          }
+        })
+      );
+      setUrls(Object.fromEntries(entradas));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -126,30 +141,11 @@ export default function PanoramicasPage() {
     }
   }
 
-  async function verArchivo(item) {
-    // Abrimos la pestaña YA, en el mismo instante del clic — si esperamos a
-    // tener la URL primero, varios navegadores tratan la apertura como un
-    // popup no pedido por el usuario y la bloquean en silencio, sin avisar.
-    const nuevaPestana = window.open("", "_blank", "noopener,noreferrer");
-    try {
-      const url = await obtenerUrlPanoramica(item.storagePath);
-      if (nuevaPestana) {
-        nuevaPestana.location.href = url;
-      } else {
-        setError(
-          "No se pudo abrir la pestaña. Revisá si el navegador bloqueó una ventana emergente (suele avisar con un ícono en la barra de direcciones) y permitila para este sitio."
-        );
-      }
-    } catch (e) {
-      if (nuevaPestana) nuevaPestana.close();
-      setError(e.message);
-    }
-  }
-
   async function borrar(item) {
     if (!window.confirm(`¿Eliminar "${item.nombreArchivo}"? No se puede deshacer.`)) return;
     try {
       await eliminarPanoramica(item.id, item.storagePath);
+      if (imagenAmpliada?.id === item.id) setImagenAmpliada(null);
       await recargarCarpeta(tipoPaciente, pacienteElegido);
     } catch (e) {
       setError(e.message);
@@ -319,30 +315,69 @@ export default function PanoramicasPage() {
               <p className="text-sm text-gray-500">Todavía no hay panorámicas cargadas para este paciente.</p>
             )}
             {!cargandoCarpeta && carpeta.length > 0 && (
-              <ul className="flex flex-col gap-2">
-                {carpeta.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">{formatoFecha(item.fecha)} — {item.nombreArchivo}</p>
-                      {item.observaciones && <p className="text-xs text-gray-500">{item.observaciones}</p>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => verArchivo(item)} className="text-xs font-medium text-brand-brown hover:underline">
-                        Ver / Descargar
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {carpeta.map((item) => {
+                  const esPdf = item.nombreArchivo.toLowerCase().endsWith(".pdf");
+                  return (
+                    <div key={item.id} className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setImagenAmpliada(item)}
+                        title={item.nombreArchivo}
+                        className="flex aspect-square items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-gray-100 hover:opacity-90"
+                      >
+                        {esPdf ? (
+                          <span className="text-3xl">📄</span>
+                        ) : urls[item.id] ? (
+                          <img src={urls[item.id]} alt={item.nombreArchivo} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xs text-gray-400">Cargando...</span>
+                        )}
                       </button>
-                      <button type="button" onClick={() => borrar(item)} className="text-xs text-red-600 hover:underline">
+                      <p className="truncate text-center text-xs text-gray-500">{formatoFecha(item.fecha)}</p>
+                      <button
+                        type="button"
+                        onClick={() => borrar(item)}
+                        className="text-center text-xs text-red-600 hover:underline"
+                      >
                         Eliminar
                       </button>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  );
+                })}
+              </div>
             )}
           </div>
         </>
+      )}
+
+      {imagenAmpliada && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setImagenAmpliada(null)}
+        >
+          <div className="flex max-h-full max-w-4xl flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex w-full items-center justify-between text-sm text-white">
+              <span>
+                {formatoFecha(imagenAmpliada.fecha)} — {imagenAmpliada.nombreArchivo}
+              </span>
+              <button type="button" onClick={() => setImagenAmpliada(null)} className="text-xl hover:text-gray-300">
+                ✕
+              </button>
+            </div>
+            {!urls[imagenAmpliada.id] ? (
+              <p className="text-white">Cargando...</p>
+            ) : imagenAmpliada.nombreArchivo.toLowerCase().endsWith(".pdf") ? (
+              <iframe src={urls[imagenAmpliada.id]} className="h-[80vh] w-[85vw] rounded-md bg-white" />
+            ) : (
+              <img
+                src={urls[imagenAmpliada.id]}
+                alt={imagenAmpliada.nombreArchivo}
+                className="max-h-[80vh] max-w-full rounded-md"
+              />
+            )}
+          </div>
+        </div>
       )}
     </main>
   );
