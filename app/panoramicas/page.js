@@ -28,6 +28,8 @@ export default function PanoramicasPage() {
   const [subiendo, setSubiendo] = useState(false);
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [observaciones, setObservaciones] = useState("");
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [arrastrando, setArrastrando] = useState(false);
   const inputArchivoRef = useRef(null);
 
   useEffect(() => {
@@ -60,10 +62,21 @@ export default function PanoramicasPage() {
     recargarCarpeta(tipoPaciente, p);
   }
 
+  function elegirArchivo(archivo) {
+    if (!archivo) return;
+    setArchivoSeleccionado(archivo);
+    setError(null);
+  }
+
+  function alSoltar(e) {
+    e.preventDefault();
+    setArrastrando(false);
+    elegirArchivo(e.dataTransfer.files?.[0]);
+  }
+
   async function subir() {
-    const archivo = inputArchivoRef.current?.files?.[0];
-    if (!archivo) {
-      setError("Elegí el archivo de la panorámica.");
+    if (!archivoSeleccionado) {
+      setError("Elegí o arrastrá el archivo de la panorámica.");
       return;
     }
     setSubiendo(true);
@@ -73,11 +86,12 @@ export default function PanoramicasPage() {
         tipoPaciente,
         pacienteId: pacienteElegido.id,
         pacienteNombre: nombreDe(pacienteElegido),
-        archivo,
+        archivo: archivoSeleccionado,
         fecha,
         observaciones: observaciones.trim(),
       });
       setObservaciones("");
+      setArchivoSeleccionado(null);
       if (inputArchivoRef.current) inputArchivoRef.current.value = "";
       await recargarCarpeta(tipoPaciente, pacienteElegido);
     } catch (e) {
@@ -189,16 +203,38 @@ export default function PanoramicasPage() {
         <>
           <div className="mt-5 rounded-lg border border-gray-200 p-4">
             <p className="mb-3 text-sm font-semibold text-gray-700">Subir nueva panorámica</p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <label className="flex flex-col gap-1 text-xs text-gray-700">
-                Archivo
-                <input
-                  ref={inputArchivoRef}
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="text-sm"
-                />
-              </label>
+
+            <label
+              onDragOver={(e) => {
+                e.preventDefault();
+                setArrastrando(true);
+              }}
+              onDragLeave={() => setArrastrando(false)}
+              onDrop={alSoltar}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed px-4 py-6 text-center text-sm transition-colors ${
+                arrastrando ? "border-brand-brown bg-brand-tan/30" : "border-gray-300 bg-gray-50 hover:bg-gray-100"
+              }`}
+            >
+              <input
+                ref={inputArchivoRef}
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => elegirArchivo(e.target.files?.[0])}
+                className="hidden"
+              />
+              {archivoSeleccionado ? (
+                <span className="font-medium text-gray-900">📎 {archivoSeleccionado.name}</span>
+              ) : (
+                <>
+                  <span className="text-gray-600">
+                    Arrastrá acá el adjunto directo desde el mail (o hacé clic para elegirlo)
+                  </span>
+                  <span className="text-xs text-gray-400">Tip: abrí el mail en otra pestaña y arrastrá el archivo hasta acá</span>
+                </>
+              )}
+            </label>
+
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
               <label className="flex flex-col gap-1 text-xs text-gray-700">
                 Fecha
                 <input
