@@ -45,6 +45,7 @@ const GRUPOS = [
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
   { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Estadísticas", soloDuena: true },
+  { tipo: "link", href: "/gerencial/stock", label: "📦 Stock de Insumos", soloRoles: ["Duena", "Laboratorio"] },
   {
     tipo: "grupo",
     label: "Gerencial",
@@ -62,7 +63,6 @@ const GRUPOS = [
       { href: "/gerencial/aumentos-ortodoncia", label: "Aumento de cuota (Ortodoncia)" },
       { href: "/gerencial/gastos", label: "Gastos" },
       { href: "/gerencial/pedidos", label: "Pedidos de Insumos" },
-      { href: "/gerencial/stock", label: "Stock de Insumos" },
       { href: "/gerencial/balance-mensual", label: "Balance Mensual" },
       { href: "/gerencial/balance-anual", label: "Balance Anual" },
       { href: "/gerencial/papelera", label: "🗑️ Papelera de reciclaje" },
@@ -126,7 +126,12 @@ export default function NavBar() {
           <Image src="/icon.png" alt="" width={32} height={32} className="rounded-md" />
           <span className="font-heading text-lg font-semibold text-brand-brown">Clínica Dental</span>
         </Link>
-        {GRUPOS.filter((g) => (!g.soloDuena || esDuena) && !(g.ocultarRoles || []).includes(perfil?.rol)).map((g) => {
+        {GRUPOS.filter(
+          (g) =>
+            (!g.soloDuena || esDuena) &&
+            (!g.soloRoles || g.soloRoles.includes(perfil?.rol)) &&
+            !(g.ocultarRoles || []).includes(perfil?.rol)
+        ).map((g) => {
           if (g.tipo === "link") {
             const activo = pathname === g.href;
             return (

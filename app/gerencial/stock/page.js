@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import GestionarRodantesModal from "@/components/GestionarRodantesModal";
 import RegistrarTraspasoStockModal from "@/components/RegistrarTraspasoStockModal";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYLaboratorio from "@/components/SoloDuenaYLaboratorio";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
@@ -505,8 +505,8 @@ function StockContenido() {
 
 export default function StockPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYLaboratorio>
       <StockContenido />
-    </SoloDuena>
+    </SoloDuenaYLaboratorio>
   );
 }
