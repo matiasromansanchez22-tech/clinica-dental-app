@@ -137,19 +137,20 @@ export default function PacientesPage() {
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-2 py-2 text-center font-semibold">Historia clínica</th>
               <th className="px-2 py-2 text-center font-semibold">Consentimiento</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && pacientesMostrados.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
                   No se encontraron pacientes.
                 </td>
               </tr>
@@ -196,6 +197,9 @@ export default function PacientesPage() {
                   >
                     {p.consentimientosFirmados ? "✅" : "⬜"}
                   </button>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <span className="text-xs font-medium text-brand-brown hover:underline">✏️ Editar</span>
                 </td>
               </tr>
             ))}
