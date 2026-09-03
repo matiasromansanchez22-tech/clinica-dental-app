@@ -13,6 +13,16 @@ import {
   suscribirseAChat,
 } from "@/lib/data/chat";
 
+// Resumen corto para mostrar en listas angostas (el desplegable de "/" y
+// los chips) — las plantillas con varios renglones no tienen que ocupar
+// un montón de espacio ahí; al elegirlas igual se carga el texto completo.
+function previaPlantilla(texto, maxLargo = 40) {
+  const primeraLinea = texto.split("\n")[0];
+  const tieneMas = texto.includes("\n") || primeraLinea.length > maxLargo;
+  const recortada = primeraLinea.slice(0, maxLargo);
+  return tieneMas ? `${recortada}…` : recortada;
+}
+
 function formatoHora(iso) {
   const fecha = new Date(iso);
   const hoy = new Date();
@@ -213,9 +223,9 @@ export default function ChatPage() {
             type="button"
             onClick={() => usarPlantilla(p)}
             className="rounded-full border border-brand-brown/40 bg-brand-tan/20 px-3 py-1 text-xs text-brand-brown hover:bg-brand-tan/40"
-            title="Usar esta plantilla"
+            title={p.texto}
           >
-            {p.texto}
+            {previaPlantilla(p.texto)}
           </button>
         ))}
         <button
@@ -229,35 +239,35 @@ export default function ChatPage() {
 
       {mostrarPlantillas && (
         <div className="mt-2 flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
-          <div className="flex gap-2">
-            <input
-              value={nuevaPlantilla}
-              onChange={(e) => setNuevaPlantilla(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  agregarPlantilla();
-                }
-              }}
-              placeholder="Nueva plantilla (ej. Turno confirmado)"
-              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
-            />
-            <button
-              type="button"
-              onClick={agregarPlantilla}
-              disabled={!nuevaPlantilla.trim()}
-              className="rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-            >
-              Agregar
-            </button>
-          </div>
+          <p className="text-xs text-gray-500">
+            Podés escribir varios renglones (por ejemplo un informe con campos para completar).
+          </p>
+          <textarea
+            value={nuevaPlantilla}
+            onChange={(e) => setNuevaPlantilla(e.target.value)}
+            rows={4}
+            placeholder={"Nueva plantilla, ej.:\n📋 INFORME PACIENTE\n\n👤 Paciente:\n💳 Tipo:"}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+          />
+          <button
+            type="button"
+            onClick={agregarPlantilla}
+            disabled={!nuevaPlantilla.trim()}
+            className="w-fit rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            Agregar plantilla
+          </button>
           {plantillas.length > 0 && (
-            <ul className="flex flex-col gap-1">
+            <ul className="mt-1 flex flex-col gap-2 border-t border-gray-200 pt-2">
               {plantillas.map((p) => (
-                <li key={p.id} className="flex items-center justify-between text-xs text-gray-700">
-                  <span>{p.texto}</span>
+                <li key={p.id} className="flex items-start justify-between gap-2 text-xs text-gray-700">
+                  <span className="whitespace-pre-line">{p.texto}</span>
                   {(p.autorId === user?.id || perfil?.rol === "Duena") && (
-                    <button type="button" onClick={() => borrarPlantilla(p.id)} className="text-red-600 hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => borrarPlantilla(p.id)}
+                      className="shrink-0 text-red-600 hover:underline"
+                    >
                       Eliminar
                     </button>
                   )}
@@ -276,11 +286,12 @@ export default function ChatPage() {
                 key={p.id}
                 type="button"
                 onClick={() => usarPlantilla(p)}
-                className={`block w-full px-3 py-2 text-left text-sm ${
+                title={p.texto}
+                className={`block w-full truncate px-3 py-2 text-left text-sm ${
                   i === indiceSugerencia ? "bg-brand-tan/40" : "hover:bg-gray-50"
                 }`}
               >
-                {p.texto}
+                {previaPlantilla(p.texto, 60)}
               </button>
             ))}
           </div>
@@ -291,7 +302,7 @@ export default function ChatPage() {
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={alPresionarTecla}
-            rows={1}
+            rows={Math.min(Math.max(texto.split("\n").length, 1), 8)}
             placeholder="Escribí un mensaje... (tip: / para plantillas)"
             className="flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
