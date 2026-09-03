@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { obtenerPerfiles } from "@/lib/data/perfiles";
-import { eliminarMensaje, enviarMensaje, obtenerMensajes, suscribirseAChat } from "@/lib/data/chat";
+import {
+  crearPlantilla,
+  eliminarMensaje,
+  eliminarPlantilla,
+  enviarMensaje,
+  obtenerMensajes,
+  obtenerPlantillas,
+  suscribirseAChat,
+} from "@/lib/data/chat";
 
 function formatoHora(iso) {
   const fecha = new Date(iso);
@@ -22,7 +30,17 @@ export default function ChatPage() {
   const [error, setError] = useState(null);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [plantillas, setPlantillas] = useState([]);
+  const [mostrarPlantillas, setMostrarPlantillas] = useState(false);
+  const [nuevaPlantilla, setNuevaPlantilla] = useState("");
   const finRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  function recargarPlantillas() {
+    obtenerPlantillas()
+      .then(setPlantillas)
+      .catch((e) => setError(e.message));
+  }
 
   async function recargar() {
     try {
@@ -38,6 +56,7 @@ export default function ChatPage() {
       .catch((e) => setError(e.message));
 
     recargar().finally(() => setCargando(false));
+    recargarPlantillas();
 
     const cancelar = suscribirseAChat(() => recargar());
     return cancelar;
@@ -78,6 +97,32 @@ export default function ChatPage() {
     }
   }
 
+  function usarPlantilla(p) {
+    setTexto(p.texto);
+    textareaRef.current?.focus();
+  }
+
+  async function agregarPlantilla() {
+    if (!nuevaPlantilla.trim()) return;
+    try {
+      await crearPlantilla(nuevaPlantilla);
+      setNuevaPlantilla("");
+      recargarPlantillas();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function borrarPlantilla(id) {
+    if (!window.confirm("¿Borrar esta plantilla?")) return;
+    try {
+      await eliminarPlantilla(id);
+      recargarPlantillas();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   return (
     <main className="mx-auto flex h-[calc(100vh-64px)] max-w-2xl flex-col p-6">
       <h1 className="text-2xl font-bold text-gray-900">💬 Chat de la clínica</h1>
@@ -101,7 +146,9 @@ export default function ChatPage() {
                     esPropio ? "bg-brand-brown text-white" : "border border-gray-200 bg-white text-gray-900"
                   }`}
                 >
-                  {!esPropio && <p className="mb-0.5 text-xs font-semibold text-brand-brown">{autor?.nombre ?? "—"}</p>}
+                  <p className={`mb-0.5 text-xs font-semibold ${esPropio ? "text-white/90" : "text-brand-brown"}`}>
+                    {esPropio ? "Vos" : (autor?.nombre ?? "—")}
+                  </p>
                   <p className="whitespace-pre-wrap break-words">{m.texto}</p>
                   <p className={`mt-1 text-right text-[10px] ${esPropio ? "text-white/70" : "text-gray-400"}`}>
                     {formatoHora(m.creadoEn)}
@@ -124,8 +171,71 @@ export default function ChatPage() {
         </div>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {plantillas.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => usarPlantilla(p)}
+            className="rounded-full border border-brand-brown/40 bg-brand-tan/20 px-3 py-1 text-xs text-brand-brown hover:bg-brand-tan/40"
+            title="Usar esta plantilla"
+          >
+            {p.texto}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setMostrarPlantillas((v) => !v)}
+          className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+        >
+          {mostrarPlantillas ? "Cerrar plantillas" : "✏️ Plantillas"}
+        </button>
+      </div>
+
+      {mostrarPlantillas && (
+        <div className="mt-2 flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div className="flex gap-2">
+            <input
+              value={nuevaPlantilla}
+              onChange={(e) => setNuevaPlantilla(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  agregarPlantilla();
+                }
+              }}
+              placeholder="Nueva plantilla (ej. Turno confirmado)"
+              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+            />
+            <button
+              type="button"
+              onClick={agregarPlantilla}
+              disabled={!nuevaPlantilla.trim()}
+              className="rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+            >
+              Agregar
+            </button>
+          </div>
+          {plantillas.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {plantillas.map((p) => (
+                <li key={p.id} className="flex items-center justify-between text-xs text-gray-700">
+                  <span>{p.texto}</span>
+                  {(p.autorId === user?.id || perfil?.rol === "Duena") && (
+                    <button type="button" onClick={() => borrarPlantilla(p.id)} className="text-red-600 hover:underline">
+                      Eliminar
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 flex items-end gap-2">
         <textarea
+          ref={textareaRef}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={alPresionarTecla}
