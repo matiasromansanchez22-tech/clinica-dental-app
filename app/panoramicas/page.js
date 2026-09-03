@@ -102,10 +102,19 @@ export default function PanoramicasPage() {
   }
 
   async function verArchivo(item) {
+    // Abrimos la pestaña YA, en el mismo instante del clic — si esperamos a
+    // tener la URL primero, varios navegadores tratan la apertura como un
+    // popup no pedido por el usuario y la bloquean en silencio, sin avisar.
+    const nuevaPestana = window.open("", "_blank", "noopener,noreferrer");
     try {
       const url = await obtenerUrlPanoramica(item.storagePath);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (nuevaPestana) {
+        nuevaPestana.location.href = url;
+      } else {
+        setError('No se pudo abrir la pestaña. Revisá si el navegador bloqueó una ventana emergente (suele avisar con un ícono en la barra de direcciones) y permitila para este sitio.');
+      }
     } catch (e) {
+      if (nuevaPestana) nuevaPestana.close();
       setError(e.message);
     }
   }
