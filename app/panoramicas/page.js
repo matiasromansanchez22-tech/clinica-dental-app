@@ -154,7 +154,7 @@ export default function PanoramicasPage() {
 
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">🩻 Panorámicas de pacientes</h1>
+      <h1 className="text-2xl font-bold text-gray-900">🩻 Pano y fotos de pacientes</h1>
       <p className="mt-1 text-sm text-gray-500">
         Cada paciente tiene su propia carpeta, armada sola apenas se sube la primera foto. Bajá el adjunto del mail
         (o arrastralo directo) y subilo acá.
