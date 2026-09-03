@@ -6,6 +6,7 @@ import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import {
   eliminarPanoramica,
+  obtenerCarpetasPanoramicas,
   obtenerPanoramicasPaciente,
   obtenerUrlPanoramica,
   subirPanoramica,
@@ -17,6 +18,9 @@ function formatoFecha(fechaISO) {
 }
 
 export default function PanoramicasPage() {
+  const [carpetas, setCarpetas] = useState([]);
+  const [cargandoCarpetas, setCargandoCarpetas] = useState(true);
+
   const [tipoPaciente, setTipoPaciente] = useState("General");
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
@@ -32,9 +36,18 @@ export default function PanoramicasPage() {
   const [arrastrando, setArrastrando] = useState(false);
   const inputArchivoRef = useRef(null);
 
+  function recargarCarpetas() {
+    setCargandoCarpetas(true);
+    obtenerCarpetasPanoramicas()
+      .then(setCarpetas)
+      .catch((e) => setError(e.message))
+      .finally(() => setCargandoCarpetas(false));
+  }
+
   useEffect(() => {
     obtenerPacientes().then(setPacientesGeneral).catch((e) => setError(e.message));
     obtenerPacientesOrtodoncia().then(setPacientesOrtodoncia).catch((e) => setError(e.message));
+    recargarCarpetas();
   }, []);
 
   const listaPacientes = tipoPaciente === "General" ? pacientesGeneral : pacientesOrtodoncia;
@@ -56,10 +69,22 @@ export default function PanoramicasPage() {
     }
   }
 
-  function elegirPaciente(p) {
-    setPacienteElegido(p);
+  function abrirCarpeta(tipo, paciente) {
+    setTipoPaciente(tipo);
+    setPacienteElegido(paciente);
     setBusquedaPaciente("");
-    recargarCarpeta(tipoPaciente, p);
+    recargarCarpeta(tipo, paciente);
+  }
+
+  function elegirPaciente(p) {
+    abrirCarpeta(tipoPaciente, { id: p.id });
+    setPacienteElegido(p);
+  }
+
+  function volverACarpetas() {
+    setPacienteElegido(null);
+    setCarpeta([]);
+    recargarCarpetas();
   }
 
   function elegirArchivo(archivo) {
@@ -111,7 +136,9 @@ export default function PanoramicasPage() {
       if (nuevaPestana) {
         nuevaPestana.location.href = url;
       } else {
-        setError('No se pudo abrir la pestaña. Revisá si el navegador bloqueó una ventana emergente (suele avisar con un ícono en la barra de direcciones) y permitila para este sitio.');
+        setError(
+          "No se pudo abrir la pestaña. Revisá si el navegador bloqueó una ventana emergente (suele avisar con un ícono en la barra de direcciones) y permitila para este sitio."
+        );
       }
     } catch (e) {
       if (nuevaPestana) nuevaPestana.close();
@@ -133,56 +160,60 @@ export default function PanoramicasPage() {
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🩻 Panorámicas de pacientes</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Buscá al paciente y subí la panorámica que te mandaron por mail (bajala primero a tu celu o PC, y después
-        subila acá). La carpeta del paciente se arma sola, no hace falta crear nada.
+        Cada paciente tiene su propia carpeta, armada sola apenas se sube la primera foto. Bajá el adjunto del mail
+        (o arrastralo directo) y subilo acá.
       </p>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
 
-      <div className="mt-4 flex gap-4 text-sm">
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={tipoPaciente === "General"}
-            onChange={() => {
-              setTipoPaciente("General");
-              setPacienteElegido(null);
-              setCarpeta([]);
-            }}
-          />
-          Paciente de Odontología General
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={tipoPaciente === "Ortodoncia"}
-            onChange={() => {
-              setTipoPaciente("Ortodoncia");
-              setPacienteElegido(null);
-              setCarpeta([]);
-            }}
-          />
-          Paciente de Ortodoncia
-        </label>
-      </div>
-
-      <div className="mt-3">
-        {pacienteElegido ? (
-          <div className="flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
-            <span className="font-medium text-gray-900">📁 {nombreDe(pacienteElegido)}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setPacienteElegido(null);
-                setCarpeta([]);
-              }}
-              className="text-xs text-brand-brown hover:underline"
-            >
-              Cambiar paciente
-            </button>
+      {!pacienteElegido && (
+        <>
+          <div className="mt-5">
+            <p className="mb-2 text-sm font-semibold text-gray-700">Carpetas de pacientes</p>
+            {cargandoCarpetas && <p className="text-sm text-gray-500">Cargando...</p>}
+            {!cargandoCarpetas && carpetas.length === 0 && (
+              <p className="text-sm text-gray-500">Todavía no hay ninguna carpeta. Buscá un paciente más abajo para crear la primera.</p>
+            )}
+            {!cargandoCarpetas && carpetas.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {carpetas.map((c) => (
+                  <button
+                    key={`${c.tipoPaciente}:${c.pacienteId}`}
+                    type="button"
+                    onClick={() => abrirCarpeta(c.tipoPaciente, { id: c.pacienteId, apellidoYNombre: c.pacienteNombre, nombre: c.pacienteNombre })}
+                    className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white p-4 text-center hover:border-brand-brown hover:bg-brand-tan/20"
+                  >
+                    <span className="text-3xl">📁</span>
+                    <span className="text-sm font-medium text-gray-900">{c.pacienteNombre}</span>
+                    <span className="text-xs text-gray-500">
+                      {c.cantidad} foto{c.cantidad === 1 ? "" : "s"} · {formatoFecha(c.ultimaFecha)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <>
+
+          <div className="mt-6 border-t border-gray-200 pt-5">
+            <p className="mb-2 text-sm font-semibold text-gray-700">Buscar paciente (para abrir o crear su carpeta)</p>
+            <div className="mb-3 flex gap-4 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={tipoPaciente === "General"}
+                  onChange={() => setTipoPaciente("General")}
+                />
+                Paciente de Odontología General
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={tipoPaciente === "Ortodoncia"}
+                  onChange={() => setTipoPaciente("Ortodoncia")}
+                />
+                Paciente de Ortodoncia
+              </label>
+            </div>
             <input
               value={busquedaPaciente}
               onChange={(e) => setBusquedaPaciente(e.target.value)}
@@ -204,12 +235,19 @@ export default function PanoramicasPage() {
                 ))}
               </ul>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       {pacienteElegido && (
         <>
+          <div className="flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
+            <span className="font-medium text-gray-900">📁 {nombreDe(pacienteElegido)}</span>
+            <button type="button" onClick={volverACarpetas} className="text-xs text-brand-brown hover:underline">
+              ← Volver a las carpetas
+            </button>
+          </div>
+
           <div className="mt-5 rounded-lg border border-gray-200 p-4">
             <p className="mb-3 text-sm font-semibold text-gray-700">Subir nueva panorámica</p>
 
@@ -274,7 +312,7 @@ export default function PanoramicasPage() {
 
           <div className="mt-5">
             <p className="mb-2 text-sm font-semibold text-gray-700">
-              Panorámicas de {nombreDe(pacienteElegido)} {carpeta.length > 0 && `(${carpeta.length})`}
+              Fotos de {nombreDe(pacienteElegido)} {carpeta.length > 0 && `(${carpeta.length})`}
             </p>
             {cargandoCarpeta && <p className="text-sm text-gray-500">Cargando...</p>}
             {!cargandoCarpeta && carpeta.length === 0 && (
