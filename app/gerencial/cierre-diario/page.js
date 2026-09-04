@@ -107,11 +107,16 @@ function CierreDiarioContenido() {
   }, {});
   const totalCombinado = (totalesGeneral?.totalGeneral || 0) + (totalesOrto?.totalGeneral || 0);
 
+  // Los sueldos (Registrar sueldo, en Consultorio) no salen de la plata
+  // que entró hoy: salen de la reserva acumulada en Consultorio. Por eso
+  // no cuentan como egreso del día acá.
+  const gastosDelDia = gastos.filter((g) => g.categoria !== "Sueldos");
+
   const totalesEgresos = ETIQUETAS.reduce((acc, e) => {
     acc[e.clave] = 0;
     return acc;
   }, {});
-  [...gastos, ...pagosProfesionales].forEach((m) => {
+  [...gastosDelDia, ...pagosProfesionales].forEach((m) => {
     const clave = CLAVE_POR_MEDIO[m.medioPago];
     if (clave) totalesEgresos[clave] += Number(m.monto);
   });
@@ -132,7 +137,7 @@ function CierreDiarioContenido() {
     totalEgresos,
     totalesNeto,
     totalNeto,
-    cantidadGastos: gastos.length,
+    cantidadGastos: gastosDelDia.length,
     cantidadPagosProfesionales: pagosProfesionales.length,
   };
 
