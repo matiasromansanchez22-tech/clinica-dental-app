@@ -36,7 +36,7 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
       <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">💰 Registrar sueldo</h2>
         <p className="mt-1 text-xs text-gray-500">
-          Esto resta el monto de los gastos del consultorio (categoría "Sueldos") y lo suma a tu cuenta personal.
+          Esto queda como Gasto del consultorio (categoría "Sueldos"), resta del saldo de Consultorio y suma al de Personal.
         </p>
 
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}

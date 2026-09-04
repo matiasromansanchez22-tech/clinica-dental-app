@@ -11,6 +11,11 @@ import {
   obtenerSaldosPersonales,
 } from "@/lib/data/finanzasPersonales";
 
+const PANELES = [
+  { id: "Consultorio", label: "🏥 Consultorio" },
+  { id: "Personal", label: "🏠 Personal" },
+];
+
 function primerYUltimoDiaDelMes(fechaISO) {
   const [anio, mes] = fechaISO.split("-").map(Number);
   const primero = `${anio}-${String(mes).padStart(2, "0")}-01`;
@@ -31,6 +36,7 @@ function formatoFecha(fechaISO) {
 function FinanzasPersonalesContenido() {
   const hoy = fechaDeHoyISO();
   const { primero, ultimo } = primerYUltimoDiaDelMes(hoy);
+  const [panel, setPanel] = useState("Consultorio");
   const [fechaInicio, setFechaInicio] = useState(primero);
   const [fechaFin, setFechaFin] = useState(ultimo);
   const [saldos, setSaldos] = useState({ Efectivo: 0, Banco: 0 });
@@ -45,8 +51,8 @@ function FinanzasPersonalesContenido() {
     setError(null);
     try {
       const [s, m] = await Promise.all([
-        obtenerSaldosPersonales(),
-        obtenerMovimientosPersonales({ fechaInicio, fechaFin }),
+        obtenerSaldosPersonales(panel),
+        obtenerMovimientosPersonales({ fechaInicio, fechaFin, panel }),
       ]);
       setSaldos(s);
       setMovimientos(m);
@@ -60,7 +66,7 @@ function FinanzasPersonalesContenido() {
   useEffect(() => {
     recargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fechaInicio, fechaFin]);
+  }, [panel, fechaInicio, fechaFin]);
 
   function irAEsteMes() {
     setFechaInicio(primero);
@@ -68,7 +74,10 @@ function FinanzasPersonalesContenido() {
   }
 
   async function borrar(mov) {
-    const detalle = mov.gastoId ? " (también se borra el gasto vinculado del consultorio)" : "";
+    const vinculado = mov.gastoId || mov.movimientoVinculadoId;
+    const detalle = vinculado
+      ? " (también se borran el sueldo y el gasto del consultorio vinculados a este movimiento)"
+      : "";
     if (!window.confirm(`¿Borrar "${mov.categoria}" de $${mov.monto.toLocaleString("es-AR")}?${detalle}`)) return;
     try {
       await eliminarMovimientoPersonal(mov);
@@ -84,14 +93,16 @@ function FinanzasPersonalesContenido() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">🏠 Cuenta Personal</h1>
+        <h1 className="text-2xl font-bold text-gray-900">💰 Consultorio y Personal</h1>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setMostrarSueldo(true)}
-            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-          >
-            💰 Registrar sueldo
-          </button>
+          {panel === "Consultorio" && (
+            <button
+              onClick={() => setMostrarSueldo(true)}
+              className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              💰 Registrar sueldo
+            </button>
+          )}
           <button
             onClick={() => setMostrarMovimiento(true)}
             className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
@@ -101,8 +112,22 @@ function FinanzasPersonalesContenido() {
         </div>
       </div>
       <p className="mt-1 text-sm text-gray-500">
-        Separada de la caja del consultorio. Cargá acá tu sueldo y lo que pagan de casa con esa plata.
+        Dos cuentas separadas: la plata del consultorio, y la de Matías y Marianela una vez cobrado el sueldo.
       </p>
+
+      <div className="mt-4 flex gap-2 border-b border-gray-200">
+        {PANELES.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPanel(p.id)}
+            className={`-mb-px rounded-t-md border-b-2 px-4 py-2 text-sm font-medium ${
+              panel === p.id ? "border-brand-brown text-brand-brown" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
         <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
@@ -210,6 +235,7 @@ function FinanzasPersonalesContenido() {
 
       {mostrarMovimiento && (
         <MovimientoPersonalFormModal
+          panel={panel}
           onClose={() => setMostrarMovimiento(false)}
           onGuardado={async () => {
             setMostrarMovimiento(false);

@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
+  CATEGORIAS_EGRESO_CONSULTORIO,
   CATEGORIAS_EGRESO_PERSONAL,
+  CATEGORIAS_INGRESO_CONSULTORIO,
   CATEGORIAS_INGRESO_PERSONAL,
   CUENTAS_PERSONALES,
   crearMovimientoPersonal,
 } from "@/lib/data/finanzasPersonales";
 
-export default function MovimientoPersonalFormModal({ onClose, onGuardado }) {
+export default function MovimientoPersonalFormModal({ panel, onClose, onGuardado }) {
   const [cuenta, setCuenta] = useState(CUENTAS_PERSONALES[0]);
   const [tipo, setTipo] = useState("Egreso");
   const [categoria, setCategoria] = useState("");
@@ -19,7 +21,9 @@ export default function MovimientoPersonalFormModal({ onClose, onGuardado }) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
-  const categoriasSugeridas = tipo === "Ingreso" ? CATEGORIAS_INGRESO_PERSONAL : CATEGORIAS_EGRESO_PERSONAL;
+  const categoriasIngreso = panel === "Consultorio" ? CATEGORIAS_INGRESO_CONSULTORIO : CATEGORIAS_INGRESO_PERSONAL;
+  const categoriasEgreso = panel === "Consultorio" ? CATEGORIAS_EGRESO_CONSULTORIO : CATEGORIAS_EGRESO_PERSONAL;
+  const categoriasSugeridas = tipo === "Ingreso" ? categoriasIngreso : categoriasEgreso;
 
   async function confirmar() {
     if (!categoria.trim()) {
@@ -33,7 +37,7 @@ export default function MovimientoPersonalFormModal({ onClose, onGuardado }) {
     setGuardando(true);
     setError(null);
     try {
-      await crearMovimientoPersonal({ cuenta, tipo, categoria: categoria.trim(), monto: Number(monto), fecha, descripcion });
+      await crearMovimientoPersonal({ panel, cuenta, tipo, categoria: categoria.trim(), monto: Number(monto), fecha, descripcion });
       onGuardado();
     } catch (e) {
       setError(e.message);
@@ -45,7 +49,7 @@ export default function MovimientoPersonalFormModal({ onClose, onGuardado }) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Nuevo movimiento personal</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Nuevo movimiento — {panel}</h2>
 
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
