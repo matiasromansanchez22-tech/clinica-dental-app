@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
-import { eliminarError, obtenerErroresApp } from "@/lib/data/erroresApp";
+import { eliminarError, obtenerErroresApp, registrarError } from "@/lib/data/erroresApp";
 
 function formatoFechaHora(iso) {
   const fecha = new Date(iso);
@@ -41,9 +41,22 @@ function ErroresContenido() {
     }
   }
 
+  async function probar() {
+    await registrarError({ mensaje: "Error de prueba", contexto: "prueba manual", url: window.location.href });
+    await recargar();
+  }
+
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">🚨 Errores</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-gray-900">🚨 Errores</h1>
+        <button
+          onClick={probar}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          🧪 Generar error de prueba
+        </button>
+      </div>
       <p className="mt-1 text-sm text-gray-500">
         Se guardan solos cuando algo falla en la app, sin que nadie tenga que avisar. Los últimos 200.
       </p>
