@@ -10,6 +10,7 @@ import InstalarAppBoton from "@/components/InstalarAppBoton";
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
   { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
+  { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Duena"] },
   { tipo: "link", href: "/chat", label: "💬 Chat", ocultarRoles: ["Contador"] },
   {
     tipo: "grupo",
@@ -88,6 +89,7 @@ const GRUPOS = [
       { href: "/gerencial/papelera", label: "🗑️ Papelera de reciclaje" },
       { href: "/gerencial/accesos", label: "🔑 Accesos" },
       { href: "/gerencial/finanzas-personales", label: "🏠 Cuenta Personal" },
+      { href: "/gerencial/horarios", label: "🕐 Horarios y liquidación" },
     ],
   },
 ];
