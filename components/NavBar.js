@@ -86,6 +86,7 @@ const GRUPOS = [
       { href: "/gerencial/balance-mensual", label: "Balance Mensual" },
       { href: "/gerencial/balance-anual", label: "Balance Anual" },
       { href: "/gerencial/papelera", label: "🗑️ Papelera de reciclaje" },
+      { href: "/gerencial/accesos", label: "🔑 Accesos" },
     ],
   },
 ];
