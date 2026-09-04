@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import InstalarAppBoton from "@/components/InstalarAppBoton";
+import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -175,6 +176,7 @@ export default function NavBar() {
           return <MenuDesplegable key={g.label} grupo={g} activo={activo} />;
         })}
         <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
+          <ActivarAvisosBoton />
           <InstalarAppBoton />
           {perfil?.nombre || user.email}
           <Link href="/cambiar-password" className="hover:underline">
