@@ -9,6 +9,7 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Transferencia");
+  const [esParaDuenos, setEsParaDuenos] = useState(true);
   const [quien, setQuien] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -22,7 +23,7 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
     setGuardando(true);
     setError(null);
     try {
-      await registrarSueldo({ fecha, monto: Number(monto), medioPago, quien, descripcion });
+      await registrarSueldo({ fecha, monto: Number(monto), medioPago, quien, descripcion, esParaDuenos });
       onGuardado();
     } catch (e) {
       setError(e.message);
@@ -35,13 +36,28 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">💰 Registrar sueldo</h2>
-        <p className="mt-1 text-xs text-gray-500">
-          Esto queda como Gasto del consultorio (categoría "Sueldos"), resta del saldo de Consultorio y suma al de Personal.
-        </p>
+        <p className="mt-1 text-xs text-gray-500">Esto siempre queda como Gasto del consultorio (categoría "Sueldos") y resta del saldo de Consultorio.</p>
 
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
-        <label className="mt-4 flex flex-col gap-1 text-xs text-gray-700">
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-medium text-gray-700">¿A quién le pagás?</p>
+          <label className="mt-2 flex items-center gap-1.5 text-sm">
+            <input type="radio" checked={esParaDuenos} onChange={() => setEsParaDuenos(true)} />
+            A vos o a Marian (dueños)
+          </label>
+          <label className="mt-1 flex items-center gap-1.5 text-sm">
+            <input type="radio" checked={!esParaDuenos} onChange={() => setEsParaDuenos(false)} />
+            A alguien del personal (secretaria, etc.)
+          </label>
+          <p className="mt-2 text-[11px] text-gray-400">
+            {esParaDuenos
+              ? "Además suma a Personal, porque es plata que queda para ustedes."
+              : "No suma a Personal — es un pago a un empleado, no plata de ustedes."}
+          </p>
+        </div>
+
+        <label className="mt-3 flex flex-col gap-1 text-xs text-gray-700">
           Monto
           <input
             type="number"
@@ -76,7 +92,7 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
           <input
             value={quien}
             onChange={(e) => setQuien(e.target.value)}
-            placeholder="Ej. Matías, Marianela..."
+            placeholder="Ej. Matías, Marianela, Simón..."
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </label>
