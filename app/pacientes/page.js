@@ -6,6 +6,7 @@ import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
 import { actualizarBanderasPaciente, obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
+import { linkWhatsApp } from "@/lib/whatsapp";
 
 function PacientesContenido() {
   const [pacientes, setPacientes] = useState([]);
@@ -165,7 +166,23 @@ function PacientesContenido() {
                 <td className="px-3 py-2 font-medium text-gray-900">{p.apellidoYNombre}</td>
                 <td className="px-3 py-2 text-gray-600">{calcularEdad(p.fechaNacimiento) ?? "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{p.dni || "—"}</td>
-                <td className="px-3 py-2 text-gray-600">{p.celular || "—"}</td>
+                <td className="px-3 py-2 text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    {p.celular || "—"}
+                    {p.celular && linkWhatsApp(p.celular) && (
+                      <a
+                        href={linkWhatsApp(p.celular)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Escribir por WhatsApp"
+                        className="text-emerald-600 hover:text-emerald-700"
+                      >
+                        💬
+                      </a>
+                    )}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-gray-600">
                   {p.tipoPaciente === "Particular" ? "Particular" : `${p.tipoPaciente} · ${p.obraSocial || ""}`}
                 </td>

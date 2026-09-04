@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { obtenerTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
+import { linkWhatsApp } from "@/lib/whatsapp";
 
 export default function ReprogramarPage() {
   const [turnos, setTurnos] = useState([]);
@@ -80,13 +81,28 @@ export default function ReprogramarPage() {
                 </td>
                 <td className="px-3 py-2 text-gray-600">{t.profesionalDeTurno}</td>
                 <td className="px-3 py-2">
-                  <button
-                    disabled={procesando === t.id}
-                    onClick={() => marcarResuelto(t)}
-                    className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
-                  >
-                    Ya lo reprogramé
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {linkWhatsApp(t.celular) && (
+                      <a
+                        href={linkWhatsApp(
+                          t.celular,
+                          `Hola ${t.paciente}, te escribimos de Clínica Dental Marianela Ramírez para reprogramar tu turno.`
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-emerald-600 hover:underline"
+                      >
+                        💬 WhatsApp
+                      </a>
+                    )}
+                    <button
+                      disabled={procesando === t.id}
+                      onClick={() => marcarResuelto(t)}
+                      className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                    >
+                      Ya lo reprogramé
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
