@@ -88,7 +88,7 @@ export default function ReprogramarPage() {
                           t.celular,
                           `Hola ${t.paciente}, te escribimos de Clínica Dental Marianela Ramírez para reprogramar tu turno.`
                         )}
-                        target="_blank"
+                        target="whatsapp_clinica"
                         rel="noopener noreferrer"
                         className="text-xs font-medium text-emerald-600 hover:underline"
                       >
