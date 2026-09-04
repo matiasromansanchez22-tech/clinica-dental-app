@@ -88,6 +88,7 @@ const GRUPOS = [
       { href: "/gerencial/balance-anual", label: "Balance Anual" },
       { href: "/gerencial/papelera", label: "🗑️ Papelera de reciclaje" },
       { href: "/gerencial/accesos", label: "🔑 Accesos" },
+      { href: "/gerencial/errores", label: "🚨 Errores" },
       { href: "/gerencial/finanzas-personales", label: "💰 Consultorio y Personal" },
       { href: "/gerencial/horarios", label: "🕐 Horarios y liquidación" },
     ],
