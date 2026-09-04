@@ -16,6 +16,7 @@ import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/p
 export default function CajaPage() {
   const { perfil } = useAuth();
   const esDuena = perfil?.rol === "Duena";
+  const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [cobros, setCobros] = useState([]);
   const [gastos, setGastos] = useState([]);
@@ -129,27 +130,29 @@ export default function CajaPage() {
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Caja General</h1>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setMostrarNuevoPagoProfesional(true)}
-            className="rounded-md border border-brand-brown/40 px-2.5 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
-          >
-            💰 Pago a profesional
-          </button>
-          <button
-            onClick={() => setMostrarNuevoPago(true)}
-            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-          >
-            💸 Registrar gasto
-          </button>
-          <button
-            onClick={() => setMostrarNuevo(true)}
-            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-          >
-            + Nuevo cobro
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">Caja General{esContador && " (solo lectura)"}</h1>
+        {!esContador && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setMostrarNuevoPagoProfesional(true)}
+              className="rounded-md border border-brand-brown/40 px-2.5 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              💰 Pago a profesional
+            </button>
+            <button
+              onClick={() => setMostrarNuevoPago(true)}
+              className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              💸 Registrar gasto
+            </button>
+            <button
+              onClick={() => setMostrarNuevo(true)}
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+            >
+              + Nuevo cobro
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-2 flex items-center gap-2">
@@ -224,9 +227,11 @@ export default function CajaPage() {
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="font-medium text-gray-900">${Number(g.monto).toLocaleString("es-AR")}</span>
-                  <button onClick={() => borrarGasto(g)} className="text-xs text-red-600 hover:underline">
-                    Borrar
-                  </button>
+                  {!esContador && (
+                    <button onClick={() => borrarGasto(g)} className="text-xs text-red-600 hover:underline">
+                      Borrar
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
@@ -237,9 +242,11 @@ export default function CajaPage() {
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="font-medium text-gray-900">${Number(p.monto).toLocaleString("es-AR")}</span>
-                  <button onClick={() => borrarPagoProfesional(p)} className="text-xs text-red-600 hover:underline">
-                    Borrar
-                  </button>
+                  {!esContador && (
+                    <button onClick={() => borrarPagoProfesional(p)} className="text-xs text-red-600 hover:underline">
+                      Borrar
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
@@ -297,7 +304,7 @@ export default function CajaPage() {
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.pago).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
                 <td className="px-3 py-2 text-right">
-                  {c.cerrado && !esDuena ? (
+                  {esContador ? null : c.cerrado && !esDuena ? (
                     <span className="text-xs text-gray-400" title="El turno ya se cerró. Solo la Dueña puede reabrirlo.">
                       🔒 Cerrado
                     </span>

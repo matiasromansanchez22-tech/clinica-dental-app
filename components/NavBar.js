@@ -8,11 +8,12 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
-  { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos" },
-  { tipo: "link", href: "/chat", label: "💬 Chat" },
+  { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
+  { tipo: "link", href: "/chat", label: "💬 Chat", ocultarRoles: ["Contador"] },
   {
     tipo: "grupo",
     label: "Sistema General",
+    ocultarRoles: ["Contador"],
     items: [
       { href: "/agenda", label: "Agenda" },
       { href: "/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
@@ -29,6 +30,7 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Sistema Ortodoncia",
+    ocultarRoles: ["Contador"],
     items: [
       { href: "/ortodoncia/agenda", label: "Agenda" },
       { href: "/ortodoncia/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
@@ -43,11 +45,26 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Laboratorio",
-    ocultarRoles: ["Secretaria"],
+    ocultarRoles: ["Secretaria", "Contador"],
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
   { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Estadísticas", soloDuena: true },
   { tipo: "link", href: "/gerencial/stock", label: "📦 Stock de Insumos", soloRoles: ["Duena", "Laboratorio"] },
+  {
+    tipo: "grupo",
+    label: "💼 Contador",
+    soloRoles: ["Duena", "Contador"],
+    items: [
+      { href: "/caja", label: "Caja General" },
+      { href: "/ortodoncia/caja", label: "Caja Ortodoncia" },
+      { href: "/gerencial/gastos", label: "Gastos" },
+      { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
+      { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },
+      { href: "/gerencial/produccion", label: "Producción y liquidación" },
+      { href: "/gerencial/balance-mensual", label: "Balance Mensual" },
+      { href: "/gerencial/balance-anual", label: "Balance Anual" },
+    ],
+  },
   {
     tipo: "grupo",
     label: "Gerencial",

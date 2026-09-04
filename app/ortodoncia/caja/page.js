@@ -13,6 +13,7 @@ import { obtenerProfesionales } from "@/lib/data/profesionales";
 export default function CajaOrtodonciaPage() {
   const { perfil } = useAuth();
   const esDuena = perfil?.rol === "Duena";
+  const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [cobros, setCobros] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -71,21 +72,23 @@ export default function CajaOrtodonciaPage() {
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Caja — Ortodoncia</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMostrarNuevoPago(true)}
-            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-          >
-            💸 Registrar pago
-          </button>
-          <button
-            onClick={() => setMostrarNuevo(true)}
-            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-          >
-            + Nuevo cobro
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">Caja — Ortodoncia{esContador && " (solo lectura)"}</h1>
+        {!esContador && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMostrarNuevoPago(true)}
+              className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              💸 Registrar pago
+            </button>
+            <button
+              onClick={() => setMostrarNuevo(true)}
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+            >
+              + Nuevo cobro
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-2 flex items-center gap-2">
@@ -173,7 +176,7 @@ export default function CajaOrtodonciaPage() {
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.importe).toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
                 <td className="px-3 py-2 text-right">
-                  {c.cerrado && !esDuena ? (
+                  {esContador ? null : c.cerrado && !esDuena ? (
                     <span className="text-xs text-gray-400" title="El turno ya se cerró. Solo la Dueña puede reabrirlo.">
                       🔒 Cerrado
                     </span>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import NoContador from "@/components/NoContador";
 import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
 import { actualizarBanderasPaciente, obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
-export default function PacientesPage() {
+function PacientesContenido() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [busqueda, setBusqueda] = useState("");
@@ -223,5 +224,13 @@ export default function PacientesPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function PacientesPage() {
+  return (
+    <NoContador>
+      <PacientesContenido />
+    </NoContador>
   );
 }

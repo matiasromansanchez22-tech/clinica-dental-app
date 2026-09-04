@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ConfiguracionCategoriasGastoModal from "@/components/ConfiguracionCategoriasGastoModal";
 import GastoFormModal from "@/components/GastoFormModal";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 
@@ -236,8 +236,8 @@ function GastosContenido() {
 
 export default function GastosPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <GastosContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }

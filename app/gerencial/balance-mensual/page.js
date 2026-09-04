@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerBalanceMensual, obtenerDetalleDiarioMes } from "@/lib/data/balance";
 
@@ -251,8 +251,8 @@ function BalanceMensualContenido() {
 
 export default function BalanceMensualPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <BalanceMensualContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }

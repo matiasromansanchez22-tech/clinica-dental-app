@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import NoContador from "@/components/NoContador";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
 import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
 import { obtenerConfiguracionOrtodoncia, obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
@@ -10,7 +11,7 @@ function documentosDe(p) {
   return [p.historialClinico, p.fotografias, p.rxInicial, p.rx6Meses, p.rx12Meses, p.consentimiento];
 }
 
-export default function PacientesOrtodonciaPage() {
+function PacientesOrtodonciaContenido() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [config, setConfig] = useState({});
@@ -214,5 +215,13 @@ export default function PacientesOrtodonciaPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function PacientesOrtodonciaPage() {
+  return (
+    <NoContador>
+      <PacientesOrtodonciaContenido />
+    </NoContador>
   );
 }

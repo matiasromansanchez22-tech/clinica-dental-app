@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import RegistrarPagoProfesionalModal from "@/components/RegistrarPagoProfesionalModal";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import {
   eliminarPagoProfesional,
@@ -422,8 +422,8 @@ function ProduccionPorProfesionalContenido() {
 
 export default function ProduccionPorProfesionalPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <ProduccionPorProfesionalContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }

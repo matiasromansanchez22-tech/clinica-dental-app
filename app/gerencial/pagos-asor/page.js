@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import ConciliarPagoAsorModal from "@/components/ConciliarPagoAsorModal";
 import ImportarPdfAsorModal from "@/components/ImportarPdfAsorModal";
 import NuevoPagoAsorModal from "@/components/NuevoPagoAsorModal";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   eliminarFacturacionAsorPaciente,
@@ -507,8 +507,8 @@ function PagosAsorContenido() {
 
 export default function PagosAsorPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <PagosAsorContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   actualizarEstadoFicha,
@@ -275,8 +275,8 @@ function ControlObrasSocialesContenido() {
 
 export default function ControlObrasSocialesPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <ControlObrasSocialesContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }
