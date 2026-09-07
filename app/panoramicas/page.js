@@ -12,6 +12,8 @@ import {
   subirPanoramica,
 } from "@/lib/data/panoramicas";
 
+const ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+
 function formatoFecha(fechaISO) {
   const [anio, mes, dia] = fechaISO.split("-");
   return `${dia}/${mes}/${anio}`;
@@ -49,18 +51,19 @@ export default function PanoramicasPage() {
   }
 
   const gruposPorLetra = useMemo(() => {
+    const acentos = { Á: "A", É: "E", Í: "I", Ó: "O", Ú: "U" };
     const porLetra = {};
     for (const c of carpetas) {
-      const letra = (c.pacienteNombre || "?").trim().charAt(0).toUpperCase() || "?";
+      let letra = (c.pacienteNombre || "").trim().charAt(0).toUpperCase();
+      letra = acentos[letra] || letra;
+      if (!ALFABETO.includes(letra)) continue;
       if (!porLetra[letra]) porLetra[letra] = [];
       porLetra[letra].push(c);
     }
-    return Object.keys(porLetra)
-      .sort()
-      .map((letra) => ({
-        letra,
-        items: porLetra[letra].sort((a, b) => a.pacienteNombre.localeCompare(b.pacienteNombre, "es")),
-      }));
+    return ALFABETO.map((letra) => ({
+      letra,
+      items: (porLetra[letra] || []).sort((a, b) => a.pacienteNombre.localeCompare(b.pacienteNombre, "es")),
+    }));
   }, [carpetas]);
 
   function recargarCarpetas() {
@@ -199,14 +202,19 @@ export default function PanoramicasPage() {
               <div className="flex flex-col gap-2">
                 {gruposPorLetra.map((g) => {
                   const abierto = letrasAbiertas.has(g.letra);
+                  const vacia = g.items.length === 0;
                   return (
                     <div key={g.letra} className="overflow-hidden rounded-lg border border-gray-200">
                       <button
                         type="button"
                         onClick={() => toggleLetra(g.letra)}
-                        className="flex w-full items-center justify-between bg-brand-tan/20 px-4 py-2.5 text-left hover:bg-brand-tan/30"
+                        className={`flex w-full items-center justify-between px-4 py-2 text-left ${
+                          vacia ? "bg-gray-50 hover:bg-gray-100" : "bg-brand-tan/20 hover:bg-brand-tan/30"
+                        }`}
                       >
-                        <span className="font-heading text-sm font-semibold text-brand-brown">
+                        <span
+                          className={`font-heading text-sm font-semibold ${vacia ? "text-gray-400" : "text-brand-brown"}`}
+                        >
                           {abierto ? "▾" : "▸"} {g.letra}
                         </span>
                         <span className="text-xs text-gray-500">
@@ -214,21 +222,27 @@ export default function PanoramicasPage() {
                         </span>
                       </button>
                       {abierto && (
-                        <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3">
-                          {g.items.map((c) => (
-                            <button
-                              key={`${c.tipoPaciente}:${c.pacienteId}`}
-                              type="button"
-                              onClick={() => abrirCarpeta(c.tipoPaciente, { id: c.pacienteId, apellidoYNombre: c.pacienteNombre, nombre: c.pacienteNombre })}
-                              className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white p-4 text-center hover:border-brand-brown hover:bg-brand-tan/20"
-                            >
-                              <span className="text-3xl">📁</span>
-                              <span className="text-sm font-medium text-gray-900">{c.pacienteNombre}</span>
-                              <span className="text-xs text-gray-500">
-                                {c.cantidad} foto{c.cantidad === 1 ? "" : "s"} · {formatoFecha(c.ultimaFecha)}
-                              </span>
-                            </button>
-                          ))}
+                        <div className="p-3">
+                          {vacia ? (
+                            <p className="text-xs text-gray-400">Todavía no hay carpetas con esta letra.</p>
+                          ) : (
+                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+                              {g.items.map((c) => (
+                                <button
+                                  key={`${c.tipoPaciente}:${c.pacienteId}`}
+                                  type="button"
+                                  onClick={() => abrirCarpeta(c.tipoPaciente, { id: c.pacienteId, apellidoYNombre: c.pacienteNombre, nombre: c.pacienteNombre })}
+                                  className="flex flex-col items-center gap-0.5 rounded-md border border-gray-200 bg-white p-2 text-center hover:border-brand-brown hover:bg-brand-tan/20"
+                                >
+                                  <span className="text-lg">📁</span>
+                                  <span className="w-full truncate text-xs font-medium text-gray-900">{c.pacienteNombre}</span>
+                                  <span className="text-[10px] text-gray-500">
+                                    {c.cantidad} foto{c.cantidad === 1 ? "" : "s"}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
