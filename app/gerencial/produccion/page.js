@@ -129,7 +129,7 @@ function ProduccionPorProfesionalContenido() {
           🖨️ Imprimir
         </button>
       </div>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="print:hidden mt-1 text-sm text-gray-500">
         Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Lo que se liquida en el día
         es el % sobre el valor de catálogo de las prestaciones que cada uno cargó (no sobre lo que terminó pagando el
         paciente) — las cuotas de plan de financiación se liquidan por lo cobrado en esa cuota. La parte de obra
@@ -182,7 +182,7 @@ function ProduccionPorProfesionalContenido() {
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-3">
+      <div className="print:hidden mt-3 flex flex-wrap gap-3">
         <div className="rounded-md border border-gray-200 px-3 py-2 text-sm">
           <span className="text-gray-500">Atenciones: </span>
           <span className="font-semibold text-gray-900">{totalAtenciones}</span>
@@ -210,7 +210,7 @@ function ProduccionPorProfesionalContenido() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="print:hidden mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
@@ -343,7 +343,8 @@ function ProduccionPorProfesionalContenido() {
                             <th className="px-2 py-1 text-left font-medium">Paciente</th>
                             <th className="px-2 py-1 text-left font-medium">Prestación / concepto</th>
                             <th className="px-2 py-1 text-left font-medium">Tipo</th>
-                            <th className="px-2 py-1 text-right font-medium">Monto</th>
+                            <th className="px-2 py-1 text-right font-medium">Abonó</th>
+                            <th className="px-2 py-1 text-right font-medium">Corresponde cobrar</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -354,9 +355,25 @@ function ProduccionPorProfesionalContenido() {
                               <td className="px-2 py-1">{d.concepto}</td>
                               <td className="px-2 py-1 text-gray-500">{d.tipo}</td>
                               <td className="px-2 py-1 text-right">${d.monto.toLocaleString("es-AR")}</td>
+                              <td className="px-2 py-1 text-right font-medium text-brand-brown">
+                                ${Math.round(d.montoHonorarios).toLocaleString("es-AR")}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-gray-300 font-semibold text-gray-800">
+                            <td colSpan={4} className="px-2 py-1 text-right">
+                              Total
+                            </td>
+                            <td className="px-2 py-1 text-right">
+                              ${f.detalle.reduce((a, d) => a + d.monto, 0).toLocaleString("es-AR")}
+                            </td>
+                            <td className="px-2 py-1 text-right text-brand-brown">
+                              ${Math.round(f.detalle.reduce((a, d) => a + d.montoHonorarios, 0)).toLocaleString("es-AR")}
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </td>
                   </tr>
@@ -367,7 +384,7 @@ function ProduccionPorProfesionalContenido() {
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-gray-500">
+      <p className="print:hidden mt-3 text-xs text-gray-500">
         "A liquidar hoy" es solo el % sobre el valor de catálogo de lo cargado como copago/particular en el período.
         La columna "Pendiente O.Social
         (mes vencido)" se calcula sobre lo facturado al intermediario y se liquida recién a mes vencido, cuando la
@@ -424,6 +441,55 @@ function ProduccionPorProfesionalContenido() {
       </div>
         </>
       )}
+
+      <div className="hidden print:block">
+        {filas
+          .filter((f) => f.detalle.length > 0)
+          .map((f) => (
+            <div key={f.profesionalId} className="break-after-page">
+              <h1 className="text-xl font-bold text-gray-900">Clínica Dental Marianela Ramírez</h1>
+              <h2 className="mt-1 text-lg font-semibold text-gray-800">Liquidación — {f.nombre}</h2>
+              <p className="text-sm text-gray-600">
+                Período: {fechaInicio} a {fechaFin} · {f.especialidad}
+              </p>
+              <table className="mt-3 w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-800 text-left">
+                    <th className="py-1 pr-2">Fecha</th>
+                    <th className="py-1 pr-2">Paciente</th>
+                    <th className="py-1 pr-2">Prestación / concepto</th>
+                    <th className="py-1 pr-2 text-right">Abonó</th>
+                    <th className="py-1 text-right">Corresponde cobrar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {f.detalle.map((d, i) => (
+                    <tr key={i} className="border-b border-gray-200">
+                      <td className="py-1 pr-2">{d.fecha}</td>
+                      <td className="py-1 pr-2">{d.paciente}</td>
+                      <td className="py-1 pr-2">{d.concepto}</td>
+                      <td className="py-1 pr-2 text-right">${d.monto.toLocaleString("es-AR")}</td>
+                      <td className="py-1 text-right">${Math.round(d.montoHonorarios).toLocaleString("es-AR")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-800 font-bold">
+                    <td colSpan={3} className="py-2 pr-2 text-right">
+                      Total
+                    </td>
+                    <td className="py-2 pr-2 text-right">
+                      ${f.detalle.reduce((a, d) => a + d.monto, 0).toLocaleString("es-AR")}
+                    </td>
+                    <td className="py-2 text-right">
+                      ${Math.round(f.detalle.reduce((a, d) => a + d.montoHonorarios, 0)).toLocaleString("es-AR")}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ))}
+      </div>
 
       {modalPago && (
         <RegistrarPagoProfesionalModal
