@@ -21,6 +21,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
   const [profesionalAtencionId, setProfesionalAtencionId] = useState("");
   const [planActivo, setPlanActivo] = useState(null);
   const [cargandoPlan, setCargandoPlan] = useState(false);
+  const [cobroIndependienteDelPlan, setCobroIndependienteDelPlan] = useState(false);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestaciones, setPrestaciones] = useState([filaVacia()]);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -33,7 +34,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
 
   const paciente = pacientes.find((p) => p.id === pacienteId);
   const esObraSocial = paciente?.tipo_paciente === "Obra Social" || paciente?.tipo_paciente === "Mixto";
-  const usaPlan = Boolean(planActivo);
+  const usaPlan = Boolean(planActivo) && !cobroIndependienteDelPlan;
 
   useEffect(() => {
     if (!paciente) {
@@ -42,6 +43,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
       return;
     }
     setProfesionalAtencionId("");
+    setCobroIndependienteDelPlan(false);
     setCargandoPlan(true);
     obtenerPlanActivoPaciente(paciente.id)
       .then((plan) => {
@@ -243,11 +245,26 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
 
           {cargandoPlan && <p className="text-sm text-gray-500">Buscando plan de financiación activo...</p>}
 
-          {usaPlan && (
+          {planActivo && (
             <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 px-3 py-2 text-sm text-brand-green">
-              Tiene un plan activo <strong>{planActivo.numero_plan}</strong> — este cobro se va a aplicar a{" "}
-              <strong>{numeroCuota === "Anticipo" ? "el anticipo" : `la cuota ${numeroCuota}`}</strong>. Saldo pendiente
-              actual: ${Number(planActivo.saldo_pendiente).toLocaleString("es-AR")}.
+              <p>
+                Tiene un plan activo <strong>{planActivo.numero_plan}</strong>. Saldo pendiente actual: $
+                {Number(planActivo.saldo_pendiente).toLocaleString("es-AR")}.
+              </p>
+              {usaPlan && (
+                <p className="mt-1">
+                  Este cobro se va a aplicar a{" "}
+                  <strong>{numeroCuota === "Anticipo" ? "el anticipo" : `la cuota ${numeroCuota}`}</strong>.
+                </p>
+              )}
+              <label className="mt-2 flex items-center gap-2 text-brand-green">
+                <input
+                  type="checkbox"
+                  checked={cobroIndependienteDelPlan}
+                  onChange={(e) => setCobroIndependienteDelPlan(e.target.checked)}
+                />
+                Este pago es por otro tratamiento, no es una cuota del plan
+              </label>
             </div>
           )}
 
