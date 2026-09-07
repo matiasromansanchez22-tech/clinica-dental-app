@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
@@ -20,6 +20,7 @@ function formatoFecha(fechaISO) {
 export default function PanoramicasPage() {
   const [carpetas, setCarpetas] = useState([]);
   const [cargandoCarpetas, setCargandoCarpetas] = useState(true);
+  const [letrasAbiertas, setLetrasAbiertas] = useState(() => new Set());
 
   const [tipoPaciente, setTipoPaciente] = useState("General");
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
@@ -37,6 +38,30 @@ export default function PanoramicasPage() {
   const [urls, setUrls] = useState({});
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const inputArchivoRef = useRef(null);
+
+  function toggleLetra(letra) {
+    setLetrasAbiertas((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(letra)) nuevo.delete(letra);
+      else nuevo.add(letra);
+      return nuevo;
+    });
+  }
+
+  const gruposPorLetra = useMemo(() => {
+    const porLetra = {};
+    for (const c of carpetas) {
+      const letra = (c.pacienteNombre || "?").trim().charAt(0).toUpperCase() || "?";
+      if (!porLetra[letra]) porLetra[letra] = [];
+      porLetra[letra].push(c);
+    }
+    return Object.keys(porLetra)
+      .sort()
+      .map((letra) => ({
+        letra,
+        items: porLetra[letra].sort((a, b) => a.pacienteNombre.localeCompare(b.pacienteNombre, "es")),
+      }));
+  }, [carpetas]);
 
   function recargarCarpetas() {
     setCargandoCarpetas(true);
@@ -171,21 +196,44 @@ export default function PanoramicasPage() {
               <p className="text-sm text-gray-500">Todavía no hay ninguna carpeta. Buscá un paciente más abajo para crear la primera.</p>
             )}
             {!cargandoCarpetas && carpetas.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {carpetas.map((c) => (
-                  <button
-                    key={`${c.tipoPaciente}:${c.pacienteId}`}
-                    type="button"
-                    onClick={() => abrirCarpeta(c.tipoPaciente, { id: c.pacienteId, apellidoYNombre: c.pacienteNombre, nombre: c.pacienteNombre })}
-                    className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white p-4 text-center hover:border-brand-brown hover:bg-brand-tan/20"
-                  >
-                    <span className="text-3xl">📁</span>
-                    <span className="text-sm font-medium text-gray-900">{c.pacienteNombre}</span>
-                    <span className="text-xs text-gray-500">
-                      {c.cantidad} foto{c.cantidad === 1 ? "" : "s"} · {formatoFecha(c.ultimaFecha)}
-                    </span>
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2">
+                {gruposPorLetra.map((g) => {
+                  const abierto = letrasAbiertas.has(g.letra);
+                  return (
+                    <div key={g.letra} className="overflow-hidden rounded-lg border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => toggleLetra(g.letra)}
+                        className="flex w-full items-center justify-between bg-brand-tan/20 px-4 py-2.5 text-left hover:bg-brand-tan/30"
+                      >
+                        <span className="font-heading text-sm font-semibold text-brand-brown">
+                          {abierto ? "▾" : "▸"} {g.letra}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {g.items.length} paciente{g.items.length === 1 ? "" : "s"}
+                        </span>
+                      </button>
+                      {abierto && (
+                        <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3">
+                          {g.items.map((c) => (
+                            <button
+                              key={`${c.tipoPaciente}:${c.pacienteId}`}
+                              type="button"
+                              onClick={() => abrirCarpeta(c.tipoPaciente, { id: c.pacienteId, apellidoYNombre: c.pacienteNombre, nombre: c.pacienteNombre })}
+                              className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-white p-4 text-center hover:border-brand-brown hover:bg-brand-tan/20"
+                            >
+                              <span className="text-3xl">📁</span>
+                              <span className="text-sm font-medium text-gray-900">{c.pacienteNombre}</span>
+                              <span className="text-xs text-gray-500">
+                                {c.cantidad} foto{c.cantidad === 1 ? "" : "s"} · {formatoFecha(c.ultimaFecha)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
