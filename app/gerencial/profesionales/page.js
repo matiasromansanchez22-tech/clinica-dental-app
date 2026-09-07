@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import NuevoProfesionalModal from "@/components/NuevoProfesionalModal";
+import ProfesionalFormModal from "@/components/ProfesionalFormModal";
 import SoloDuena from "@/components/SoloDuena";
 import { NOMBRES_DIA_SEMANA } from "@/lib/agenda";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
@@ -20,6 +20,7 @@ function ProfesionalesContenido() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [profesionalEnEdicion, setProfesionalEnEdicion] = useState(null);
 
   async function recargar() {
     setCargando(true);
@@ -62,9 +63,18 @@ function ProfesionalesContenido() {
           <p className="text-sm text-gray-500">No hay profesionales cargados todavía.</p>
         )}
         {profesionales.map((p) => (
-          <div key={p.id} className="rounded-lg border border-gray-200 p-4">
+          <div
+            key={p.id}
+            onClick={() => setProfesionalEnEdicion(p)}
+            className={`cursor-pointer rounded-lg border border-gray-200 p-4 hover:bg-gray-50 ${p.activo === false ? "opacity-60" : ""}`}
+          >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="font-heading font-semibold text-brand-brown">{p.nombre}</p>
+              <p className="font-heading font-semibold text-brand-brown">
+                {p.nombre}
+                {p.activo === false && (
+                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">Inactivo</span>
+                )}
+              </p>
               <p className="text-xs text-gray-400">
                 Honorarios: {p.porcentaje_honorarios_copago}% copago · {p.porcentaje_honorarios_os}% obra social
               </p>
@@ -72,16 +82,28 @@ function ProfesionalesContenido() {
             <p className="text-sm text-gray-600">{p.especialidad || "—"}</p>
             <p className="mt-1 text-xs text-gray-500">{resumenDisponibilidad(p)}</p>
             {p.observaciones && <p className="mt-1 text-xs text-gray-400">{p.observaciones}</p>}
+            <p className="mt-2 text-xs font-medium text-brand-brown">✏️ Editar</p>
           </div>
         ))}
       </div>
 
       {mostrarNuevo && (
-        <NuevoProfesionalModal
+        <ProfesionalFormModal
           onClose={() => setMostrarNuevo(false)}
           onGuardado={async () => {
             await recargar();
             setMostrarNuevo(false);
+          }}
+        />
+      )}
+
+      {profesionalEnEdicion && (
+        <ProfesionalFormModal
+          profesional={profesionalEnEdicion}
+          onClose={() => setProfesionalEnEdicion(null)}
+          onGuardado={async () => {
+            await recargar();
+            setProfesionalEnEdicion(null);
           }}
         />
       )}

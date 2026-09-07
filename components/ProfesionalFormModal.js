@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { NOMBRES_DIA_SEMANA } from "@/lib/agenda";
-import { agregarBloqueDisponibilidad, crearProfesional } from "@/lib/data/profesionales";
+import {
+  actualizarBloqueDisponibilidad,
+  actualizarProfesional,
+  agregarBloqueDisponibilidad,
+  crearProfesional,
+  eliminarBloqueDisponibilidad,
+  eliminarProfesional,
+} from "@/lib/data/profesionales";
 
 const CONSULTORIOS_DISPONIBLES = [1, 2, 3];
 
@@ -10,17 +17,32 @@ function bloqueVacio() {
   return { diaSemana: 1, horaInicio: "08:00", horaFin: "14:00", consultorio: 1 };
 }
 
-export default function NuevoProfesionalModal({ onClose, onGuardado }) {
-  const [nombre, setNombre] = useState("");
-  const [especialidad, setEspecialidad] = useState("");
-  const [porcentajeCopago, setPorcentajeCopago] = useState(30);
-  const [porcentajeOS, setPorcentajeOS] = useState(20);
-  const [observaciones, setObservaciones] = useState("");
-  const [bloques, setBloques] = useState([bloqueVacio()]);
+function bloquesDesdeProfesional(profesional) {
+  return (profesional?.disponibilidad_profesional || [])
+    .filter((b) => b.activo)
+    .map((b) => ({
+      id: b.id,
+      diaSemana: b.dia_semana,
+      horaInicio: b.hora_inicio.slice(0, 5),
+      horaFin: b.hora_fin.slice(0, 5),
+      consultorio: b.consultorio || 1,
+    }));
+}
+
+export default function ProfesionalFormModal({ profesional, onClose, onGuardado }) {
+  const esEdicion = !!profesional;
+  const [nombre, setNombre] = useState(profesional?.nombre || "");
+  const [especialidad, setEspecialidad] = useState(profesional?.especialidad || "");
+  const [porcentajeCopago, setPorcentajeCopago] = useState(profesional?.porcentaje_honorarios_copago ?? 30);
+  const [porcentajeOS, setPorcentajeOS] = useState(profesional?.porcentaje_honorarios_os ?? 20);
+  const [observaciones, setObservaciones] = useState(profesional?.observaciones || "");
+  const [activo, setActivo] = useState(profesional?.activo ?? true);
+  const [bloques, setBloques] = useState(esEdicion ? bloquesDesdeProfesional(profesional) : [bloqueVacio()]);
   const [guardando, setGuardando] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const [error, setError] = useState(null);
 
-  function actualizarBloque(i, cambios) {
+  function actualizarBloqueLocal(i, cambios) {
     setBloques((bs) => bs.map((b, idx) => (idx === i ? { ...b, ...cambios } : b)));
   }
 
@@ -41,17 +63,37 @@ export default function NuevoProfesionalModal({ onClose, onGuardado }) {
     }
     setGuardando(true);
     try {
-      const profesional = await crearProfesional({
+      const datos = {
         nombre: nombre.trim(),
         especialidad: especialidad.trim(),
         observaciones: observaciones.trim(),
         porcentajeHonorariosCopago: Number(porcentajeCopago),
         porcentajeHonorariosOS: Number(porcentajeOS),
-      });
+        activo,
+      };
+
+      let profesionalId = profesional?.id;
+      if (esEdicion) {
+        await actualizarProfesional(profesional.id, datos);
+      } else {
+        const creado = await crearProfesional(datos);
+        profesionalId = creado.id;
+      }
+
+      const idsOriginales = esEdicion ? bloquesDesdeProfesional(profesional).map((b) => b.id) : [];
+      const idsActuales = bloques.filter((b) => b.id).map((b) => b.id);
+      for (const id of idsOriginales) {
+        if (!idsActuales.includes(id)) await eliminarBloqueDisponibilidad(id);
+      }
       for (const b of bloques) {
         if (!b.horaInicio || !b.horaFin) continue;
-        await agregarBloqueDisponibilidad(profesional.id, b);
+        if (b.id) {
+          await actualizarBloqueDisponibilidad(b.id, b);
+        } else {
+          await agregarBloqueDisponibilidad(profesionalId, b);
+        }
       }
+
       onGuardado();
     } catch (err) {
       setError(err.message);
@@ -60,11 +102,27 @@ export default function NuevoProfesionalModal({ onClose, onGuardado }) {
     }
   }
 
+  async function handleBorrar() {
+    if (!window.confirm(`¿Enviar a la papelera de reciclaje a "${profesional.nombre}"? Se puede restaurar después.`)) return;
+    setBorrando(true);
+    setError(null);
+    try {
+      await eliminarProfesional(profesional.id);
+      onGuardado();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBorrando(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-heading text-lg font-bold text-brand-brown">Nuevo profesional</h2>
+          <h2 className="font-heading text-lg font-bold text-brand-brown">
+            {esEdicion ? "Editar profesional" : "Nuevo profesional"}
+          </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
             ✕
           </button>
@@ -86,15 +144,28 @@ export default function NuevoProfesionalModal({ onClose, onGuardado }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
-            Especialidad
-            <input
-              value={especialidad}
-              onChange={(e) => setEspecialidad(e.target.value)}
-              placeholder="Ej. Endodoncia"
-              className="rounded-md border border-gray-300 px-2 py-1.5"
-            />
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Especialidad
+              <input
+                value={especialidad}
+                onChange={(e) => setEspecialidad(e.target.value)}
+                placeholder="Ej. Endodoncia"
+                className="rounded-md border border-gray-300 px-2 py-1.5"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Estado
+              <select
+                value={activo ? "Activo" : "Inactivo"}
+                onChange={(e) => setActivo(e.target.value === "Activo")}
+                className="rounded-md border border-gray-300 px-2 py-1.5"
+              >
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </label>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-sm text-gray-700">
@@ -140,10 +211,10 @@ export default function NuevoProfesionalModal({ onClose, onGuardado }) {
             </div>
             <div className="mt-2 flex flex-col gap-2">
               {bloques.map((b, i) => (
-                <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 p-2">
+                <div key={b.id || `nuevo-${i}`} className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 p-2">
                   <select
                     value={b.diaSemana}
-                    onChange={(e) => actualizarBloque(i, { diaSemana: Number(e.target.value) })}
+                    onChange={(e) => actualizarBloqueLocal(i, { diaSemana: Number(e.target.value) })}
                     className="rounded-md border border-gray-300 px-2 py-1 text-sm"
                   >
                     {NOMBRES_DIA_SEMANA.map((nombreDia, dia) => (
@@ -155,19 +226,19 @@ export default function NuevoProfesionalModal({ onClose, onGuardado }) {
                   <input
                     type="time"
                     value={b.horaInicio}
-                    onChange={(e) => actualizarBloque(i, { horaInicio: e.target.value })}
+                    onChange={(e) => actualizarBloqueLocal(i, { horaInicio: e.target.value })}
                     className="rounded-md border border-gray-300 px-2 py-1 text-sm"
                   />
                   <span className="text-xs text-gray-400">a</span>
                   <input
                     type="time"
                     value={b.horaFin}
-                    onChange={(e) => actualizarBloque(i, { horaFin: e.target.value })}
+                    onChange={(e) => actualizarBloqueLocal(i, { horaFin: e.target.value })}
                     className="rounded-md border border-gray-300 px-2 py-1 text-sm"
                   />
                   <select
                     value={b.consultorio}
-                    onChange={(e) => actualizarBloque(i, { consultorio: Number(e.target.value) })}
+                    onChange={(e) => actualizarBloqueLocal(i, { consultorio: Number(e.target.value) })}
                     className="rounded-md border border-gray-300 px-2 py-1 text-sm"
                   >
                     {CONSULTORIOS_DISPONIBLES.map((c) => (
@@ -193,21 +264,35 @@ export default function NuevoProfesionalModal({ onClose, onGuardado }) {
             </div>
           </div>
 
-          <div className="mt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={guardando}
-              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-            >
-              {guardando ? "Guardando..." : "Crear profesional"}
-            </button>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {esEdicion ? (
+              <button
+                type="button"
+                onClick={handleBorrar}
+                disabled={borrando}
+                className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
+              >
+                {borrando ? "Borrando..." : "🗑️ Borrar"}
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={guardando}
+                className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+              >
+                {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear profesional"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
