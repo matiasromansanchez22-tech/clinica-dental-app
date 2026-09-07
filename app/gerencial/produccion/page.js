@@ -34,6 +34,19 @@ function ProduccionPorProfesionalContenido() {
   const [error, setError] = useState(null);
   const [expandido, setExpandido] = useState(null);
   const [modalPago, setModalPago] = useState(null); // { fila, tipo, montoSugerido }
+  const [profesionalAImprimir, setProfesionalAImprimir] = useState(null);
+
+  useEffect(() => {
+    if (profesionalAImprimir) window.print();
+  }, [profesionalAImprimir]);
+
+  useEffect(() => {
+    function alTerminar() {
+      setProfesionalAImprimir(null);
+    }
+    window.addEventListener("afterprint", alTerminar);
+    return () => window.removeEventListener("afterprint", alTerminar);
+  }, []);
 
   async function recargar() {
     setCargando(true);
@@ -120,15 +133,7 @@ function ProduccionPorProfesionalContenido() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
-        <button
-          onClick={() => window.print()}
-          className="print:hidden rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-        >
-          🖨️ Imprimir
-        </button>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
       <p className="print:hidden mt-1 text-sm text-gray-500">
         Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Lo que se liquida en el día
         es el % sobre el valor de catálogo de las prestaciones que cada uno cargó (no sobre lo que terminó pagando el
@@ -247,7 +252,24 @@ function ProduccionPorProfesionalContenido() {
                   className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
                 >
                   <td className="px-3 py-2 font-medium text-gray-900">
-                    {expandido === f.profesionalId ? "▾" : "▸"} {f.nombre}
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {expandido === f.profesionalId ? "▾" : "▸"} {f.nombre}
+                      </span>
+                      {f.profesionalId !== "sin-asignar" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProfesionalAImprimir(f.profesionalId);
+                          }}
+                          title={`Imprimir el informe de ${f.nombre}`}
+                          className="print:hidden text-xs text-brand-brown hover:underline"
+                        >
+                          🖨️
+                        </button>
+                      )}
+                    </div>
                     <div className="text-xs font-normal text-gray-400">{f.especialidad}</div>
                   </td>
                   <td className="px-2 py-2 text-center text-gray-600">{f.cantidadAtenciones}</td>
@@ -444,7 +466,7 @@ function ProduccionPorProfesionalContenido() {
 
       <div className="hidden print:block">
         {filas
-          .filter((f) => f.detalle.length > 0)
+          .filter((f) => f.profesionalId === profesionalAImprimir)
           .map((f) => (
             <div key={f.profesionalId} className="break-after-page">
               <h1 className="text-xl font-bold text-gray-900">Clínica Dental Marianela Ramírez</h1>
