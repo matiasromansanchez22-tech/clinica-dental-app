@@ -428,18 +428,27 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], on
               <BotonAccion
                 activo={turnoActual.asistencia === "Asistió"}
                 disabled={guardando !== null}
-                onClick={() => aplicarCambio("asistio", { asistencia: "Asistió" })}
+                onClick={() =>
+                  aplicarCambio("asistio", { asistencia: turnoActual.asistencia === "Asistió" ? "Pendiente" : "Asistió" })
+                }
               >
                 Asistió
               </BotonAccion>
               <BotonAccion
                 activo={turnoActual.asistencia === "No asistió"}
                 disabled={guardando !== null}
-                onClick={() => aplicarCambio("noasistio", { asistencia: "No asistió" })}
+                onClick={() =>
+                  aplicarCambio("noasistio", {
+                    asistencia: turnoActual.asistencia === "No asistió" ? "Pendiente" : "No asistió",
+                  })
+                }
               >
                 No asistió
               </BotonAccion>
             </div>
+            {turnoActual.asistencia && turnoActual.asistencia !== "Pendiente" && (
+              <p className="mt-1 text-[11px] text-gray-400">Tocá "{turnoActual.asistencia}" de nuevo para destildarlo.</p>
+            )}
           </div>
 
           {!mostrarMover ? (
