@@ -21,6 +21,7 @@ export default function TurnoOrtodonciaSoloLecturaModal({ turno, fecha, onClose 
           <p><span className="text-gray-500">Estado:</span> {turno.estado}</p>
           <p><span className="text-gray-500">Confirmación:</span> {turno.confirmacion}</p>
           <p><span className="text-gray-500">Presencia:</span> {turno.presencia}</p>
+          <p><span className="text-gray-500">Asistencia:</span> {turno.asistencia}</p>
           {turno.observaciones && (
             <p><span className="text-gray-500">Observaciones:</span> {turno.observaciones}</p>
           )}

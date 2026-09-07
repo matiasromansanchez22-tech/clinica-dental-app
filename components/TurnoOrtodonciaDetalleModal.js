@@ -129,25 +129,69 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
               <BotonAccion
                 activo={turnoActual.presencia === "En espera"}
                 disabled={guardando !== null}
-                onClick={() => aplicarCambio("espera", { presencia: "En espera" })}
+                onClick={() =>
+                  aplicarCambio("espera", {
+                    presencia: turnoActual.presencia === "En espera" ? "Pendiente" : "En espera",
+                  })
+                }
               >
                 {guardando === "espera" ? "Guardando..." : "🕐 En sala de espera"}
               </BotonAccion>
               <BotonAccion
                 activo={turnoActual.presencia === "En consultorio"}
                 disabled={guardando !== null}
-                onClick={() => aplicarCambio("consultorio", { presencia: "En consultorio" })}
+                onClick={() =>
+                  aplicarCambio("consultorio", {
+                    presencia: turnoActual.presencia === "En consultorio" ? "Pendiente" : "En consultorio",
+                  })
+                }
               >
                 {guardando === "consultorio" ? "Guardando..." : "🦷 En consultorio"}
               </BotonAccion>
               <BotonAccion
                 activo={turnoActual.presencia === "Finalizado"}
                 disabled={guardando !== null}
-                onClick={() => aplicarCambio("finalizado", { presencia: "Finalizado" })}
+                onClick={() =>
+                  aplicarCambio("finalizado", {
+                    presencia: turnoActual.presencia === "Finalizado" ? "Pendiente" : "Finalizado",
+                  })
+                }
               >
                 {guardando === "finalizado" ? "Guardando..." : "✅ Finalizó el turno"}
               </BotonAccion>
             </div>
+            {turnoActual.presencia && turnoActual.presencia !== "Pendiente" && (
+              <p className="mt-1 text-[11px] text-gray-400">Tocá "{turnoActual.presencia === "En espera" ? "En sala de espera" : turnoActual.presencia === "En consultorio" ? "En consultorio" : "Finalizó el turno"}" de nuevo para destildarlo.</p>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Asistencia (para el cierre del día)</p>
+            <div className="flex flex-wrap gap-2">
+              <BotonAccion
+                activo={turnoActual.asistencia === "Asistió"}
+                disabled={guardando !== null}
+                onClick={() =>
+                  aplicarCambio("asistio", { asistencia: turnoActual.asistencia === "Asistió" ? "Pendiente" : "Asistió" })
+                }
+              >
+                Asistió
+              </BotonAccion>
+              <BotonAccion
+                activo={turnoActual.asistencia === "No asistió"}
+                disabled={guardando !== null}
+                onClick={() =>
+                  aplicarCambio("noasistio", {
+                    asistencia: turnoActual.asistencia === "No asistió" ? "Pendiente" : "No asistió",
+                  })
+                }
+              >
+                No asistió
+              </BotonAccion>
+            </div>
+            {turnoActual.asistencia && turnoActual.asistencia !== "Pendiente" && (
+              <p className="mt-1 text-[11px] text-gray-400">Tocá "{turnoActual.asistencia}" de nuevo para destildarlo.</p>
+            )}
           </div>
 
           {!mostrarMover ? (
