@@ -9,13 +9,17 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Transferencia");
-  const [esParaDuenos, setEsParaDuenos] = useState(true);
+  const [esParaDuenos, setEsParaDuenos] = useState(null);
   const [quien, setQuien] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
   async function confirmar() {
+    if (esParaDuenos === null) {
+      setError("Elegí a quién le pagás: dueños o empleado.");
+      return;
+    }
     if (!monto || Number(monto) <= 0) {
       setError("Ingresá un monto válido.");
       return;
@@ -40,21 +44,23 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
 
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
-        <div className="mt-4 rounded-md border border-gray-200 p-3">
-          <p className="text-xs font-medium text-gray-700">¿A quién le pagás?</p>
+        <div className="mt-4 rounded-md border-2 border-amber-300 bg-amber-50 p-3">
+          <p className="text-xs font-semibold text-amber-900">¿A quién le pagás? (elegí uno)</p>
           <label className="mt-2 flex items-center gap-1.5 text-sm">
-            <input type="radio" checked={esParaDuenos} onChange={() => setEsParaDuenos(true)} />
+            <input type="radio" checked={esParaDuenos === true} onChange={() => setEsParaDuenos(true)} />
             A vos o a Marian (dueños)
           </label>
           <label className="mt-1 flex items-center gap-1.5 text-sm">
-            <input type="radio" checked={!esParaDuenos} onChange={() => setEsParaDuenos(false)} />
+            <input type="radio" checked={esParaDuenos === false} onChange={() => setEsParaDuenos(false)} />
             A alguien del personal (secretaria, etc.)
           </label>
-          <p className="mt-2 text-[11px] text-gray-400">
-            {esParaDuenos
-              ? "Además suma a Personal, porque es plata que queda para ustedes."
-              : "No suma a Personal — es un pago a un empleado, no plata de ustedes."}
-          </p>
+          {esParaDuenos !== null && (
+            <p className="mt-2 text-[11px] text-gray-500">
+              {esParaDuenos
+                ? "Además suma a Personal, porque es plata que queda para ustedes."
+                : "No suma a Personal — es un pago a un empleado, no plata de ustedes."}
+            </p>
+          )}
         </div>
 
         <label className="mt-3 flex flex-col gap-1 text-xs text-gray-700">
