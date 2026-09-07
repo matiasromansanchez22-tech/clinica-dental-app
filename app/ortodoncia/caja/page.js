@@ -30,6 +30,13 @@ export default function CajaOrtodonciaPage() {
   const [mostrarNuevoPago, setMostrarNuevoPago] = useState(false);
   const [mostrarNuevoPagoProfesional, setMostrarNuevoPagoProfesional] = useState(false);
 
+  // Los sueldos (Registrar sueldo, en Consultorio) no salen de la plata
+  // que entró hoy: salen de la reserva acumulada en Consultorio. Por eso
+  // no cuentan acá — la Caja del día es solo la plata de hoy.
+  function sinSueldos(gastos) {
+    return gastos.filter((g) => g.categoria !== "Sueldos");
+  }
+
   async function recargar() {
     const [c, g, pp] = await Promise.all([
       obtenerCobrosOrtodonciaPorFecha(fecha),
@@ -37,7 +44,7 @@ export default function CajaOrtodonciaPage() {
       obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
     ]);
     setCobros(c);
-    setGastos(g);
+    setGastos(sinSueldos(g));
     setPagosProfesionales(pp);
   }
 
@@ -53,7 +60,7 @@ export default function CajaOrtodonciaPage() {
     ])
       .then(([c, g, pp, p, cat, prof]) => {
         setCobros(c);
-        setGastos(g);
+        setGastos(sinSueldos(g));
         setPagosProfesionales(pp);
         setPacientes(p);
         setCategoriasGasto(cat);
