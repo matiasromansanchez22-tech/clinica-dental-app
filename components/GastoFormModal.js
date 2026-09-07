@@ -6,10 +6,10 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 
 const ESPECIALIDADES = ["", "General", "Ortodoncia"];
 
-export default function GastoFormModal({ gasto, categorias, onClose, onGuardado }) {
+export default function GastoFormModal({ gasto, categorias, especialidadInicial, onClose, onGuardado }) {
   const [fecha, setFecha] = useState(gasto?.fecha || fechaDeHoyISO());
   const [categoria, setCategoria] = useState(gasto?.categoria || categorias[0]?.nombre || "");
-  const [especialidad, setEspecialidad] = useState(gasto?.especialidad || "");
+  const [especialidad, setEspecialidad] = useState(gasto?.especialidad || especialidadInicial || "");
   const [descripcion, setDescripcion] = useState(gasto?.descripcion || "");
   const [monto, setMonto] = useState(gasto?.monto || "");
   const [medioPago, setMedioPago] = useState(gasto?.medioPago || "Efectivo");

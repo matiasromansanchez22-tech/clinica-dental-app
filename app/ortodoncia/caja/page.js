@@ -22,7 +22,6 @@ export default function CajaOrtodonciaPage() {
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [ortodoncistas, setOrtodoncistas] = useState([]);
-  const [profesionales, setProfesionales] = useState([]);
   const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -32,9 +31,16 @@ export default function CajaOrtodonciaPage() {
 
   // Los sueldos (Registrar sueldo, en Consultorio) no salen de la plata
   // que entró hoy: salen de la reserva acumulada en Consultorio. Por eso
-  // no cuentan acá — la Caja del día es solo la plata de hoy.
-  function sinSueldos(gastos) {
-    return gastos.filter((g) => g.categoria !== "Sueldos");
+  // no cuentan acá — la Caja del día es solo la plata de hoy. Los gastos
+  // marcados "General" son de esa caja, no de esta.
+  function gastosDeEstaCaja(gastos) {
+    return gastos.filter((g) => g.categoria !== "Sueldos" && g.especialidad !== "General");
+  }
+
+  // Un pago a un profesional que NO es de Ortodoncia pertenece a la otra
+  // caja, no a esta.
+  function pagosDeEstaCaja(pagos) {
+    return pagos.filter((p) => p.profesionalEspecialidad === "Ortodoncia");
   }
 
   async function recargar() {
@@ -44,8 +50,8 @@ export default function CajaOrtodonciaPage() {
       obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
     ]);
     setCobros(c);
-    setGastos(sinSueldos(g));
-    setPagosProfesionales(pp);
+    setGastos(gastosDeEstaCaja(g));
+    setPagosProfesionales(pagosDeEstaCaja(pp));
   }
 
   useEffect(() => {
@@ -60,11 +66,10 @@ export default function CajaOrtodonciaPage() {
     ])
       .then(([c, g, pp, p, cat, prof]) => {
         setCobros(c);
-        setGastos(sinSueldos(g));
-        setPagosProfesionales(pp);
+        setGastos(gastosDeEstaCaja(g));
+        setPagosProfesionales(pagosDeEstaCaja(pp));
         setPacientes(p);
         setCategoriasGasto(cat);
-        setProfesionales(prof);
         setOrtodoncistas(prof.filter((pr) => pr.especialidad === "Ortodoncia"));
       })
       .catch((e) => setError(e.message))
@@ -335,6 +340,7 @@ export default function CajaOrtodonciaPage() {
       {mostrarNuevoPago && (
         <GastoFormModal
           categorias={esDuena ? categoriasGasto : categoriasGasto.filter((c) => c.visible_secretarios)}
+          especialidadInicial="Ortodoncia"
           onClose={() => setMostrarNuevoPago(false)}
           onGuardado={async () => {
             await recargar();
@@ -346,7 +352,7 @@ export default function CajaOrtodonciaPage() {
       {mostrarNuevoPagoProfesional && (
         <PagoProfesionalCajaModal
           fecha={fecha}
-          profesionales={profesionales}
+          profesionales={ortodoncistas}
           onClose={() => setMostrarNuevoPagoProfesional(false)}
           onGuardado={async () => {
             await recargar();

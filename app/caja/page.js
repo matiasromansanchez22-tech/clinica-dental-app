@@ -33,9 +33,16 @@ export default function CajaPage() {
 
   // Los sueldos (Registrar sueldo, en Consultorio) no salen de la plata
   // que entró hoy: salen de la reserva acumulada en Consultorio. Por eso
-  // no cuentan acá — la Caja del día es solo la plata de hoy.
-  function sinSueldos(gastos) {
-    return gastos.filter((g) => g.categoria !== "Sueldos");
+  // no cuentan acá — la Caja del día es solo la plata de hoy. Los gastos
+  // marcados "Ortodoncia" son de esa caja, no de esta.
+  function gastosDeEstaCaja(gastos) {
+    return gastos.filter((g) => g.categoria !== "Sueldos" && g.especialidad !== "Ortodoncia");
+  }
+
+  // Un pago a un profesional cuya especialidad es Ortodoncia pertenece a
+  // esa caja, no a esta.
+  function pagosDeEstaCaja(pagos) {
+    return pagos.filter((p) => p.profesionalEspecialidad !== "Ortodoncia");
   }
 
   async function recargar() {
@@ -45,8 +52,8 @@ export default function CajaPage() {
       obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
     ]);
     setCobros(c);
-    setGastos(sinSueldos(g));
-    setPagosProfesionales(pp);
+    setGastos(gastosDeEstaCaja(g));
+    setPagosProfesionales(pagosDeEstaCaja(pp));
   }
 
   useEffect(() => {
@@ -61,8 +68,8 @@ export default function CajaPage() {
     ])
       .then(([c, g, pp, p, prof, cat]) => {
         setCobros(c);
-        setGastos(sinSueldos(g));
-        setPagosProfesionales(pp);
+        setGastos(gastosDeEstaCaja(g));
+        setPagosProfesionales(pagosDeEstaCaja(pp));
         setPacientes(p);
         setProfesionales(prof);
         setCategoriasGasto(cat);
@@ -359,6 +366,7 @@ export default function CajaPage() {
       {mostrarNuevoPago && (
         <GastoFormModal
           categorias={esDuena ? categoriasGasto : categoriasGasto.filter((c) => c.visible_secretarios)}
+          especialidadInicial="General"
           onClose={() => setMostrarNuevoPago(false)}
           onGuardado={async () => {
             await recargar();
@@ -370,7 +378,7 @@ export default function CajaPage() {
       {mostrarNuevoPagoProfesional && (
         <PagoProfesionalCajaModal
           fecha={fecha}
-          profesionales={profesionales}
+          profesionales={profesionales.filter((p) => p.especialidad !== "Ortodoncia")}
           onClose={() => setMostrarNuevoPagoProfesional(false)}
           onGuardado={async () => {
             await recargar();
