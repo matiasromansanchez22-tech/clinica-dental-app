@@ -1,23 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { MEDIOS_PAGO_GASTO } from "@/lib/data/gastos";
 import { registrarSueldo } from "@/lib/data/finanzasPersonales";
+import { obtenerPerfiles } from "@/lib/data/perfiles";
 
 export default function RegistrarSueldoModal({ onClose, onGuardado }) {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Transferencia");
   const [esParaDuenos, setEsParaDuenos] = useState(null);
+  const [duenas, setDuenas] = useState([]);
+  const [paraUsuarioId, setParaUsuarioId] = useState("");
   const [quien, setQuien] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
+  useEffect(() => {
+    obtenerPerfiles()
+      .then((perfiles) => setDuenas(perfiles.filter((p) => p.rol === "Duena")))
+      .catch(() => {});
+  }, []);
+
   async function confirmar() {
     if (esParaDuenos === null) {
       setError("Elegí a quién le pagás: dueños o empleado.");
+      return;
+    }
+    if (esParaDuenos && !paraUsuarioId) {
+      setError("Elegí a cuál de los dos dueños le corresponde.");
       return;
     }
     if (!monto || Number(monto) <= 0) {
@@ -27,7 +40,16 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
     setGuardando(true);
     setError(null);
     try {
-      await registrarSueldo({ fecha, monto: Number(monto), medioPago, quien, descripcion, esParaDuenos });
+      const nombreDueno = duenas.find((d) => d.id === paraUsuarioId)?.nombre;
+      await registrarSueldo({
+        fecha,
+        monto: Number(monto),
+        medioPago,
+        quien: esParaDuenos ? nombreDueno : quien,
+        descripcion,
+        esParaDuenos,
+        paraUsuarioId: esParaDuenos ? paraUsuarioId : null,
+      });
       onGuardado();
     } catch (e) {
       setError(e.message);
@@ -48,8 +70,22 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
           <p className="text-xs font-semibold text-amber-900">¿A quién le pagás? (elegí uno)</p>
           <label className="mt-2 flex items-center gap-1.5 text-sm">
             <input type="radio" checked={esParaDuenos === true} onChange={() => setEsParaDuenos(true)} />
-            A vos o a Marian (dueños)
+            A uno de los dueños
           </label>
+          {esParaDuenos === true && (
+            <select
+              value={paraUsuarioId}
+              onChange={(e) => setParaUsuarioId(e.target.value)}
+              className="mt-1.5 ml-5 rounded-md border border-gray-300 px-2 py-1 text-sm"
+            >
+              <option value="">Elegí quién...</option>
+              {duenas.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nombre}
+                </option>
+              ))}
+            </select>
+          )}
           <label className="mt-1 flex items-center gap-1.5 text-sm">
             <input type="radio" checked={esParaDuenos === false} onChange={() => setEsParaDuenos(false)} />
             A alguien del personal (secretaria, etc.)
@@ -57,8 +93,8 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
           {esParaDuenos !== null && (
             <p className="mt-2 text-[11px] text-gray-500">
               {esParaDuenos
-                ? "Además suma a Personal, porque es plata que queda para ustedes."
-                : "No suma a Personal — es un pago a un empleado, no plata de ustedes."}
+                ? "Además suma a la cuenta Personal de quien elijas arriba — cada dueño ve solo la suya."
+                : "No suma a ningún Personal — es un pago a un empleado, no plata de ustedes."}
             </p>
           )}
         </div>
@@ -93,15 +129,17 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
           </span>
         </label>
 
-        <label className="mt-3 flex flex-col gap-1 text-xs text-gray-700">
-          ¿Para quién? (opcional)
-          <input
-            value={quien}
-            onChange={(e) => setQuien(e.target.value)}
-            placeholder="Ej. Matías, Marianela, Simón..."
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </label>
+        {esParaDuenos === false && (
+          <label className="mt-3 flex flex-col gap-1 text-xs text-gray-700">
+            ¿Para quién? (opcional)
+            <input
+              value={quien}
+              onChange={(e) => setQuien(e.target.value)}
+              placeholder="Ej. Simón, Lola..."
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </label>
+        )}
 
         <label className="mt-3 flex flex-col gap-1 text-xs text-gray-700">
           Fecha
