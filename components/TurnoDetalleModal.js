@@ -387,7 +387,9 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], on
                 activo={turnoActual.presencia === "En espera"}
                 disabled={guardando !== null}
                 onClick={() =>
-                  aplicarCambio("espera", { presencia: turnoActual.presencia === "En espera" ? null : "En espera" })
+                  aplicarCambio("espera", {
+                    presencia: turnoActual.presencia === "En espera" ? "Pendiente" : "En espera",
+                  })
                 }
               >
                 {guardando === "espera" ? "Guardando..." : "🕐 En sala de espera"}
@@ -397,7 +399,7 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], on
                 disabled={guardando !== null}
                 onClick={() =>
                   aplicarCambio("consultorio", {
-                    presencia: turnoActual.presencia === "En consultorio" ? null : "En consultorio",
+                    presencia: turnoActual.presencia === "En consultorio" ? "Pendiente" : "En consultorio",
                   })
                 }
               >
@@ -407,13 +409,15 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], on
                 activo={turnoActual.presencia === "Finalizado"}
                 disabled={guardando !== null}
                 onClick={() =>
-                  aplicarCambio("finalizado", { presencia: turnoActual.presencia === "Finalizado" ? null : "Finalizado" })
+                  aplicarCambio("finalizado", {
+                    presencia: turnoActual.presencia === "Finalizado" ? "Pendiente" : "Finalizado",
+                  })
                 }
               >
                 {guardando === "finalizado" ? "Guardando..." : "✅ Finalizó el turno"}
               </BotonAccion>
             </div>
-            {turnoActual.presencia && (
+            {turnoActual.presencia && turnoActual.presencia !== "Pendiente" && (
               <p className="mt-1 text-[11px] text-gray-400">Tocá "{turnoActual.presencia === "En espera" ? "En sala de espera" : turnoActual.presencia === "En consultorio" ? "En consultorio" : "Finalizó el turno"}" de nuevo para destildarlo.</p>
             )}
           </div>
