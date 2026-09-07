@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useState } from "react";
 import RegistrarPagoProfesionalModal from "@/components/RegistrarPagoProfesionalModal";
-import SoloDuenaYContador from "@/components/SoloDuenaYContador";
+import SoloDuenaContadorYSecretaria from "@/components/SoloDuenaContadorYSecretaria";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import {
   eliminarPagoProfesional,
@@ -21,6 +22,8 @@ function primerYUltimoDiaDelMes(fechaISO) {
 }
 
 function ProduccionPorProfesionalContenido() {
+  const { perfil } = useAuth();
+  const esSecretaria = perfil?.rol === "Secretaria";
   const hoy = fechaDeHoyISO();
   const [fechaInicio, setFechaInicio] = useState(hoy);
   const [fechaFin, setFechaFin] = useState(hoy);
@@ -117,7 +120,15 @@ function ProduccionPorProfesionalContenido() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
+        <button
+          onClick={() => window.print()}
+          className="print:hidden rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+        >
+          🖨️ Imprimir
+        </button>
+      </div>
       <p className="mt-1 text-sm text-gray-500">
         Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Lo que se liquida en el día
         es el % sobre el valor de catálogo de las prestaciones que cada uno cargó (no sobre lo que terminó pagando el
@@ -126,7 +137,7 @@ function ProduccionPorProfesionalContenido() {
         pendiente.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="print:hidden mt-4 flex flex-wrap items-center gap-2">
         <button onClick={irAHoy} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
           Hoy
         </button>
@@ -244,12 +255,14 @@ function ProduccionPorProfesionalContenido() {
                   <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                     {f.profesionalId === "sin-asignar" ? (
                       "—"
+                    ) : esSecretaria ? (
+                      `${f.porcentajeCopago}%`
                     ) : (
                       <input
                         type="number"
                         defaultValue={f.porcentajeCopago}
                         onBlur={(e) => guardarPorcentajeCopago(f, Number(e.target.value))}
-                        className="w-16 rounded-md border border-gray-300 px-1 py-0.5 text-center"
+                        className="print:hidden w-16 rounded-md border border-gray-300 px-1 py-0.5 text-center"
                       />
                     )}
                   </td>
@@ -262,12 +275,14 @@ function ProduccionPorProfesionalContenido() {
                   <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                     {f.profesionalId === "sin-asignar" || f.especialidad === "Ortodoncia" ? (
                       "—"
+                    ) : esSecretaria ? (
+                      `${f.porcentajeOS}%`
                     ) : (
                       <input
                         type="number"
                         defaultValue={f.porcentajeOS}
                         onBlur={(e) => guardarPorcentajeOS(f, Number(e.target.value))}
-                        className="w-16 rounded-md border border-gray-300 px-1 py-0.5 text-center"
+                        className="print:hidden w-16 rounded-md border border-gray-300 px-1 py-0.5 text-center"
                       />
                     )}
                   </td>
@@ -287,25 +302,27 @@ function ProduccionPorProfesionalContenido() {
                             {pagado.copago > 0 && (
                               <span className="text-gray-500">Pagado copago: ${Math.round(pagado.copago).toLocaleString("es-AR")}</span>
                             )}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setModalPago({ fila: f, tipo: "Copago", montoSugerido: pendienteCopago })
-                              }
-                              className="w-fit text-brand-brown hover:underline"
-                            >
-                              💵 Pagar copago{pendienteCopago > 0 ? ` ($${Math.round(pendienteCopago).toLocaleString("es-AR")})` : ""}
-                            </button>
+                            {!esSecretaria && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setModalPago({ fila: f, tipo: "Copago", montoSugerido: pendienteCopago })
+                                }
+                                className="print:hidden w-fit text-brand-brown hover:underline"
+                              >
+                                💵 Pagar copago{pendienteCopago > 0 ? ` ($${Math.round(pendienteCopago).toLocaleString("es-AR")})` : ""}
+                              </button>
+                            )}
                             {pagado.obraSocial > 0 && (
                               <span className="text-gray-500">Pagado O.Social: ${Math.round(pagado.obraSocial).toLocaleString("es-AR")}</span>
                             )}
-                            {f.honorariosOS > 0 && (
+                            {!esSecretaria && f.honorariosOS > 0 && (
                               <button
                                 type="button"
                                 onClick={() =>
                                   setModalPago({ fila: f, tipo: "Obra Social", montoSugerido: pendienteOS })
                                 }
-                                className="w-fit text-brand-brown hover:underline"
+                                className="print:hidden w-fit text-brand-brown hover:underline"
                               >
                                 💵 Pagar O.Social{pendienteOS > 0 ? ` ($${Math.round(pendienteOS).toLocaleString("es-AR")})` : ""}
                               </button>
@@ -357,10 +374,12 @@ function ProduccionPorProfesionalContenido() {
         clínica cobra esa parte — no está incluida en el total de hoy.
       </p>
 
+      {!esSecretaria && (
+        <>
       <h2 className="mt-8 mb-2 font-heading text-sm font-semibold text-brand-brown">
         Pagos registrados este período ({pagosDelPeriodo.length})
       </h2>
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="print:hidden overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
@@ -403,6 +422,8 @@ function ProduccionPorProfesionalContenido() {
           </tbody>
         </table>
       </div>
+        </>
+      )}
 
       {modalPago && (
         <RegistrarPagoProfesionalModal
@@ -422,8 +443,8 @@ function ProduccionPorProfesionalContenido() {
 
 export default function ProduccionPorProfesionalPage() {
   return (
-    <SoloDuenaYContador>
+    <SoloDuenaContadorYSecretaria>
       <ProduccionPorProfesionalContenido />
-    </SoloDuenaYContador>
+    </SoloDuenaContadorYSecretaria>
   );
 }

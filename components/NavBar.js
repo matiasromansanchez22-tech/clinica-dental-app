@@ -12,6 +12,7 @@ const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
   { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
   { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Duena"] },
+  { tipo: "link", href: "/gerencial/produccion", label: "💰 Producción", soloRoles: ["Secretaria"] },
   { tipo: "link", href: "/chat", label: "💬 Chat", ocultarRoles: ["Contador"] },
   {
     tipo: "grupo",
