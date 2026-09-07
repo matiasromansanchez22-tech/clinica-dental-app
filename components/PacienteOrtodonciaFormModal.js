@@ -6,6 +6,7 @@ import {
   actualizarPacienteOrtodoncia,
   buscarPosiblesDuplicadosOrtodoncia,
   crearPacienteOrtodoncia,
+  eliminarPacienteOrtodoncia,
 } from "@/lib/data/pacientesOrtodoncia";
 import {
   actualizarEntradaHistorial,
@@ -90,6 +91,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
       : VACIO
   );
   const [guardando, setGuardando] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const [error, setError] = useState(null);
   const [duplicados, setDuplicados] = useState([]);
 
@@ -134,6 +136,20 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
       setError(err.message);
     } finally {
       setGuardando(false);
+    }
+  }
+
+  async function handleBorrar() {
+    if (!window.confirm(`¿Enviar a la papelera de reciclaje a "${paciente.nombre}"? Se puede restaurar después.`)) return;
+    setBorrando(true);
+    setError(null);
+    try {
+      await eliminarPacienteOrtodoncia(paciente.id);
+      onGuardado();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBorrando(false);
     }
   }
 
@@ -500,21 +516,35 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
 
           {paciente && <HistorialClinicoSeccion pacienteId={paciente.id} profesionales={profesionales} />}
 
-          <div className="mt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={guardando}
-              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-            >
-              {guardando ? "Guardando..." : "Guardar paciente"}
-            </button>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {paciente ? (
+              <button
+                type="button"
+                onClick={handleBorrar}
+                disabled={borrando}
+                className="text-sm text-red-600 hover:underline disabled:opacity-50"
+              >
+                {borrando ? "Borrando..." : "🗑️ Borrar paciente"}
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={guardando}
+                className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+              >
+                {guardando ? "Guardando..." : "Guardar paciente"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
