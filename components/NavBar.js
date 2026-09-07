@@ -93,6 +93,7 @@ const GRUPOS = [
       { href: "/gerencial/errores", label: "🚨 Errores" },
       { href: "/gerencial/finanzas-personales", label: "💰 Consultorio y Personal" },
       { href: "/gerencial/horarios", label: "🕐 Horarios y liquidación" },
+      { href: "/gerencial/whatsapp", label: "💬 Bandeja de WhatsApp (vista previa)" },
     ],
   },
 ];
