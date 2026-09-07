@@ -165,6 +165,7 @@ export default function AgendaPage() {
         <TurnoDetalleModal
           turno={turnoElegido}
           fecha={turnoElegido.fecha || fecha}
+          profesionales={profesionales}
           onClose={() => setTurnoElegido(null)}
           onCambiado={recargarTurnos}
         />

@@ -25,7 +25,7 @@ function BotonAccion({ activo, children, ...props }) {
   );
 }
 
-export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado }) {
+export default function TurnoDetalleModal({ turno, fecha, profesionales = [], onClose, onCambiado }) {
   const [turnoActual, setTurnoActual] = useState(turno);
   const [guardando, setGuardando] = useState(null); // qué acción se está guardando
   const [error, setError] = useState(null);
@@ -36,6 +36,9 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
   const [nuevaHora, setNuevaHora] = useState(turno.horaInicio);
   const [nuevoConsultorio, setNuevoConsultorio] = useState(turno.consultorio);
   const [moviendo, setMoviendo] = useState(false);
+  const [mostrarProfesional, setMostrarProfesional] = useState(false);
+  const [nuevoProfesionalId, setNuevoProfesionalId] = useState(turno.profesionalDeTurnoId || "");
+  const [cambiandoProfesional, setCambiandoProfesional] = useState(false);
 
   const [catalogoCompleto, setCatalogoCompleto] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
@@ -169,6 +172,36 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
     aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar" });
   }
 
+  async function confirmarCambioProfesional() {
+    setError(null);
+    setCambiandoProfesional(true);
+    try {
+      const turnosDelDia = await obtenerTurnosGeneralPorFecha(turnoActual.fecha);
+      const conflicto = hayConflictoDeHorario({
+        turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
+        consultorio: turnoActual.consultorio,
+        profesionalDeTurnoId: nuevoProfesionalId,
+        horaInicio: turnoActual.horaInicio,
+        duracionMin: turnoActual.duracionMin,
+        idExcluido: turnoActual.id,
+      });
+      if (conflicto) {
+        setError("Ese profesional ya tiene otro turno a esa hora.");
+        return;
+      }
+      const actualizado = await actualizarEstadoTurnoGeneral(turnoActual.id, {
+        profesional_de_turno_id: nuevoProfesionalId || null,
+      });
+      setTurnoActual(actualizado);
+      setMostrarProfesional(false);
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCambiandoProfesional(false);
+    }
+  }
+
   async function confirmarMovimiento() {
     setError(null);
     setMoviendo(true);
@@ -214,6 +247,52 @@ export default function TurnoDetalleModal({ turno, fecha, onClose, onCambiado })
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.tipoAtencion} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
+
+        {!mostrarProfesional ? (
+          <button
+            onClick={() => {
+              setNuevoProfesionalId(turnoActual.profesionalDeTurnoId || "");
+              setMostrarProfesional(true);
+            }}
+            className="mb-4 w-fit text-xs text-blue-600 hover:underline"
+          >
+            Cambiar profesional del turno
+          </button>
+        ) : (
+          <div className="mb-4 rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase text-brand-green">Profesional del turno</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={nuevoProfesionalId}
+                onChange={(e) => setNuevoProfesionalId(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">Elegí un profesional...</option>
+                {profesionales.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={confirmarCambioProfesional}
+                disabled={cambiandoProfesional || !nuevoProfesionalId}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {cambiandoProfesional ? "Guardando..." : "Confirmar cambio"}
+              </button>
+              <button
+                onClick={() => setMostrarProfesional(false)}
+                disabled={cambiandoProfesional}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mb-4 rounded-md border border-gray-200 p-3">
           <div className="mb-1 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase text-gray-400">
