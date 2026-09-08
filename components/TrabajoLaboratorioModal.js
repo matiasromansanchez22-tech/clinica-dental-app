@@ -7,6 +7,7 @@ import {
   actualizarTrabajoLaboratorio,
   actualizarValorTrabajo,
   agregarEventoTrabajo,
+  buscarIdCatalogoPorNombre,
   calcularEstadoDemora,
   crearTrabajoLaboratorio,
   eliminarTrabajoLaboratorio,
@@ -173,6 +174,7 @@ function NuevoTrabajoFormulario({
         pacienteId: pacienteElegido.id,
         pacienteNombre: nombreDe(pacienteElegido),
         tipoTrabajo: tipoTrabajo.trim(),
+        idCatalogo: buscarIdCatalogoPorNombre(tipoTrabajo, catalogo),
         pieza: pieza.trim(),
         laboratorio: laboratorio.trim(),
         profesionalId: profesionalId || null,
@@ -424,6 +426,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     try {
       await actualizarTrabajoLaboratorio(trabajo.id, {
         tipoTrabajo: editTipoTrabajo.trim(),
+        idCatalogo: buscarIdCatalogoPorNombre(editTipoTrabajo, catalogo),
         pieza: editPieza.trim(),
         laboratorio: editLaboratorio.trim(),
         profesionalId: editProfesionalId,
