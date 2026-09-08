@@ -52,7 +52,7 @@ const GRUPOS = [
     ocultarRoles: ["Secretaria", "Contador"],
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
-  { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Estadísticas", soloDuena: true },
+  { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Tablero Mensual", soloDuena: true },
   { tipo: "link", href: "/gerencial/stock", label: "📦 Stock de Insumos", soloRoles: ["Duena", "Laboratorio"] },
   {
     tipo: "grupo",

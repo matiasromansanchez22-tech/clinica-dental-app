@@ -16,12 +16,37 @@ function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
 
-function Tarjeta({ etiqueta, valor, sub }) {
+function mesAnterior(anio, mes) {
+  return mes === 1 ? { anio: anio - 1, mes: 12 } : { anio, mes: mes - 1 };
+}
+
+// Cuánto cambió un número contra un período anterior, en % — para que de
+// un vistazo se vea si el mes viene mejor o peor, sin tener que comparar
+// tablas a ojo.
+function calcularCambio(actual, anterior) {
+  if (anterior === null || anterior === undefined) return null;
+  if (anterior === 0) return actual === 0 ? null : { subio: actual > 0, esNuevo: true };
+  const porcentaje = ((actual - anterior) / Math.abs(anterior)) * 100;
+  return { subio: porcentaje >= 0, porcentaje: Math.abs(porcentaje) };
+}
+
+function Comparacion({ cambio, etiqueta }) {
+  if (!cambio) return null;
+  return (
+    <p className={`mt-0.5 text-xs font-medium ${cambio.subio ? "text-emerald-600" : "text-red-600"}`}>
+      {cambio.subio ? "▲" : "▼"} {cambio.esNuevo ? "nuevo" : `${cambio.porcentaje.toFixed(0)}%`} {etiqueta}
+    </p>
+  );
+}
+
+function Tarjeta({ etiqueta, valor, sub, cambioMesAnterior, cambioAnioPasado }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
       <p className="text-xs font-medium uppercase text-gray-400">{etiqueta}</p>
       <p className="mt-1 text-2xl font-bold text-gray-900">{valor}</p>
       {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}
+      <Comparacion cambio={cambioMesAnterior} etiqueta="vs. mes anterior" />
+      <Comparacion cambio={cambioAnioPasado} etiqueta="vs. mismo mes año pasado" />
     </div>
   );
 }
@@ -109,6 +134,8 @@ function PaginaEstadisticas() {
   const [cargandoDia, setCargandoDia] = useState(false);
   const [mesElegido, setMesElegido] = useState(mesActual);
   const [resumenMes, setResumenMes] = useState(null);
+  const [resumenMesAnterior, setResumenMesAnterior] = useState(null);
+  const [resumenMesAnioPasado, setResumenMesAnioPasado] = useState(null);
   const [cargandoMes, setCargandoMes] = useState(false);
   const [tendencia, setTendencia] = useState([]);
   const [acumulado, setAcumulado] = useState(null);
@@ -118,16 +145,23 @@ function PaginaEstadisticas() {
 
   useEffect(() => {
     const ahora = new Date();
+    const anioActual = ahora.getFullYear();
+    const mesActualNum = ahora.getMonth() + 1;
+    const { anio: anioAnterior, mes: mesAnteriorNum } = mesAnterior(anioActual, mesActualNum);
     Promise.all([
       obtenerActividadDelDia(hoy),
-      obtenerResumenMensual(ahora.getFullYear(), ahora.getMonth() + 1),
+      obtenerResumenMensual(anioActual, mesActualNum),
+      obtenerResumenMensual(anioAnterior, mesAnteriorNum),
+      obtenerResumenMensual(anioActual - 1, mesActualNum),
       obtenerTendenciaMensual(6),
       obtenerBalanceAcumuladoTotal(),
       obtenerConfiguracionGeneral(),
     ])
-      .then(([act, mes, tend, bal, conf]) => {
+      .then(([act, mes, mesAnt, mesAnio, tend, bal, conf]) => {
         setActividadHoy(act);
         setResumenMes(mes);
+        setResumenMesAnterior(mesAnt);
+        setResumenMesAnioPasado(mesAnio);
         setTendencia(tend);
         setAcumulado(bal.acumulado);
         setUmbral(conf.monto_umbral_invertir || 0);
@@ -150,9 +184,18 @@ function PaginaEstadisticas() {
   useEffect(() => {
     if (mesElegido === mesActual) return;
     const [anio, mes] = mesElegido.split("-").map(Number);
+    const { anio: anioAnt, mes: mesAnt } = mesAnterior(anio, mes);
     setCargandoMes(true);
-    obtenerResumenMensual(anio, mes)
-      .then(setResumenMes)
+    Promise.all([
+      obtenerResumenMensual(anio, mes),
+      obtenerResumenMensual(anioAnt, mesAnt),
+      obtenerResumenMensual(anio - 1, mes),
+    ])
+      .then(([actual, anterior, anioPasado]) => {
+        setResumenMes(actual);
+        setResumenMesAnterior(anterior);
+        setResumenMesAnioPasado(anioPasado);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargandoMes(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,7 +217,7 @@ function PaginaEstadisticas() {
   if (error || !actividadHoy || !resumenMes) {
     return (
       <main className="mx-auto max-w-6xl p-6">
-        <h1 className="text-2xl font-bold text-gray-900">Panel de Estadísticas</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Tablero Mensual</h1>
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error || "No se pudieron cargar los datos."}
           {error?.includes("column") && (
@@ -187,8 +230,11 @@ function PaginaEstadisticas() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Panel de Estadísticas</h1>
-      <p className="mt-0.5 text-sm text-gray-500">Solo visible para Dueña. Actividad de la clínica y plata acumulada.</p>
+      <h1 className="text-2xl font-bold text-gray-900">Tablero Mensual</h1>
+      <p className="mt-0.5 text-sm text-gray-500">
+        Solo visible para Dueña. De un vistazo: actividad de la clínica, cómo viene el mes comparado con el anterior
+        y con el año pasado, y la plata acumulada.
+      </p>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
 
@@ -251,12 +297,31 @@ function PaginaEstadisticas() {
         </div>
       </div>
       <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 ${cargandoMes ? "opacity-50" : ""}`}>
-        <Tarjeta etiqueta="Pacientes nuevos" valor={resumenMes.pacientesNuevosTotal} />
+        <Tarjeta
+          etiqueta="Pacientes nuevos"
+          valor={resumenMes.pacientesNuevosTotal}
+          cambioMesAnterior={calcularCambio(resumenMes.pacientesNuevosTotal, resumenMesAnterior?.pacientesNuevosTotal)}
+          cambioAnioPasado={calcularCambio(resumenMes.pacientesNuevosTotal, resumenMesAnioPasado?.pacientesNuevosTotal)}
+        />
         <Tarjeta etiqueta="Historiales marcados" valor={resumenMes.historialesMarcados} />
         <Tarjeta etiqueta="Consentimientos marcados" valor={resumenMes.consentimientosMarcados} />
-        <Tarjeta etiqueta="Ingresos del mes" valor={formatoPesos(resumenMes.balance.ingresosTotal)} />
-        <Tarjeta etiqueta="Balance del mes" valor={formatoPesos(resumenMes.balance.balance)} />
+        <Tarjeta
+          etiqueta="Ingresos del mes"
+          valor={formatoPesos(resumenMes.balance.ingresosTotal)}
+          cambioMesAnterior={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnterior?.balance?.ingresosTotal)}
+          cambioAnioPasado={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnioPasado?.balance?.ingresosTotal)}
+        />
+        <Tarjeta
+          etiqueta="Balance del mes"
+          valor={formatoPesos(resumenMes.balance.balance)}
+          cambioMesAnterior={calcularCambio(resumenMes.balance.balance, resumenMesAnterior?.balance?.balance)}
+          cambioAnioPasado={calcularCambio(resumenMes.balance.balance, resumenMesAnioPasado?.balance?.balance)}
+        />
       </div>
+      <p className="mt-1 text-[11px] text-gray-400">
+        Las comparaciones son contra el mes anterior y contra el mismo mes del año pasado, para ver si el cambio es
+        una tendencia real o algo normal de la época del año.
+      </p>
 
       <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">Últimos 6 meses</h2>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
