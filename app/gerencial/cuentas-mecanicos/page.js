@@ -59,6 +59,20 @@ function CuentasMecanicosContenido() {
   const [expandido, setExpandido] = useState(null);
   const [cuentaExpandida, setCuentaExpandida] = useState(null);
   const [modalPago, setModalPago] = useState(null); // nombre del mecánico, o null
+  const [filtroMecanico, setFiltroMecanico] = useState("");
+  const [mecanicoAImprimir, setMecanicoAImprimir] = useState(null);
+
+  useEffect(() => {
+    if (mecanicoAImprimir) window.print();
+  }, [mecanicoAImprimir]);
+
+  useEffect(() => {
+    function alTerminar() {
+      setMecanicoAImprimir(null);
+    }
+    window.addEventListener("afterprint", alTerminar);
+    return () => window.removeEventListener("afterprint", alTerminar);
+  }, []);
 
   async function recargarCuentaCorriente() {
     setPagos(await obtenerPagosALaboratorio());
@@ -90,18 +104,38 @@ function CuentasMecanicosContenido() {
       .finally(() => setCargando(false));
   }, []);
 
+  // Nombres de todos los mecánicos con algo cargado (trabajos o pagos),
+  // para el filtro y el "elegí uno" del selector.
+  const nombresMecanicos = useMemo(() => {
+    const set = new Set();
+    for (const t of trabajos) set.add(t.laboratorio || "Sin asignar");
+    for (const p of pagos) set.add(p.mecanico || "Sin especificar");
+    return Array.from(set).sort();
+  }, [trabajos, pagos]);
+
+  // Todo lo de abajo (cuenta corriente, período, tendencia) respeta el
+  // filtro por mecánico cuando está elegido uno puntual.
+  const trabajosF = useMemo(
+    () => (filtroMecanico ? trabajos.filter((t) => (t.laboratorio || "Sin asignar") === filtroMecanico) : trabajos),
+    [trabajos, filtroMecanico]
+  );
+  const pagosF = useMemo(
+    () => (filtroMecanico ? pagos.filter((p) => (p.mecanico || "Sin especificar") === filtroMecanico) : pagos),
+    [pagos, filtroMecanico]
+  );
+
   // Cuenta corriente por mecánico: cuánto le debemos en total (todos los
   // trabajos ya enviados, de siempre) contra cuánto ya le pagamos (gastos
   // "Pagos a Laboratorio" con ese mecánico) — no depende del filtro de
   // fechas de arriba, es un saldo acumulado.
   const cuentaCorriente = useMemo(() => {
     const mapa = {};
-    for (const t of trabajos) {
+    for (const t of trabajosF) {
       const nombre = t.laboratorio || "Sin asignar";
       if (!mapa[nombre]) mapa[nombre] = { nombre, debe: 0, pagado: 0, pagos: [] };
       if (t.valor) mapa[nombre].debe += Number(t.valor);
     }
-    for (const p of pagos) {
+    for (const p of pagosF) {
       const nombre = p.mecanico || "Sin especificar";
       if (!mapa[nombre]) mapa[nombre] = { nombre, debe: 0, pagado: 0, pagos: [] };
       mapa[nombre].pagado += Number(p.monto);
@@ -110,7 +144,22 @@ function CuentasMecanicosContenido() {
     return Object.values(mapa)
       .map((c) => ({ ...c, saldo: c.debe - c.pagado }))
       .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
-  }, [trabajos, pagos]);
+  }, [trabajosF, pagosF]);
+
+  // Para imprimir la cuenta de un mecánico puntual, sin importar el filtro
+  // de arriba: todos sus trabajos y pagos de siempre.
+  const datosParaImprimir = useMemo(() => {
+    if (!mecanicoAImprimir) return null;
+    const trabajosDelMecanico = trabajos
+      .filter((t) => (t.laboratorio || "Sin asignar") === mecanicoAImprimir)
+      .sort((a, b) => (a.fechaEnvio < b.fechaEnvio ? 1 : -1));
+    const pagosDelMecanico = pagos
+      .filter((p) => (p.mecanico || "Sin especificar") === mecanicoAImprimir)
+      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    const debe = trabajosDelMecanico.reduce((a, t) => a + (Number(t.valor) || 0), 0);
+    const pagado = pagosDelMecanico.reduce((a, p) => a + Number(p.monto), 0);
+    return { trabajos: trabajosDelMecanico, pagos: pagosDelMecanico, debe, pagado, saldo: debe - pagado };
+  }, [mecanicoAImprimir, trabajos, pagos]);
 
   function irAEsteMes() {
     setFechaInicio(primero);
@@ -118,8 +167,8 @@ function CuentasMecanicosContenido() {
   }
 
   const trabajosDelPeriodo = useMemo(
-    () => trabajos.filter((t) => t.fechaEnvio >= fechaInicio && t.fechaEnvio <= fechaFin),
-    [trabajos, fechaInicio, fechaFin]
+    () => trabajosF.filter((t) => t.fechaEnvio >= fechaInicio && t.fechaEnvio <= fechaFin),
+    [trabajosF, fechaInicio, fechaFin]
   );
 
   const porLaboratorio = useMemo(() => {
@@ -170,7 +219,7 @@ function CuentasMecanicosContenido() {
   // sin importar el filtro de fecha de arriba).
   const tendenciaMensual = useMemo(() => {
     const porMes = {};
-    for (const t of trabajos) {
+    for (const t of trabajosF) {
       if (!t.fechaEnvio) continue;
       const mes = t.fechaEnvio.slice(0, 7);
       if (!porMes[mes]) {
@@ -188,15 +237,36 @@ function CuentasMecanicosContenido() {
     return Object.values(porMes)
       .sort((a, b) => b.mes.localeCompare(a.mes))
       .slice(0, 6);
-  }, [trabajos]);
+  }, [trabajosF]);
+
+  const maxTendencia = Math.max(1, ...tendenciaMensual.map((m) => m.totalPagado));
 
   return (
     <main className="mx-auto max-w-5xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Cuentas por mecánico</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        Qué se le envió a cada mecánico en el período, cuánto suma, y cuánto nos queda de margen sobre lo que
-        cobramos por cada trabajo.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Cuentas por mecánico</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Qué se le envió a cada mecánico en el período, cuánto suma, y cuánto nos queda de margen sobre lo que
+            cobramos por cada trabajo.
+          </p>
+        </div>
+        <label className="flex flex-col gap-1 text-xs text-gray-600">
+          Mecánico
+          <select
+            value={filtroMecanico}
+            onChange={(e) => setFiltroMecanico(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            <option value="">Todos</option>
+            {nombresMecanicos.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
@@ -256,16 +326,29 @@ function CuentasMecanicosContenido() {
                         : "Al día"}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setModalPago(c.nombre);
-                      }}
-                      className="rounded-md border border-brand-brown/40 px-2 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
-                    >
-                      + Registrar pago
-                    </button>
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMecanicoAImprimir(c.nombre);
+                        }}
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        title="Imprimir cuenta de este mecánico"
+                      >
+                        🖨️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalPago(c.nombre);
+                        }}
+                        className="rounded-md border border-brand-brown/40 px-2 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+                      >
+                        + Registrar pago
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {cuentaExpandida === c.nombre && (
@@ -406,7 +489,30 @@ function CuentasMecanicosContenido() {
       {tendenciaMensual.length > 0 && (
         <div className="mt-6">
           <p className="mb-2 text-sm font-semibold text-gray-700">📈 Tendencia — últimos {tendenciaMensual.length} meses</p>
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+
+          <div className="rounded-lg border border-gray-200 bg-white px-4 pb-2 pt-4">
+            <div className="flex items-end gap-3" style={{ height: "130px" }}>
+              {[...tendenciaMensual].reverse().map((m) => (
+                <div key={m.mes} className="flex h-full flex-1 flex-col items-center justify-end">
+                  <span className="mb-1 text-[11px] font-medium text-gray-500">{formatoPesos(m.totalPagado)}</span>
+                  <div
+                    className="w-full rounded-t bg-brand-brown"
+                    style={{ height: `${Math.max((m.totalPagado / maxTendencia) * 100, 4)}px` }}
+                    title={`${nombreDelMes(m.mes)}: ${formatoPesos(m.totalPagado)}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-1 flex gap-3">
+              {[...tendenciaMensual].reverse().map((m) => (
+                <span key={m.mes} className="flex-1 text-center text-[11px] text-gray-500">
+                  {nombreDelMes(m.mes).slice(0, 3)}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-brand-brown text-white">
@@ -544,6 +650,101 @@ function CuentasMecanicosContenido() {
         Laboratorio/Prótesis). Si un trabajo no tiene valor cargado, no suma al total — se marca aparte para que no
         se pierda de vista. "Cobramos" sale del valor de catálogo (efectivo) de la prestación vinculada.
       </p>
+
+      {datosParaImprimir && (
+        <div className="hidden print:block">
+          <h1 className="text-xl font-bold text-gray-900">Clínica Dental Marianela Ramírez</h1>
+          <h2 className="mt-1 text-lg font-semibold text-gray-800">Cuenta corriente — {mecanicoAImprimir}</h2>
+          <p className="text-sm text-gray-600">Al {fechaDeHoyISO()} · todos los trabajos y pagos registrados</p>
+
+          <div className="mt-3 flex gap-6 text-sm">
+            <span>
+              Total trabajos enviados: <strong>{formatoPesos(datosParaImprimir.debe)}</strong>
+            </span>
+            <span>
+              Total pagado: <strong>{formatoPesos(datosParaImprimir.pagado)}</strong>
+            </span>
+            <span>
+              Saldo:{" "}
+              <strong>
+                {datosParaImprimir.saldo > 0
+                  ? `Le debemos ${formatoPesos(datosParaImprimir.saldo)}`
+                  : datosParaImprimir.saldo < 0
+                    ? `A favor nuestro ${formatoPesos(-datosParaImprimir.saldo)}`
+                    : "Al día"}
+              </strong>
+            </span>
+          </div>
+
+          <h3 className="mt-4 font-semibold text-gray-800">Trabajos enviados</h3>
+          <table className="mt-1 w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b-2 border-gray-800 text-left">
+                <th className="py-1 pr-2">Fecha</th>
+                <th className="py-1 pr-2">Paciente</th>
+                <th className="py-1 pr-2">Trabajo</th>
+                <th className="py-1 text-right">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {datosParaImprimir.trabajos.map((t) => (
+                <tr key={t.id} className="border-b border-gray-200">
+                  <td className="py-1 pr-2">{t.fechaEnvio}</td>
+                  <td className="py-1 pr-2">{t.pacienteNombre}</td>
+                  <td className="py-1 pr-2">
+                    {t.tipoTrabajo}
+                    {t.pieza ? ` (${t.pieza})` : ""}
+                  </td>
+                  <td className="py-1 text-right">{t.valor ? formatoPesos(t.valor) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-800 font-bold">
+                <td colSpan={3} className="py-2 pr-2 text-right">
+                  Total
+                </td>
+                <td className="py-2 text-right">{formatoPesos(datosParaImprimir.debe)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <h3 className="mt-4 font-semibold text-gray-800">Pagos registrados</h3>
+          {datosParaImprimir.pagos.length === 0 ? (
+            <p className="text-sm text-gray-500">Todavía no hay pagos registrados.</p>
+          ) : (
+            <table className="mt-1 w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-800 text-left">
+                  <th className="py-1 pr-2">Fecha</th>
+                  <th className="py-1 pr-2">Descripción</th>
+                  <th className="py-1 text-right">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {datosParaImprimir.pagos.map((p) => (
+                  <tr key={p.id} className="border-b border-gray-200">
+                    <td className="py-1 pr-2">{p.fecha}</td>
+                    <td className="py-1 pr-2">
+                      {p.descripcion || "—"}
+                      {p.observaciones ? ` — ${p.observaciones}` : ""}
+                    </td>
+                    <td className="py-1 text-right">{formatoPesos(p.monto)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-800 font-bold">
+                  <td colSpan={2} className="py-2 pr-2 text-right">
+                    Total
+                  </td>
+                  <td className="py-2 text-right">{formatoPesos(datosParaImprimir.pagado)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+      )}
 
       {modalPago && (
         <GastoFormModal
