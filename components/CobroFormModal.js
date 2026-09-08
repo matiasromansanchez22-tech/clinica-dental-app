@@ -85,6 +85,10 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         fila.codigo = item?.codigo || "";
         fila.valor = valor;
         fila.valorOS = valorOS;
+        // Especialidad del catálogo (solo particular por ahora) — para que
+        // Producción pueda liquidar un % distinto según la especialidad de
+        // la prestación, no solo un % fijo por profesional.
+        fila.especialidad = item?.especialidad || null;
         // Prestaciones administrativas conocidas (no le corresponden % a
         // ningún profesional) se marcan solas al elegirlas — se puede
         // destildar a mano si hiciera falta.
@@ -168,6 +172,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                 valor: p.valor,
                 valorOS: p.valorOS,
                 sinHonorarios: p.sinHonorarios,
+                especialidad: p.especialidad || null,
               })),
         importeTotal: usaPlan ? Number(pago) : importeTotal,
         pago: Number(pago),

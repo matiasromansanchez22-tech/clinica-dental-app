@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NOMBRES_DIA_SEMANA } from "@/lib/agenda";
 import {
   actualizarBloqueDisponibilidad,
@@ -8,10 +8,18 @@ import {
   agregarBloqueDisponibilidad,
   crearProfesional,
   eliminarBloqueDisponibilidad,
+  eliminarHonorarioEspecialidad,
   eliminarProfesional,
+  guardarHonorarioEspecialidad,
+  obtenerHonorariosEspecialidad,
 } from "@/lib/data/profesionales";
 
 const CONSULTORIOS_DISPONIBLES = [1, 2, 3];
+const ESPECIALIDADES_SUGERIDAS = ["Periodoncia", "Endodoncia", "Odontopediatría", "Implantes", "Odontología General"];
+
+function excepcionVacia() {
+  return { id: null, especialidad: "", porcentajeCopago: "" };
+}
 
 function bloqueVacio() {
   return { diaSemana: 1, horaInicio: "08:00", horaFin: "14:00", consultorio: 1 };
@@ -38,9 +46,37 @@ export default function ProfesionalFormModal({ profesional, onClose, onGuardado 
   const [observaciones, setObservaciones] = useState(profesional?.observaciones || "");
   const [activo, setActivo] = useState(profesional?.activo ?? true);
   const [bloques, setBloques] = useState(esEdicion ? bloquesDesdeProfesional(profesional) : [bloqueVacio()]);
+  const [excepciones, setExcepciones] = useState([]);
+  const [idsExcepcionesOriginales, setIdsExcepcionesOriginales] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [error, setError] = useState(null);
+
+  // Las excepciones por especialidad no vienen con la lista general de
+  // profesionales (para no cargarla de más en pantallas que no la usan) —
+  // se traen acá al abrir el formulario de edición.
+  useEffect(() => {
+    if (!esEdicion) return;
+    obtenerHonorariosEspecialidad(profesional.id)
+      .then((lista) => {
+        setExcepciones(lista.map((e) => ({ id: e.id, especialidad: e.especialidad, porcentajeCopago: e.porcentaje_copago })));
+        setIdsExcepcionesOriginales(lista.map((e) => e.id));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function actualizarExcepcion(i, cambios) {
+    setExcepciones((es) => es.map((e, idx) => (idx === i ? { ...e, ...cambios } : e)));
+  }
+
+  function agregarExcepcion() {
+    setExcepciones((es) => [...es, excepcionVacia()]);
+  }
+
+  function quitarExcepcion(i) {
+    setExcepciones((es) => es.filter((_, idx) => idx !== i));
+  }
 
   function actualizarBloqueLocal(i, cambios) {
     setBloques((bs) => bs.map((b, idx) => (idx === i ? { ...b, ...cambios } : b)));
@@ -92,6 +128,15 @@ export default function ProfesionalFormModal({ profesional, onClose, onGuardado 
         } else {
           await agregarBloqueDisponibilidad(profesionalId, b);
         }
+      }
+
+      const idsExcepcionesActuales = excepciones.filter((e) => e.id).map((e) => e.id);
+      for (const id of idsExcepcionesOriginales) {
+        if (!idsExcepcionesActuales.includes(id)) await eliminarHonorarioEspecialidad(id);
+      }
+      for (const e of excepciones) {
+        if (!e.especialidad.trim() || e.porcentajeCopago === "") continue;
+        await guardarHonorarioEspecialidad(profesionalId, e.especialidad.trim(), e.porcentajeCopago);
       }
 
       onGuardado();
@@ -187,6 +232,50 @@ export default function ProfesionalFormModal({ profesional, onClose, onGuardado 
               />
             </label>
           </div>
+
+          {esEdicion && (
+            <div className="mt-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">Excepciones de honorarios por especialidad</p>
+                <button type="button" onClick={agregarExcepcion} className="text-xs font-medium text-brand-brown hover:underline">
+                  + Agregar excepción
+                </button>
+              </div>
+              <p className="mt-0.5 text-xs text-gray-400">
+                Si una prestación es de esta especialidad, se usa este % en vez del general de arriba. Ej. Periodoncia
+                al 50% aunque el resto sea al 35%.
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                {excepciones.map((e, i) => (
+                  <div key={e.id || `nueva-${i}`} className="flex items-center gap-2 rounded-md border border-gray-200 p-2">
+                    <input
+                      list="especialidades-sugeridas"
+                      value={e.especialidad}
+                      onChange={(ev) => actualizarExcepcion(i, { especialidad: ev.target.value })}
+                      placeholder="Especialidad"
+                      className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                    />
+                    <input
+                      type="number"
+                      value={e.porcentajeCopago}
+                      onChange={(ev) => actualizarExcepcion(i, { porcentajeCopago: ev.target.value })}
+                      placeholder="%"
+                      className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                    />
+                    <button type="button" onClick={() => quitarExcepcion(i)} className="text-xs text-red-600 hover:underline">
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+                {excepciones.length === 0 && <p className="text-xs text-gray-400">Sin excepciones — se usa el % general para todo.</p>}
+              </div>
+              <datalist id="especialidades-sugeridas">
+                {ESPECIALIDADES_SUGERIDAS.map((esp) => (
+                  <option key={esp} value={esp} />
+                ))}
+              </datalist>
+            </div>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Observaciones
