@@ -13,8 +13,41 @@ import {
   obtenerEventosTrabajo,
   resolverIdCatalogo,
 } from "@/lib/data/laboratorio";
-import { obtenerPrecioMecanico, obtenerTrabajosMecanico } from "@/lib/data/mecanicosPrecios";
+import { obtenerPrecioMecanico, obtenerPreciosDelMecanico } from "@/lib/data/mecanicosPrecios";
 import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
+
+function formatoPesos(n) {
+  return `$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+// Lista de nombre + precio de ESE mecánico, clickeable, como el catálogo
+// propio de la clínica — para elegir el trabajo viendo el valor de una,
+// en vez de escribir a ciegas.
+function CatalogoMecanico({ laboratorio, precios, onElegir }) {
+  if (!laboratorio.trim() || precios.length === 0) return null;
+  return (
+    <div className="rounded-md border border-gray-200">
+      <p className="border-b border-gray-100 bg-gray-50 px-2 py-1 text-[11px] font-semibold uppercase text-gray-500">
+        Catálogo de {laboratorio}
+      </p>
+      <div className="max-h-36 overflow-y-auto">
+        {precios.map((p) => (
+          <button
+            key={p.trabajo}
+            type="button"
+            onClick={() => onElegir(p)}
+            className="flex w-full items-center justify-between px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+          >
+            <span className="text-gray-700">{p.trabajo}</span>
+            <span className="whitespace-nowrap font-medium text-gray-500">
+              {p.precio ? formatoPesos(p.precio) : "—"}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Los pasos más comunes después de mandar un trabajo, para tildarlos con un
 // solo toque (con la fecha de hoy) en vez de abrir el formulario de
@@ -147,7 +180,7 @@ function NuevoTrabajoFormulario({
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
-  const [trabajosDelMecanico, setTrabajosDelMecanico] = useState([]);
+  const [preciosDelMecanico, setPreciosDelMecanico] = useState([]);
 
   // Sugiere el valor de la comparativa de mecánicos para ese laboratorio +
   // tipo de trabajo, multiplicado por la cantidad (ej. 2 coronas de
@@ -185,25 +218,35 @@ function NuevoTrabajoFormulario({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cantidad]);
 
-  // Al elegir laboratorio, sugiere en el "Tipo de trabajo" los nombres que
-  // ESE mecánico usa (de la comparativa de precios) — así se carga con su
-  // propio vocabulario en vez del nuestro, y el trabajo se vincula bien al
-  // catálogo para calcular el margen.
+  // Al elegir laboratorio, trae el catálogo (nombre + precio) de ESE
+  // mecánico — así se carga con su propio vocabulario en vez del nuestro
+  // (el trabajo se vincula bien al catálogo para calcular el margen) y se
+  // ve el valor antes de elegir, no a ciegas.
   useEffect(() => {
     if (!laboratorio.trim()) {
-      setTrabajosDelMecanico([]);
+      setPreciosDelMecanico([]);
       return;
     }
     let cancelado = false;
-    obtenerTrabajosMecanico(laboratorio)
+    obtenerPreciosDelMecanico(laboratorio)
       .then((lista) => {
-        if (!cancelado) setTrabajosDelMecanico(lista);
+        if (!cancelado) setPreciosDelMecanico(lista);
       })
       .catch(() => {});
     return () => {
       cancelado = true;
     };
   }, [laboratorio]);
+
+  // Elegir directo del catálogo del mecánico completa tipo de trabajo y
+  // valor juntos, sin esperar el debounce de la sugerencia automática.
+  function elegirDelCatalogo(p) {
+    setTipoTrabajo(p.trabajo);
+    if (valorTocado || p.precio === null) return;
+    setPrecioUnitarioSugerido(p.precio);
+    const n = Math.max(Number(cantidad) || 1, 1);
+    setValor(String(p.precio * n));
+  }
 
   const listaPacientes = tipoPaciente === "General" ? pacientesGeneral : pacientesOrtodoncia;
   const nombreDe = (p) => (tipoPaciente === "General" ? p.apellidoYNombre : p.nombre);
@@ -319,30 +362,41 @@ function NuevoTrabajoFormulario({
           </label>
 
           <label className="flex flex-col gap-1 text-xs text-gray-700">
-            Tipo de trabajo
+            Laboratorio / Mecánico (opcional)
             <input
-              list="tipos-trabajo-sugeridos"
-              value={tipoTrabajo}
-              onChange={(e) => setTipoTrabajo(e.target.value)}
-              placeholder="Ej. Prótesis, Corona..."
+              list="laboratorios-sugeridos"
+              value={laboratorio}
+              onChange={(e) => setLaboratorio(e.target.value)}
               className="rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
-            <datalist id="tipos-trabajo-sugeridos">
-              {trabajosDelMecanico.map((t) => (
-                <option key={`m-${t}`} value={t} />
-              ))}
-              {catalogo.map((c) => (
-                <option key={c.id} value={c.prestacion} />
+            <datalist id="laboratorios-sugeridos">
+              {laboratoriosSugeridos.map((l) => (
+                <option key={l} value={l} />
               ))}
             </datalist>
-            {trabajosDelMecanico.length > 0 && (
-              <p className="text-[11px] text-gray-400">
-                Se sugieren los nombres que usa {laboratorio} en su lista de precios.
-              </p>
-            )}
           </label>
 
+          <CatalogoMecanico laboratorio={laboratorio} precios={preciosDelMecanico} onElegir={elegirDelCatalogo} />
+
           <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Tipo de trabajo
+              <input
+                list="tipos-trabajo-sugeridos"
+                value={tipoTrabajo}
+                onChange={(e) => setTipoTrabajo(e.target.value)}
+                placeholder="Ej. Prótesis, Corona..."
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+              <datalist id="tipos-trabajo-sugeridos">
+                {preciosDelMecanico.map((p) => (
+                  <option key={`m-${p.trabajo}`} value={p.trabajo} />
+                ))}
+                {catalogo.map((c) => (
+                  <option key={c.id} value={c.prestacion} />
+                ))}
+              </datalist>
+            </label>
             <label className="flex flex-col gap-1 text-xs text-gray-700">
               Pieza (opcional)
               <input
@@ -350,20 +404,6 @@ function NuevoTrabajoFormulario({
                 onChange={(e) => setPieza(e.target.value)}
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-700">
-              Laboratorio / Mecánico (opcional)
-              <input
-                list="laboratorios-sugeridos"
-                value={laboratorio}
-                onChange={(e) => setLaboratorio(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-              <datalist id="laboratorios-sugeridos">
-                {laboratoriosSugeridos.map((l) => (
-                  <option key={l} value={l} />
-                ))}
-              </datalist>
             </label>
           </div>
 
@@ -493,6 +533,25 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [cantidad, setCantidad] = useState("1");
   const [precioUnitarioSugerido, setPrecioUnitarioSugerido] = useState(null);
+  const [preciosDelMecanicoEdit, setPreciosDelMecanicoEdit] = useState([]);
+
+  // Catálogo (nombre + precio) del mecánico elegido en el formulario de
+  // edición, para poder corregir el tipo de trabajo viendo el valor.
+  useEffect(() => {
+    if (!editando || !editLaboratorio.trim()) {
+      setPreciosDelMecanicoEdit([]);
+      return;
+    }
+    let cancelado = false;
+    obtenerPreciosDelMecanico(editLaboratorio)
+      .then((lista) => {
+        if (!cancelado) setPreciosDelMecanicoEdit(lista);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [editando, editLaboratorio]);
 
   // Precio unitario de la comparativa de mecánicos para este laboratorio +
   // tipo de trabajo, para poder multiplicarlo por cantidad más abajo (ej.
@@ -661,20 +720,44 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
         {editando ? (
           <div className="mt-2 mb-4 flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
-              Tipo de trabajo
+              Laboratorio / Mecánico
               <input
-                list="tipos-trabajo-editar"
-                value={editTipoTrabajo}
-                onChange={(e) => setEditTipoTrabajo(e.target.value)}
+                list="laboratorios-sugeridos-editar"
+                value={editLaboratorio}
+                onChange={(e) => setEditLaboratorio(e.target.value)}
                 className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
               />
-              <datalist id="tipos-trabajo-editar">
-                {catalogo.map((c) => (
-                  <option key={c.id} value={c.prestacion} />
+              <datalist id="laboratorios-sugeridos-editar">
+                {laboratoriosSugeridos.map((l) => (
+                  <option key={l} value={l} />
                 ))}
               </datalist>
             </label>
+
+            <CatalogoMecanico
+              laboratorio={editLaboratorio}
+              precios={preciosDelMecanicoEdit}
+              onElegir={(p) => setEditTipoTrabajo(p.trabajo)}
+            />
+
             <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Tipo de trabajo
+                <input
+                  list="tipos-trabajo-editar"
+                  value={editTipoTrabajo}
+                  onChange={(e) => setEditTipoTrabajo(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+                <datalist id="tipos-trabajo-editar">
+                  {preciosDelMecanicoEdit.map((p) => (
+                    <option key={`m-${p.trabajo}`} value={p.trabajo} />
+                  ))}
+                  {catalogo.map((c) => (
+                    <option key={c.id} value={c.prestacion} />
+                  ))}
+                </datalist>
+              </label>
               <label className="flex flex-col gap-1 text-xs text-gray-700">
                 Pieza
                 <input
@@ -682,20 +765,6 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
                   onChange={(e) => setEditPieza(e.target.value)}
                   className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                 />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-gray-700">
-                Laboratorio / Mecánico
-                <input
-                  list="laboratorios-sugeridos-editar"
-                  value={editLaboratorio}
-                  onChange={(e) => setEditLaboratorio(e.target.value)}
-                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                />
-                <datalist id="laboratorios-sugeridos-editar">
-                  {laboratoriosSugeridos.map((l) => (
-                    <option key={l} value={l} />
-                  ))}
-                </datalist>
               </label>
             </div>
             <label className="flex flex-col gap-1 text-xs text-gray-700">
