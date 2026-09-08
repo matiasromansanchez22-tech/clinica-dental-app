@@ -9,6 +9,10 @@ const ESPECIALIDADES = ["", "General", "Ortodoncia"];
 
 const CATEGORIA_PAGO_LABORATORIO = "Pagos a Laboratorio";
 
+function formatoPesos(n) {
+  return `$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
 export default function GastoFormModal({
   gasto,
   categorias,
@@ -16,6 +20,7 @@ export default function GastoFormModal({
   categoriaInicial,
   mecanicoInicial,
   laboratoriosSugeridos = [],
+  trabajosMecanico = [],
   onClose,
   onGuardado,
 }) {
@@ -27,8 +32,22 @@ export default function GastoFormModal({
   const [medioPago, setMedioPago] = useState(gasto?.medioPago || "Efectivo");
   const [observaciones, setObservaciones] = useState(gasto?.observaciones || "");
   const [mecanico, setMecanico] = useState(gasto?.mecanico || mecanicoInicial || "");
+  const [trabajosSeleccionados, setTrabajosSeleccionados] = useState(new Set());
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  const sumaSeleccionada = trabajosMecanico
+    .filter((t) => trabajosSeleccionados.has(t.id))
+    .reduce((a, t) => a + (Number(t.valor) || 0), 0);
+
+  function alternarTrabajo(id) {
+    setTrabajosSeleccionados((actual) => {
+      const nuevo = new Set(actual);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -52,6 +71,10 @@ export default function GastoFormModal({
         medioPago,
         observaciones,
         mecanico: categoria === CATEGORIA_PAGO_LABORATORIO ? mecanico.trim() : null,
+        trabajoIds:
+          !gasto && categoria === CATEGORIA_PAGO_LABORATORIO && trabajosSeleccionados.size > 0
+            ? Array.from(trabajosSeleccionados)
+            : undefined,
       };
       if (gasto) {
         await actualizarGasto(gasto.id, datos);
@@ -141,6 +164,49 @@ export default function GastoFormModal({
               </datalist>
               <span className="text-xs text-gray-400">Para poder ver cuánto le debemos a cada uno en Cuentas por Mecánico.</span>
             </label>
+          )}
+
+          {!gasto && categoria === CATEGORIA_PAGO_LABORATORIO && trabajosMecanico.length > 0 && (
+            <div className="flex flex-col gap-1 text-sm text-gray-700">
+              ¿A qué trabajos corresponde este pago? (opcional)
+              <div className="max-h-40 overflow-y-auto rounded-md border border-gray-300">
+                {trabajosMecanico.map((t) => (
+                  <label
+                    key={t.id}
+                    className="flex cursor-pointer items-center justify-between gap-2 border-b border-gray-100 px-2 py-1.5 text-xs last:border-b-0 hover:bg-gray-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={trabajosSeleccionados.has(t.id)}
+                        onChange={() => alternarTrabajo(t.id)}
+                      />
+                      {t.pacienteNombre} — {t.tipoTrabajo}
+                      {t.pieza ? ` (${t.pieza})` : ""}
+                    </span>
+                    <span className="whitespace-nowrap text-gray-500">
+                      {t.valor ? formatoPesos(t.valor) : "sin valor"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {trabajosSeleccionados.size > 0 && (
+                <p
+                  className={`text-xs ${
+                    Number(monto) && Math.abs(Number(monto) - sumaSeleccionada) > 0.5
+                      ? "font-medium text-amber-700"
+                      : "text-gray-500"
+                  }`}
+                >
+                  Estos {trabajosSeleccionados.size} trabajo{trabajosSeleccionados.size === 1 ? "" : "s"} valen{" "}
+                  {formatoPesos(sumaSeleccionada)} según el sistema
+                  {Number(monto) && Math.abs(Number(monto) - sumaSeleccionada) > 0.5
+                    ? ` — estás pagando ${formatoPesos(Number(monto))}, una diferencia de ${formatoPesos(Math.abs(Number(monto) - sumaSeleccionada))}`
+                    : ""}
+                  .
+                </p>
+              )}
+            </div>
           )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

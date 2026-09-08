@@ -5,7 +5,7 @@ import SoloDuena from "@/components/SoloDuena";
 import GastoFormModal from "@/components/GastoFormModal";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerFechasEnvioPorTrabajo, obtenerTrabajosLaboratorio } from "@/lib/data/laboratorio";
-import { obtenerCategoriasGasto, obtenerPagosALaboratorio } from "@/lib/data/gastos";
+import { obtenerCategoriasGasto, obtenerPagosALaboratorio, obtenerTrabajosLaboratorioPagadosIds } from "@/lib/data/gastos";
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 
 const CATEGORIA_PAGO_LABORATORIO = "Pagos a Laboratorio";
@@ -61,6 +61,17 @@ function CuentasMecanicosContenido() {
   const [modalPago, setModalPago] = useState(null); // nombre del mecánico, o null
   const [filtroMecanico, setFiltroMecanico] = useState("");
   const [mecanicoAImprimir, setMecanicoAImprimir] = useState(null);
+  const [trabajosPagadosIds, setTrabajosPagadosIds] = useState(new Set());
+
+  async function recargarTrabajosPagados() {
+    try {
+      setTrabajosPagadosIds(new Set(await obtenerTrabajosLaboratorioPagadosIds()));
+    } catch {
+      // La tabla pagos_laboratorio_trabajos es nueva — si todavía no se
+      // corrió esa migración, simplemente no se marca ningún trabajo como
+      // pagado (en vez de romper la pantalla).
+    }
+  }
 
   useEffect(() => {
     if (mecanicoAImprimir) window.print();
@@ -76,10 +87,12 @@ function CuentasMecanicosContenido() {
 
   async function recargarCuentaCorriente() {
     setPagos(await obtenerPagosALaboratorio());
+    await recargarTrabajosPagados();
   }
 
   useEffect(() => {
     setCargando(true);
+    recargarTrabajosPagados();
     Promise.all([
       obtenerTrabajosLaboratorio(),
       obtenerFechasEnvioPorTrabajo(),
@@ -602,6 +615,7 @@ function CuentasMecanicosContenido() {
                             <th className="px-2 py-1 text-left font-medium">Paciente</th>
                             <th className="px-2 py-1 text-left font-medium">Trabajo</th>
                             <th className="px-2 py-1 text-left font-medium">Estado</th>
+                            <th className="px-2 py-1 text-left font-medium">Pago</th>
                             <th className="px-2 py-1 text-right font-medium">Pagamos</th>
                             <th className="px-2 py-1 text-right font-medium">Cobramos</th>
                             <th className="px-2 py-1 text-right font-medium">Margen</th>
@@ -622,6 +636,15 @@ function CuentasMecanicosContenido() {
                                     {t.pieza ? ` (${t.pieza})` : ""}
                                   </td>
                                   <td className="px-2 py-1 text-gray-500">{t.estado}</td>
+                                  <td className="px-2 py-1">
+                                    {!t.valor ? (
+                                      "—"
+                                    ) : trabajosPagadosIds.has(t.id) ? (
+                                      <span className="text-emerald-700">✓ Pagado</span>
+                                    ) : (
+                                      <span className="text-amber-600">Pendiente</span>
+                                    )}
+                                  </td>
                                   <td className="px-2 py-1 text-right">
                                     {t.valor ? formatoPesos(t.valor) : <span className="text-amber-600">sin valor</span>}
                                   </td>
@@ -752,6 +775,9 @@ function CuentasMecanicosContenido() {
           categoriaInicial={CATEGORIA_PAGO_LABORATORIO}
           mecanicoInicial={modalPago}
           laboratoriosSugeridos={laboratoriosSugeridos}
+          trabajosMecanico={trabajos
+            .filter((t) => (t.laboratorio || "Sin asignar") === modalPago && t.valor && !trabajosPagadosIds.has(t.id))
+            .sort((a, b) => (a.fechaEnvio < b.fechaEnvio ? 1 : -1))}
           onClose={() => setModalPago(null)}
           onGuardado={async () => {
             await recargarCuentaCorriente();
