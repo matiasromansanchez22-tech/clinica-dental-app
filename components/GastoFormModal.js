@@ -7,14 +7,26 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 
 const ESPECIALIDADES = ["", "General", "Ortodoncia"];
 
-export default function GastoFormModal({ gasto, categorias, especialidadInicial, onClose, onGuardado }) {
+const CATEGORIA_PAGO_LABORATORIO = "Pagos a Laboratorio";
+
+export default function GastoFormModal({
+  gasto,
+  categorias,
+  especialidadInicial,
+  categoriaInicial,
+  mecanicoInicial,
+  laboratoriosSugeridos = [],
+  onClose,
+  onGuardado,
+}) {
   const [fecha, setFecha] = useState(gasto?.fecha || fechaDeHoyISO());
-  const [categoria, setCategoria] = useState(gasto?.categoria || categorias[0]?.nombre || "");
+  const [categoria, setCategoria] = useState(gasto?.categoria || categoriaInicial || categorias[0]?.nombre || "");
   const [especialidad, setEspecialidad] = useState(gasto?.especialidad || especialidadInicial || "");
   const [descripcion, setDescripcion] = useState(gasto?.descripcion || "");
   const [monto, setMonto] = useState(gasto?.monto || "");
   const [medioPago, setMedioPago] = useState(gasto?.medioPago || "Efectivo");
   const [observaciones, setObservaciones] = useState(gasto?.observaciones || "");
+  const [mecanico, setMecanico] = useState(gasto?.mecanico || mecanicoInicial || "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -31,7 +43,16 @@ export default function GastoFormModal({ gasto, categorias, especialidadInicial,
     }
     setGuardando(true);
     try {
-      const datos = { fecha, categoria, especialidad, descripcion, monto, medioPago, observaciones };
+      const datos = {
+        fecha,
+        categoria,
+        especialidad,
+        descripcion,
+        monto,
+        medioPago,
+        observaciones,
+        mecanico: categoria === CATEGORIA_PAGO_LABORATORIO ? mecanico.trim() : null,
+      };
       if (gasto) {
         await actualizarGasto(gasto.id, datos);
       } else {
@@ -102,6 +123,25 @@ export default function GastoFormModal({ gasto, categorias, especialidadInicial,
               </select>
             </label>
           </div>
+
+          {categoria === CATEGORIA_PAGO_LABORATORIO && (
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              ¿A qué mecánico?
+              <input
+                list="mecanicos-sugeridos-gasto"
+                value={mecanico}
+                onChange={(e) => setMecanico(e.target.value)}
+                placeholder="Ej. Mario"
+                className="rounded-md border border-gray-300 px-2 py-1.5"
+              />
+              <datalist id="mecanicos-sugeridos-gasto">
+                {laboratoriosSugeridos.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
+              <span className="text-xs text-gray-400">Para poder ver cuánto le debemos a cada uno en Cuentas por Mecánico.</span>
+            </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Descripción

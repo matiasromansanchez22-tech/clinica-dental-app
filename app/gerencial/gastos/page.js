@@ -6,6 +6,7 @@ import GastoFormModal from "@/components/GastoFormModal";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
+import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 
 function primerYUltimoDiaDelMes(fechaISO) {
   const [anio, mes] = fechaISO.split("-").map(Number);
@@ -27,6 +28,7 @@ function GastosContenido() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [gastoEnEdicion, setGastoEnEdicion] = useState(null);
   const [mostrarConfigCategorias, setMostrarConfigCategorias] = useState(false);
+  const [laboratoriosSugeridos, setLaboratoriosSugeridos] = useState([]);
 
   async function recargar() {
     setCargando(true);
@@ -40,6 +42,12 @@ function GastosContenido() {
       setCargando(false);
     }
   }
+
+  useEffect(() => {
+    obtenerNombresLaboratoriosMecanicos()
+      .then(setLaboratoriosSugeridos)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     recargar();
@@ -208,6 +216,7 @@ function GastosContenido() {
         <GastoFormModal
           gasto={gastoEnEdicion}
           categorias={categorias}
+          laboratoriosSugeridos={laboratoriosSugeridos}
           onClose={() => {
             setMostrarNuevo(false);
             setGastoEnEdicion(null);

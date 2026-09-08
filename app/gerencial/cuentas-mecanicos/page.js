@@ -2,8 +2,13 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
+import GastoFormModal from "@/components/GastoFormModal";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerFechasEnvioPorTrabajo, obtenerTrabajosLaboratorio } from "@/lib/data/laboratorio";
+import { obtenerCategoriasGasto, obtenerPagosALaboratorio } from "@/lib/data/gastos";
+import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
+
+const CATEGORIA_PAGO_LABORATORIO = "Pagos a Laboratorio";
 
 function primerYUltimoDiaDelMes(fechaISO) {
   const [anio, mes] = fechaISO.split("-").map(Number);
@@ -46,14 +51,29 @@ function CuentasMecanicosContenido() {
   const [fechaInicio, setFechaInicio] = useState(primero);
   const [fechaFin, setFechaFin] = useState(ultimo);
   const [trabajos, setTrabajos] = useState([]);
+  const [pagos, setPagos] = useState([]);
+  const [categoriasGasto, setCategoriasGasto] = useState([]);
+  const [laboratoriosSugeridos, setLaboratoriosSugeridos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [expandido, setExpandido] = useState(null);
+  const [cuentaExpandida, setCuentaExpandida] = useState(null);
+  const [modalPago, setModalPago] = useState(null); // nombre del mecánico, o null
+
+  async function recargarCuentaCorriente() {
+    setPagos(await obtenerPagosALaboratorio());
+  }
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerTrabajosLaboratorio(), obtenerFechasEnvioPorTrabajo()])
-      .then(([lista, fechasEnvio]) => {
+    Promise.all([
+      obtenerTrabajosLaboratorio(),
+      obtenerFechasEnvioPorTrabajo(),
+      obtenerPagosALaboratorio(),
+      obtenerCategoriasGasto(),
+      obtenerNombresLaboratoriosMecanicos(),
+    ])
+      .then(([lista, fechasEnvio, pagosLab, cats, labs]) => {
         // Solo entran acá los trabajos que ya se marcaron como enviados —
         // mientras están "Pendiente de envío" no hay nada que cotejar
         // todavía contra ninguna factura.
@@ -62,10 +82,35 @@ function CuentasMecanicosContenido() {
             .filter((t) => fechasEnvio[t.id])
             .map((t) => ({ ...t, fechaEnvio: fechasEnvio[t.id] }))
         );
+        setPagos(pagosLab);
+        setCategoriasGasto(cats);
+        setLaboratoriosSugeridos(labs);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, []);
+
+  // Cuenta corriente por mecánico: cuánto le debemos en total (todos los
+  // trabajos ya enviados, de siempre) contra cuánto ya le pagamos (gastos
+  // "Pagos a Laboratorio" con ese mecánico) — no depende del filtro de
+  // fechas de arriba, es un saldo acumulado.
+  const cuentaCorriente = useMemo(() => {
+    const mapa = {};
+    for (const t of trabajos) {
+      const nombre = t.laboratorio || "Sin asignar";
+      if (!mapa[nombre]) mapa[nombre] = { nombre, debe: 0, pagado: 0, pagos: [] };
+      if (t.valor) mapa[nombre].debe += Number(t.valor);
+    }
+    for (const p of pagos) {
+      const nombre = p.mecanico || "Sin especificar";
+      if (!mapa[nombre]) mapa[nombre] = { nombre, debe: 0, pagado: 0, pagos: [] };
+      mapa[nombre].pagado += Number(p.monto);
+      mapa[nombre].pagos.push(p);
+    }
+    return Object.values(mapa)
+      .map((c) => ({ ...c, saldo: c.debe - c.pagado }))
+      .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
+  }, [trabajos, pagos]);
 
   function irAEsteMes() {
     setFechaInicio(primero);
@@ -153,6 +198,116 @@ function CuentasMecanicosContenido() {
         cobramos por cada trabajo.
       </p>
 
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
+
+      <h2 className="mt-6 mb-1 font-heading text-sm font-semibold text-brand-brown">Cuenta corriente (acumulado de siempre)</h2>
+      <p className="mb-2 text-xs text-gray-500">
+        Lo que le debemos a cada mecánico por todos los trabajos enviados, contra lo que ya le pagamos. Si el saldo
+        es negativo, quedó a favor nuestro (le pagamos de más).
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-brand-brown text-white">
+              <th className="px-3 py-2 text-left font-semibold">Mecánico</th>
+              <th className="px-3 py-2 text-right font-semibold">Debemos (trabajos)</th>
+              <th className="px-3 py-2 text-right font-semibold">Ya pagamos</th>
+              <th className="px-3 py-2 text-right font-semibold">Saldo</th>
+              <th className="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {cargando && (
+              <tr>
+                <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                  Cargando...
+                </td>
+              </tr>
+            )}
+            {!cargando && cuentaCorriente.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                  Todavía no hay trabajos ni pagos cargados.
+                </td>
+              </tr>
+            )}
+            {cuentaCorriente.map((c) => (
+              <Fragment key={c.nombre}>
+                <tr
+                  onClick={() => setCuentaExpandida((e) => (e === c.nombre ? null : c.nombre))}
+                  className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
+                >
+                  <td className="px-3 py-2 font-medium text-gray-900">
+                    {cuentaExpandida === c.nombre ? "▾" : "▸"} {c.nombre}
+                  </td>
+                  <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(c.debe)}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(c.pagado)}</td>
+                  <td
+                    className={`px-3 py-2 text-right font-semibold ${
+                      c.saldo > 0 ? "text-amber-700" : c.saldo < 0 ? "text-emerald-700" : "text-gray-500"
+                    }`}
+                  >
+                    {c.saldo > 0
+                      ? `Le debemos ${formatoPesos(c.saldo)}`
+                      : c.saldo < 0
+                        ? `A favor nuestro ${formatoPesos(-c.saldo)}`
+                        : "Al día"}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalPago(c.nombre);
+                      }}
+                      className="rounded-md border border-brand-brown/40 px-2 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+                    >
+                      + Registrar pago
+                    </button>
+                  </td>
+                </tr>
+                {cuentaExpandida === c.nombre && (
+                  <tr className="bg-gray-50">
+                    <td colSpan={5} className="px-3 py-2">
+                      {c.pagos.length === 0 ? (
+                        <p className="px-2 py-1 text-xs text-gray-400">Todavía no hay pagos registrados a este mecánico.</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-gray-500">
+                              <th className="px-2 py-1 text-left font-medium">Fecha</th>
+                              <th className="px-2 py-1 text-left font-medium">Descripción</th>
+                              <th className="px-2 py-1 text-right font-medium">Monto</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {c.pagos
+                              .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+                              .map((p) => (
+                                <tr key={p.id} className="border-t border-gray-200">
+                                  <td className="px-2 py-1">{p.fecha}</td>
+                                  <td className="px-2 py-1">
+                                    {p.descripcion || "—"}
+                                    {p.observaciones && <span className="text-gray-400"> — {p.observaciones}</span>}
+                                  </td>
+                                  <td className="px-2 py-1 text-right">{formatoPesos(p.monto)}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-8 mb-2 font-heading text-sm font-semibold text-brand-brown">Detalle del período</h2>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button onClick={irAEsteMes} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
           Este mes
@@ -187,10 +342,6 @@ function CuentasMecanicosContenido() {
           </div>
         )}
       </div>
-
-      {error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
-      )}
 
       <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
         <p className="font-heading text-sm font-semibold text-emerald-800">💰 Margen del período</p>
@@ -393,6 +544,20 @@ function CuentasMecanicosContenido() {
         Laboratorio/Prótesis). Si un trabajo no tiene valor cargado, no suma al total — se marca aparte para que no
         se pierda de vista. "Cobramos" sale del valor de catálogo (efectivo) de la prestación vinculada.
       </p>
+
+      {modalPago && (
+        <GastoFormModal
+          categorias={categoriasGasto}
+          categoriaInicial={CATEGORIA_PAGO_LABORATORIO}
+          mecanicoInicial={modalPago}
+          laboratoriosSugeridos={laboratoriosSugeridos}
+          onClose={() => setModalPago(null)}
+          onGuardado={async () => {
+            await recargarCuentaCorriente();
+            setModalPago(null);
+          }}
+        />
+      )}
     </main>
   );
 }

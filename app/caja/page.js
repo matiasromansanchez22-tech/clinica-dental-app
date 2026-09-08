@@ -11,6 +11,7 @@ import { eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
+import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 
 export default function CajaPage() {
@@ -24,6 +25,7 @@ export default function CajaPage() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [categoriasGasto, setCategoriasGasto] = useState([]);
+  const [laboratoriosSugeridos, setLaboratoriosSugeridos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
@@ -83,6 +85,12 @@ export default function CajaPage() {
       .finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha]);
+
+  useEffect(() => {
+    obtenerNombresLaboratoriosMecanicos()
+      .then(setLaboratoriosSugeridos)
+      .catch(() => {});
+  }, []);
 
   const totalesPorMedio = cobros.reduce((acc, c) => {
     acc[c.medioPago] = (acc[c.medioPago] || 0) + Number(c.pago);
@@ -372,6 +380,7 @@ export default function CajaPage() {
         <GastoFormModal
           categorias={esDuena ? categoriasGasto : categoriasGasto.filter((c) => c.visible_secretarios)}
           especialidadInicial="General"
+          laboratoriosSugeridos={laboratoriosSugeridos}
           onClose={() => setMostrarNuevoPago(false)}
           onGuardado={async () => {
             await recargar();

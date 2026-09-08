@@ -11,6 +11,7 @@ import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
+import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 
 export default function CajaOrtodonciaPage() {
   const { perfil } = useAuth();
@@ -23,6 +24,7 @@ export default function CajaOrtodonciaPage() {
   const [pacientes, setPacientes] = useState([]);
   const [ortodoncistas, setOrtodoncistas] = useState([]);
   const [categoriasGasto, setCategoriasGasto] = useState([]);
+  const [laboratoriosSugeridos, setLaboratoriosSugeridos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
@@ -81,6 +83,12 @@ export default function CajaOrtodonciaPage() {
       .finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha]);
+
+  useEffect(() => {
+    obtenerNombresLaboratoriosMecanicos()
+      .then(setLaboratoriosSugeridos)
+      .catch(() => {});
+  }, []);
 
   const totalesPorMedio = cobros.reduce((acc, c) => {
     acc[c.medioPago] = (acc[c.medioPago] || 0) + Number(c.importe);
@@ -346,6 +354,7 @@ export default function CajaOrtodonciaPage() {
         <GastoFormModal
           categorias={esDuena ? categoriasGasto : categoriasGasto.filter((c) => c.visible_secretarios)}
           especialidadInicial="Ortodoncia"
+          laboratoriosSugeridos={laboratoriosSugeridos}
           onClose={() => setMostrarNuevoPago(false)}
           onGuardado={async () => {
             await recargar();
