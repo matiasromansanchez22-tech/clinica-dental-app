@@ -66,14 +66,19 @@ function CierreMensualContenido() {
 
   async function handleCerrar() {
     if (diasPendientes.length > 0) return;
-    if (!window.confirm(`¿Cerrar ${NOMBRES_MES[mes - 1]} ${anio}? Los gastos y pagos a profesionales de ese mes van a quedar bloqueados.`))
+    const signoBalance = balance.balance >= 0 ? "va a entrar a" : "va a salir de";
+    if (
+      !window.confirm(
+        `¿Cerrar ${NOMBRES_MES[mes - 1]} ${anio}? Los gastos y pagos a profesionales de ese mes van a quedar bloqueados, y el balance (${formatoPesos(balance.balance)}) ${signoBalance} la reserva de Consultorio.`
+      )
+    )
       return;
     setProcesando(true);
     setError(null);
     setMensaje(null);
     try {
       await aprobarCierreMes(anio, mes, user.id, perfil?.nombre || user.email, observaciones, balance);
-      setMensaje("Mes cerrado correctamente.");
+      setMensaje("Mes cerrado correctamente. El balance ya quedó cargado en la reserva de Consultorio.");
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -83,13 +88,18 @@ function CierreMensualContenido() {
   }
 
   async function handleReabrir() {
-    if (!window.confirm(`¿Reabrir ${NOMBRES_MES[mes - 1]} ${anio}? Los gastos y pagos de ese mes van a volver a ser editables.`)) return;
+    if (
+      !window.confirm(
+        `¿Reabrir ${NOMBRES_MES[mes - 1]} ${anio}? Los gastos y pagos de ese mes van a volver a ser editables, y se saca de la reserva de Consultorio el balance que se había cargado al cerrar.`
+      )
+    )
+      return;
     setProcesando(true);
     setError(null);
     setMensaje(null);
     try {
       await reabrirCierreMes(anio, mes);
-      setMensaje("Mes reabierto.");
+      setMensaje("Mes reabierto. El balance ya se sacó de la reserva de Consultorio.");
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -186,7 +196,8 @@ function CierreMensualContenido() {
               <>
                 <p className="mt-1 text-sm text-brand-green">
                   ✅ Aprobado por {cierreAprobado.nombre_duena} el {new Date(cierreAprobado.aprobado_en).toLocaleString("es-AR")}.
-                  Gastos y pagos a profesionales de este mes quedaron bloqueados.
+                  Gastos y pagos a profesionales de este mes quedaron bloqueados, y el balance ya se cargó en la
+                  reserva de Consultorio.
                 </p>
                 <button
                   onClick={handleReabrir}
