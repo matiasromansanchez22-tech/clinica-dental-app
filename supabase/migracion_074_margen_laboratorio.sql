@@ -5,4 +5,4 @@
 -- Copiar y pegar en Supabase → SQL Editor → Run.
 
 alter table laboratorio_trabajos
-  add column if not exists id_catalogo uuid references catalogo_prestaciones(id);
+  add column if not exists id_catalogo text references catalogo_prestaciones(id);
