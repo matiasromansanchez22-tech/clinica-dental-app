@@ -177,10 +177,10 @@ function HorariosContenido() {
     return mapa;
   }, [registros]);
 
-  // Por ahora esto es para el personal que marca entrada/salida (los
-  // secretarios) — a un odontólogo/laboratorio no le corresponde liquidarse
-  // por hora, ya se les liquida por producción u honorarios.
-  const personalSecretarias = personal.filter((p) => p.rol === "Secretaria");
+  // Esto es para el personal que marca entrada/salida (secretarias y
+  // laboratorio) — a un odontólogo no le corresponde liquidarse por hora,
+  // ya se les liquida por producción u honorarios.
+  const personalSecretarias = personal.filter((p) => p.rol === "Secretaria" || p.rol === "Laboratorio");
 
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -211,7 +211,7 @@ function HorariosContenido() {
       {cargando && <p className="mt-4 text-sm text-gray-500">Cargando...</p>}
 
       {!cargando && personalSecretarias.length === 0 && (
-        <p className="mt-4 text-sm text-gray-500">No hay personal con rol Secretaria cargado.</p>
+        <p className="mt-4 text-sm text-gray-500">No hay personal con rol Secretaria o Laboratorio cargado.</p>
       )}
 
       {!cargando &&
