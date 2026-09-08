@@ -76,6 +76,7 @@ const GRUPOS = [
     items: [
       { href: "/gerencial/comparativa-mecanicos", label: "🔧 Comparativa de mecánicos" },
       { href: "/gerencial/cuentas-mecanicos", label: "🔧 Cuentas por mecánico" },
+      { href: "/gerencial/rentabilidad-diaria", label: "📅 Rentabilidad diaria por profesional" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
       { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes" },
