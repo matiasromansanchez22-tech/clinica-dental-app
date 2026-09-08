@@ -16,6 +16,16 @@ import {
 import { obtenerPrecioMecanico, obtenerTrabajosMecanico } from "@/lib/data/mecanicosPrecios";
 import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
 
+// Los pasos más comunes después de mandar un trabajo, para tildarlos con un
+// solo toque (con la fecha de hoy) en vez de abrir el formulario de
+// "Nuevo evento" cada vez.
+const EVENTOS_RAPIDOS = [
+  { tipo: "Recibido del mecánico", emoji: "📥", etiqueta: "Llegó del mecánico" },
+  { tipo: "Prueba con el paciente", emoji: "🦷", etiqueta: "Prueba con el paciente" },
+  { tipo: "Ajuste - reenviado", emoji: "🔁", etiqueta: "Reenviado (ajuste)" },
+  { tipo: "Alta / Entregado", emoji: "✅", etiqueta: "Entregado" },
+];
+
 // Para trabajos que se cobran "primera pieza + cada pieza/gancho adicional"
 // (prótesis parciales, reparaciones, etc.) — evita hacer la cuenta a mano
 // cada vez y deja el detalle del cálculo anotado.
@@ -587,6 +597,25 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     }
   }
 
+  // Un toque para los eventos más comunes (sin abrir el formulario) — se
+  // registra con la fecha de hoy. Si hace falta otra fecha, o dejar una
+  // observación, se sigue pudiendo usar "+ Nuevo evento".
+  const [marcandoRapido, setMarcandoRapido] = useState(null);
+
+  async function marcarEventoRapido(tipoEvento) {
+    setMarcandoRapido(tipoEvento);
+    setError(null);
+    try {
+      await agregarEventoTrabajo(trabajo.id, { fecha: fechaDeHoyISO(), tipoEvento, observaciones: "" });
+      await cargar();
+      await onEventoGuardado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setMarcandoRapido(null);
+    }
+  }
+
   async function borrarTrabajo() {
     if (!window.confirm("¿Enviar este trabajo a la papelera de reciclaje?")) return;
     try {
@@ -732,6 +761,29 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
           >
             📤 Marcar enviado al mecánico
           </button>
+        )}
+
+        {trabajo.estado !== "Pendiente de envío" && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {EVENTOS_RAPIDOS.map(({ tipo, emoji, etiqueta }) => {
+              const yaPaso = eventos.some((e) => e.tipoEvento === tipo);
+              return (
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={() => marcarEventoRapido(tipo)}
+                  disabled={marcandoRapido !== null}
+                  className={`rounded-md border px-2.5 py-1.5 text-xs font-medium disabled:opacity-50 ${
+                    yaPaso
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {marcandoRapido === tipo ? "Guardando..." : `${yaPaso ? "✓" : emoji} ${etiqueta}`}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         <label className="mb-4 flex flex-col gap-1 text-xs text-gray-700">
