@@ -10,7 +10,7 @@ import { calcularTotalesDelDiaOrtodoncia } from "@/lib/data/cierresTurnoOrtodonc
 import { obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPerfiles } from "@/lib/data/perfiles";
-import { obtenerGastos } from "@/lib/data/gastos";
+import { obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 
 const CLAVE_POR_MEDIO = {
@@ -57,6 +57,7 @@ function CierreDiarioContenido() {
   const [cobrosGeneral, setCobrosGeneral] = useState([]);
   const [cobrosOrto, setCobrosOrto] = useState([]);
   const [gastos, setGastos] = useState([]);
+  const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
   const [perfiles, setPerfiles] = useState([]);
   const [cierreAprobado, setCierreAprobado] = useState(null);
@@ -70,12 +71,13 @@ function CierreDiarioContenido() {
     setCargando(true);
     setMensaje(null);
     try {
-      const [g, o, cg, co, gas, pagos, pf, aprobado] = await Promise.all([
+      const [g, o, cg, co, gas, cat, pagos, pf, aprobado] = await Promise.all([
         calcularTotalesDelDia(fecha),
         calcularTotalesDelDiaOrtodoncia(fecha),
         obtenerCobrosPorFecha(fecha),
         obtenerCobrosOrtodonciaPorFecha(fecha),
         obtenerGastos(fecha, fecha),
+        obtenerCategoriasGasto(),
         obtenerPagosProfesionales(fecha, fecha),
         obtenerPerfiles(),
         obtenerCierreDelDia(fecha),
@@ -85,6 +87,7 @@ function CierreDiarioContenido() {
       setCobrosGeneral(cg);
       setCobrosOrto(co);
       setGastos(gas);
+      setCategoriasGasto(cat);
       setPagosProfesionales(pagos);
       setPerfiles(pf);
       setCierreAprobado(aprobado);
@@ -107,10 +110,12 @@ function CierreDiarioContenido() {
   }, {});
   const totalCombinado = (totalesGeneral?.totalGeneral || 0) + (totalesOrto?.totalGeneral || 0);
 
-  // Los sueldos (Registrar sueldo, en Consultorio) no salen de la plata
-  // que entró hoy: salen de la reserva acumulada en Consultorio. Por eso
-  // no cuentan como egreso del día acá.
-  const gastosDelDia = gastos.filter((g) => g.categoria !== "Sueldos");
+  // Los sueldos (Registrar sueldo, en Consultorio) y las categorías
+  // marcadas "sale de la reserva" (alquiler, impuestos, proveedores) no
+  // salen de la plata que entró hoy: salen de la reserva acumulada en
+  // Consultorio. Por eso no cuentan como egreso del día acá.
+  const categoriasReserva = new Set(categoriasGasto.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
+  const gastosDelDia = gastos.filter((g) => g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria));
 
   const totalesEgresos = ETIQUETAS.reduce((acc, e) => {
     acc[e.clave] = 0;

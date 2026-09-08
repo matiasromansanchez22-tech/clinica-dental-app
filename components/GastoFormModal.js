@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { crearGasto, actualizarGasto, MEDIOS_PAGO_GASTO } from "@/lib/data/gastos";
+import { crearMovimientoPersonal } from "@/lib/data/finanzasPersonales";
 import { fechaDeHoyISO } from "@/lib/agenda";
 
 const ESPECIALIDADES = ["", "General", "Ortodoncia"];
@@ -34,7 +35,24 @@ export default function GastoFormModal({ gasto, categorias, especialidadInicial,
       if (gasto) {
         await actualizarGasto(gasto.id, datos);
       } else {
-        await crearGasto(datos);
+        const nuevoGasto = await crearGasto(datos);
+        // Categorías marcadas "sale de la reserva" (alquiler, impuestos,
+        // proveedores, etc.) además restan de Consultorio, igual que ya
+        // pasa con Sueldos — así no cuentan en la plata del día en Caja.
+        const categoriaElegida = categorias.find((c) => c.nombre === categoria);
+        if (categoriaElegida?.sale_de_reserva) {
+          const cuenta = medioPago === "Efectivo" ? "Efectivo" : "Banco";
+          await crearMovimientoPersonal({
+            panel: "Consultorio",
+            cuenta,
+            tipo: "Egreso",
+            categoria,
+            monto,
+            fecha,
+            descripcion: descripcion || categoria,
+            gastoId: nuevoGasto.id,
+          });
+        }
       }
       onGuardado();
     } catch (err) {

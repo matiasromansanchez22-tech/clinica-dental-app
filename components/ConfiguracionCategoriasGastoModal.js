@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { actualizarVisibilidadCategoriaGasto, crearCategoriaGasto } from "@/lib/data/gastos";
+import {
+  actualizarSaleDeReservaCategoriaGasto,
+  actualizarVisibilidadCategoriaGasto,
+  crearCategoriaGasto,
+} from "@/lib/data/gastos";
 
 export default function ConfiguracionCategoriasGastoModal({ categorias, onClose, onCambiado }) {
   const [nueva, setNueva] = useState("");
   const [nuevaVisibleSecretarios, setNuevaVisibleSecretarios] = useState(false);
+  const [nuevaSaleDeReserva, setNuevaSaleDeReserva] = useState(false);
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
@@ -15,9 +20,10 @@ export default function ConfiguracionCategoriasGastoModal({ categorias, onClose,
     if (!nueva.trim()) return;
     setGuardando(true);
     try {
-      await crearCategoriaGasto(nueva.trim(), nuevaVisibleSecretarios);
+      await crearCategoriaGasto(nueva.trim(), nuevaVisibleSecretarios, nuevaSaleDeReserva);
       setNueva("");
       setNuevaVisibleSecretarios(false);
+      setNuevaSaleDeReserva(false);
       onCambiado();
     } catch (err) {
       setError(err.message);
@@ -35,9 +41,18 @@ export default function ConfiguracionCategoriasGastoModal({ categorias, onClose,
     }
   }
 
+  async function toggleSaleDeReserva(categoria) {
+    try {
+      await actualizarSaleDeReservaCategoriaGasto(categoria.id, !categoria.sale_de_reserva);
+      onCambiado();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Categorías de gasto</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
@@ -51,22 +66,34 @@ export default function ConfiguracionCategoriasGastoModal({ categorias, onClose,
 
         <p className="mb-2 text-xs text-gray-500">
           Marcá "visible para secretarios" en las categorías chicas del día a día (insumos descartables, imprenta,
-          cadete, etc.). Las que dejes sin marcar solo las vas a poder usar vos desde Gerencial.
+          cadete, etc.). Marcá "sale de la reserva" en las que se pagan con la plata de Consultorio (alquiler,
+          impuestos, proveedores) en vez de con lo que entra ese día — igual que ya pasa con Sueldos.
         </p>
 
-        <ul className="mb-4 flex flex-col gap-1 text-sm text-gray-700">
+        <ul className="mb-4 flex flex-col gap-1.5 text-sm text-gray-700">
           {categorias.map((c) => (
-            <li key={c.id} className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-1.5">
-              <span>{c.nombre}</span>
-              <label className="flex items-center gap-1.5 text-xs text-gray-500">
-                <input
-                  type="checkbox"
-                  checked={!!c.visible_secretarios}
-                  onChange={() => toggleVisible(c)}
-                  className="h-3.5 w-3.5"
-                />
-                Visible para secretarios
-              </label>
+            <li key={c.id} className="rounded-md border border-gray-200 px-3 py-2">
+              <p className="font-medium text-gray-900">{c.nombre}</p>
+              <div className="mt-1 flex flex-wrap gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <input
+                    type="checkbox"
+                    checked={!!c.visible_secretarios}
+                    onChange={() => toggleVisible(c)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Visible para secretarios
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <input
+                    type="checkbox"
+                    checked={!!c.sale_de_reserva}
+                    onChange={() => toggleSaleDeReserva(c)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Sale de la reserva de Consultorio
+                </label>
+              </div>
             </li>
           ))}
         </ul>
@@ -87,15 +114,26 @@ export default function ConfiguracionCategoriasGastoModal({ categorias, onClose,
               + Agregar
             </button>
           </div>
-          <label className="flex items-center gap-1.5 text-xs text-gray-500">
-            <input
-              type="checkbox"
-              checked={nuevaVisibleSecretarios}
-              onChange={(e) => setNuevaVisibleSecretarios(e.target.checked)}
-              className="h-3.5 w-3.5"
-            />
-            Visible para secretarios
-          </label>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-gray-500">
+              <input
+                type="checkbox"
+                checked={nuevaVisibleSecretarios}
+                onChange={(e) => setNuevaVisibleSecretarios(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Visible para secretarios
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500">
+              <input
+                type="checkbox"
+                checked={nuevaSaleDeReserva}
+                onChange={(e) => setNuevaSaleDeReserva(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Sale de la reserva de Consultorio
+            </label>
+          </div>
         </form>
       </div>
     </div>

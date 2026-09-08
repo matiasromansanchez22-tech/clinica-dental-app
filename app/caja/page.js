@@ -31,12 +31,17 @@ export default function CajaPage() {
   const [mostrarNuevoPagoProfesional, setMostrarNuevoPagoProfesional] = useState(false);
   const [cobroEnEdicion, setCobroEnEdicion] = useState(null);
 
-  // Los sueldos (Registrar sueldo, en Consultorio) no salen de la plata
-  // que entró hoy: salen de la reserva acumulada en Consultorio. Por eso
-  // no cuentan acá — la Caja del día es solo la plata de hoy. Los gastos
-  // marcados "Ortodoncia" son de esa caja, no de esta.
-  function gastosDeEstaCaja(gastos) {
-    return gastos.filter((g) => g.categoria !== "Sueldos" && g.especialidad !== "Ortodoncia");
+  // Los sueldos (Registrar sueldo, en Consultorio) y las categorías
+  // marcadas "sale de la reserva" (alquiler, impuestos, proveedores) no
+  // salen de la plata que entró hoy: salen de la reserva acumulada en
+  // Consultorio. Por eso no cuentan acá — la Caja del día es solo la
+  // plata de hoy. Los gastos marcados "Ortodoncia" son de esa caja, no
+  // de esta.
+  function gastosDeEstaCaja(gastos, categoriasGastoLista) {
+    const categoriasReserva = new Set(categoriasGastoLista.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
+    return gastos.filter(
+      (g) => g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria) && g.especialidad !== "Ortodoncia"
+    );
   }
 
   // Un pago a un profesional cuya especialidad es Ortodoncia pertenece a
@@ -52,7 +57,7 @@ export default function CajaPage() {
       obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
     ]);
     setCobros(c);
-    setGastos(gastosDeEstaCaja(g));
+    setGastos(gastosDeEstaCaja(g, categoriasGasto));
     setPagosProfesionales(pagosDeEstaCaja(pp));
   }
 
@@ -68,7 +73,7 @@ export default function CajaPage() {
     ])
       .then(([c, g, pp, p, prof, cat]) => {
         setCobros(c);
-        setGastos(gastosDeEstaCaja(g));
+        setGastos(gastosDeEstaCaja(g, cat));
         setPagosProfesionales(pagosDeEstaCaja(pp));
         setPacientes(p);
         setProfesionales(prof);
