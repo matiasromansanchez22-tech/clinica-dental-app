@@ -128,24 +128,34 @@ function NuevoTrabajoFormulario({
   const [tipoTrabajo, setTipoTrabajo] = useState("");
   const [pieza, setPieza] = useState("");
   const [laboratorio, setLaboratorio] = useState("");
+  const [cantidad, setCantidad] = useState("1");
   const [profesionalId, setProfesionalId] = useState("");
   const [fechaInicio, setFechaInicio] = useState(fechaDeHoyISO());
   const [valor, setValor] = useState("");
   const [valorTocado, setValorTocado] = useState(false);
+  const [precioUnitarioSugerido, setPrecioUnitarioSugerido] = useState(null);
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [trabajosDelMecanico, setTrabajosDelMecanico] = useState([]);
 
   // Sugiere el valor de la comparativa de mecánicos para ese laboratorio +
-  // tipo de trabajo (búsqueda puntual, no pisa si ya lo tocaron a mano).
+  // tipo de trabajo, multiplicado por la cantidad (ej. 2 coronas de
+  // Ceramage a $55.000 c/u = $110.000) — búsqueda puntual, no pisa si el
+  // valor ya lo tocaron a mano.
   useEffect(() => {
-    if (valorTocado || !laboratorio.trim() || !tipoTrabajo.trim()) return;
+    if (valorTocado || !laboratorio.trim() || !tipoTrabajo.trim()) {
+      setPrecioUnitarioSugerido(null);
+      return;
+    }
     let cancelado = false;
     const timeoutId = setTimeout(() => {
       obtenerPrecioMecanico(laboratorio, tipoTrabajo)
         .then((precio) => {
-          if (!cancelado && precio !== null) setValor(String(precio));
+          if (cancelado || precio === null) return;
+          setPrecioUnitarioSugerido(precio);
+          const n = Math.max(Number(cantidad) || 1, 1);
+          setValor(String(precio * n));
         })
         .catch(() => {});
     }, 400);
@@ -154,6 +164,16 @@ function NuevoTrabajoFormulario({
       clearTimeout(timeoutId);
     };
   }, [laboratorio, tipoTrabajo, valorTocado]);
+
+  // Si ya hay un precio unitario sugerido y cambia la cantidad, recalcula
+  // el total sin volver a consultar el precio (no pisa un valor tocado a
+  // mano).
+  useEffect(() => {
+    if (valorTocado || precioUnitarioSugerido === null) return;
+    const n = Math.max(Number(cantidad) || 1, 1);
+    setValor(String(precioUnitarioSugerido * n));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cantidad]);
 
   // Al elegir laboratorio, sugiere en el "Tipo de trabajo" los nombres que
   // ESE mecánico usa (de la comparativa de precios) — así se carga con su
@@ -187,6 +207,11 @@ function NuevoTrabajoFormulario({
       setError("Elegí un paciente y completá el tipo de trabajo.");
       return;
     }
+    const cantidadNum = Math.max(Number(cantidad) || 1, 1);
+    const notaCantidad =
+      cantidadNum > 1
+        ? `Cantidad: ${cantidadNum} piezas${precioUnitarioSugerido && !valorTocado ? ` a $${precioUnitarioSugerido.toLocaleString("es-AR")} c/u` : ""} (ya incluido en el valor)`
+        : "";
     setGuardando(true);
     setError(null);
     try {
@@ -201,7 +226,7 @@ function NuevoTrabajoFormulario({
         profesionalId: profesionalId || null,
         fechaInicio,
         valor,
-        observaciones: observaciones.trim(),
+        observaciones: notaCantidad ? `${notaCantidad}${observaciones.trim() ? `\n${observaciones.trim()}` : ""}` : observaciones.trim(),
       });
       onGuardado();
     } catch (e) {
@@ -332,28 +357,52 @@ function NuevoTrabajoFormulario({
             </label>
           </div>
 
-          <label className="flex flex-col gap-1 text-xs text-gray-700">
-            Valor a pagarle al mecánico (opcional)
-            <input
-              type="number"
-              min={0}
-              value={valor}
-              onChange={(e) => {
-                setValor(e.target.value);
-                setValorTocado(true);
-              }}
-              placeholder="El sistema sugiere el valor de la comparativa de mecánicos, si lo tiene cargado"
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </label>
+          <div className="grid grid-cols-[5rem_1fr] gap-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Cantidad
+              <input
+                type="number"
+                min={1}
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+              <span className="text-[11px] font-normal text-gray-400">Si vale igual cada pieza</span>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Valor a pagarle al mecánico (opcional)
+              <input
+                type="number"
+                min={0}
+                value={valor}
+                onChange={(e) => {
+                  setValor(e.target.value);
+                  setValorTocado(true);
+                }}
+                placeholder="El sistema sugiere el valor de la comparativa de mecánicos, si lo tiene cargado"
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          {precioUnitarioSugerido !== null && !valorTocado && Number(cantidad) > 1 && (
+            <p className="-mt-2 text-[11px] text-gray-400">
+              ${precioUnitarioSugerido.toLocaleString("es-AR")} c/u × {cantidad} = $
+              {(precioUnitarioSugerido * Math.max(Number(cantidad) || 1, 1)).toLocaleString("es-AR")}
+            </p>
+          )}
 
-          <CalculadoraPiezas
-            onUsar={(total, detalle) => {
-              setValor(String(total));
-              setValorTocado(true);
-              setObservaciones((o) => (o.trim() ? `${o}\n${detalle}` : detalle));
-            }}
-          />
+          <div>
+            <p className="mb-1 text-[11px] font-medium text-gray-400">
+              Calculadora por piezas — cuando la primera pieza vale distinto que las siguientes
+            </p>
+            <CalculadoraPiezas
+              onUsar={(total, detalle) => {
+                setValor(String(total));
+                setValorTocado(true);
+                setObservaciones((o) => (o.trim() ? `${o}\n${detalle}` : detalle));
+              }}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
@@ -432,6 +481,24 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
   const [editProfesionalId, setEditProfesionalId] = useState(trabajo.profesionalId || "");
   const [editObservaciones, setEditObservaciones] = useState(trabajo.observaciones || "");
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [cantidad, setCantidad] = useState("1");
+  const [precioUnitarioSugerido, setPrecioUnitarioSugerido] = useState(null);
+
+  // Precio unitario de la comparativa de mecánicos para este laboratorio +
+  // tipo de trabajo, para poder multiplicarlo por cantidad más abajo (ej.
+  // 2 coronas de Ceramage a $55.000 c/u).
+  useEffect(() => {
+    if (!trabajo.laboratorio?.trim() || !trabajo.tipoTrabajo?.trim()) return;
+    let cancelado = false;
+    obtenerPrecioMecanico(trabajo.laboratorio, trabajo.tipoTrabajo)
+      .then((precio) => {
+        if (!cancelado) setPrecioUnitarioSugerido(precio);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [trabajo.laboratorio, trabajo.tipoTrabajo]);
 
   // Si se guardó una edición (o cambió el trabajo por otro motivo), el
   // formulario de edición arranca siempre desde los datos más recientes.
@@ -688,7 +755,40 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
           </div>
         </label>
 
+        {precioUnitarioSugerido !== null && (
+          <div className="mb-3 flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+            <span className="whitespace-nowrap">
+              Mismo precio por pieza: ${precioUnitarioSugerido.toLocaleString("es-AR")} c/u ×
+            </span>
+            <input
+              type="number"
+              min={1}
+              value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              className="w-16 rounded-md border border-gray-300 px-2 py-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const n = Math.max(Number(cantidad) || 1, 1);
+                setValor(String(precioUnitarioSugerido * n));
+                setNotaCalculo(
+                  n > 1
+                    ? `Cantidad: ${n} piezas a $${precioUnitarioSugerido.toLocaleString("es-AR")} c/u (ya incluido en el valor)`
+                    : null
+                );
+              }}
+              className="rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              Usar
+            </button>
+          </div>
+        )}
+
         <div className="mb-4">
+          <p className="mb-1 text-[11px] font-medium text-gray-400">
+            Calculadora por piezas — cuando la primera pieza vale distinto que las siguientes
+          </p>
           <CalculadoraPiezas
             onUsar={(total, detalle) => {
               setValor(String(total));
