@@ -7,13 +7,13 @@ import {
   actualizarTrabajoLaboratorio,
   actualizarValorTrabajo,
   agregarEventoTrabajo,
-  buscarIdCatalogoPorNombre,
   calcularEstadoDemora,
   crearTrabajoLaboratorio,
   eliminarTrabajoLaboratorio,
   obtenerEventosTrabajo,
+  resolverIdCatalogo,
 } from "@/lib/data/laboratorio";
-import { obtenerPrecioMecanico } from "@/lib/data/mecanicosPrecios";
+import { obtenerPrecioMecanico, obtenerTrabajosMecanico } from "@/lib/data/mecanicosPrecios";
 import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
 
 // Para trabajos que se cobran "primera pieza + cada pieza/gancho adicional"
@@ -135,6 +135,7 @@ function NuevoTrabajoFormulario({
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+  const [trabajosDelMecanico, setTrabajosDelMecanico] = useState([]);
 
   // Sugiere el valor de la comparativa de mecánicos para ese laboratorio +
   // tipo de trabajo (búsqueda puntual, no pisa si ya lo tocaron a mano).
@@ -153,6 +154,26 @@ function NuevoTrabajoFormulario({
       clearTimeout(timeoutId);
     };
   }, [laboratorio, tipoTrabajo, valorTocado]);
+
+  // Al elegir laboratorio, sugiere en el "Tipo de trabajo" los nombres que
+  // ESE mecánico usa (de la comparativa de precios) — así se carga con su
+  // propio vocabulario en vez del nuestro, y el trabajo se vincula bien al
+  // catálogo para calcular el margen.
+  useEffect(() => {
+    if (!laboratorio.trim()) {
+      setTrabajosDelMecanico([]);
+      return;
+    }
+    let cancelado = false;
+    obtenerTrabajosMecanico(laboratorio)
+      .then((lista) => {
+        if (!cancelado) setTrabajosDelMecanico(lista);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [laboratorio]);
 
   const listaPacientes = tipoPaciente === "General" ? pacientesGeneral : pacientesOrtodoncia;
   const nombreDe = (p) => (tipoPaciente === "General" ? p.apellidoYNombre : p.nombre);
@@ -174,7 +195,7 @@ function NuevoTrabajoFormulario({
         pacienteId: pacienteElegido.id,
         pacienteNombre: nombreDe(pacienteElegido),
         tipoTrabajo: tipoTrabajo.trim(),
-        idCatalogo: buscarIdCatalogoPorNombre(tipoTrabajo, catalogo),
+        idCatalogo: await resolverIdCatalogo(laboratorio, tipoTrabajo, catalogo),
         pieza: pieza.trim(),
         laboratorio: laboratorio.trim(),
         profesionalId: profesionalId || null,
@@ -272,10 +293,18 @@ function NuevoTrabajoFormulario({
               className="rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             <datalist id="tipos-trabajo-sugeridos">
+              {trabajosDelMecanico.map((t) => (
+                <option key={`m-${t}`} value={t} />
+              ))}
               {catalogo.map((c) => (
                 <option key={c.id} value={c.prestacion} />
               ))}
             </datalist>
+            {trabajosDelMecanico.length > 0 && (
+              <p className="text-[11px] text-gray-400">
+                Se sugieren los nombres que usa {laboratorio} en su lista de precios.
+              </p>
+            )}
           </label>
 
           <div className="grid grid-cols-2 gap-3">
@@ -426,7 +455,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     try {
       await actualizarTrabajoLaboratorio(trabajo.id, {
         tipoTrabajo: editTipoTrabajo.trim(),
-        idCatalogo: buscarIdCatalogoPorNombre(editTipoTrabajo, catalogo),
+        idCatalogo: await resolverIdCatalogo(editLaboratorio, editTipoTrabajo, catalogo),
         pieza: editPieza.trim(),
         laboratorio: editLaboratorio.trim(),
         profesionalId: editProfesionalId,

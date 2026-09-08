@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import PrecioMecanicoModal from "@/components/PrecioMecanicoModal";
 import SoloDuena from "@/components/SoloDuena";
 import { obtenerPreciosMecanicos } from "@/lib/data/mecanicosPrecios";
+import { obtenerCatalogo } from "@/lib/data/catalogo";
 
 function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
@@ -90,10 +91,11 @@ function TablaCategoria({ categoria, filas, onEditar, onNuevo }) {
                                     ? "text-red-600"
                                     : "text-gray-700"
                             }`}
-                            title={entrada.observaciones || ""}
+                            title={entrada.idCatalogo ? "Vinculado con el catálogo" : "Sin vincular con el catálogo"}
                           >
                             {entrada.preferido && "⭐ "}
                             {entrada.precio !== null ? formatoPesos(entrada.precio) : entrada.observaciones || "Consultar"}
+                            {!entrada.idCatalogo && <span className="ml-1 text-amber-500">·</span>}
                           </td>
                         );
                       })}
@@ -155,6 +157,7 @@ function agruparPorLaboratorio(preferidos) {
 
 function PaginaComparativa() {
   const [precios, setPrecios] = useState([]);
+  const [catalogo, setCatalogo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [modal, setModal] = useState(null); // { precio: null|obj, categoriaSugerida }
@@ -165,11 +168,16 @@ function PaginaComparativa() {
 
   useEffect(() => {
     setCargando(true);
-    obtenerPreciosMecanicos()
-      .then(setPrecios)
+    Promise.all([obtenerPreciosMecanicos(), obtenerCatalogo()])
+      .then(([p, c]) => {
+        setPrecios(p);
+        setCatalogo(c);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, []);
+
+  const sinVincular = useMemo(() => precios.filter((p) => !p.idCatalogo).length, [precios]);
 
   const categorias = useMemo(() => {
     const orden = [];
@@ -212,6 +220,14 @@ function PaginaComparativa() {
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
 
+      {!cargando && sinVincular > 0 && (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          🔗 Hay {sinVincular} trabajo{sinVincular === 1 ? "" : "s"} (marcados con <span className="text-amber-500">·</span>)
+          sin vincular con una prestación del catálogo — sin ese vínculo no entran en el cálculo de margen. Hacé clic
+          en el precio para vincularlo.
+        </div>
+      )}
+
       {!cargando && <PlanDerivacion precios={precios} />}
 
       {cargando && <p className="mt-4 text-sm text-gray-500">Cargando...</p>}
@@ -237,6 +253,7 @@ function PaginaComparativa() {
           categoriaSugerida={modal.categoriaSugerida}
           categorias={categoriasConocidas}
           laboratorios={laboratoriosConocidos}
+          catalogo={catalogo}
           onClose={() => setModal(null)}
           onGuardado={async () => {
             await recargar();

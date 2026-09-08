@@ -4,7 +4,61 @@ import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { actualizarPrecioMecanico, crearPrecioMecanico, eliminarPrecioMecanico } from "@/lib/data/mecanicosPrecios";
 
-export default function PrecioMecanicoModal({ precio, categoriaSugerida, categorias, laboratorios, onClose, onGuardado }) {
+function VincularCatalogo({ idCatalogo, setIdCatalogo, catalogo }) {
+  const [busqueda, setBusqueda] = useState("");
+  const vinculada = catalogo.find((c) => c.id === idCatalogo) || null;
+
+  const coincidencias =
+    busqueda.trim().length >= 2
+      ? catalogo.filter((c) => c.prestacion.toLowerCase().includes(busqueda.trim().toLowerCase())).slice(0, 8)
+      : [];
+
+  return (
+    <label className="flex flex-col gap-1 text-sm text-gray-700">
+      Vincular con prestación del catálogo (opcional)
+      <p className="text-xs text-gray-400">
+        Para que este trabajo se use al calcular el margen del mecánico, aunque el nombre no sea idéntico.
+      </p>
+      {vinculada ? (
+        <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+          <span className="font-medium text-emerald-800">🔗 {vinculada.prestacion}</span>
+          <button type="button" onClick={() => setIdCatalogo(null)} className="text-xs text-emerald-700 hover:underline">
+            Quitar
+          </button>
+        </div>
+      ) : (
+        <>
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar prestación del catálogo..."
+            className="rounded-md border border-gray-300 px-2 py-1.5"
+          />
+          {coincidencias.length > 0 && (
+            <ul className="max-h-32 overflow-y-auto rounded-md border border-gray-200">
+              {coincidencias.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdCatalogo(c.id);
+                      setBusqueda("");
+                    }}
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50"
+                  >
+                    {c.prestacion}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </label>
+  );
+}
+
+export default function PrecioMecanicoModal({ precio, categoriaSugerida, categorias, laboratorios, catalogo, onClose, onGuardado }) {
   const [laboratorio, setLaboratorio] = useState(precio?.laboratorio || "");
   const [categoria, setCategoria] = useState(precio?.categoria || categoriaSugerida || "");
   const [trabajo, setTrabajo] = useState(precio?.trabajo || "");
@@ -13,6 +67,7 @@ export default function PrecioMecanicoModal({ precio, categoriaSugerida, categor
   const [contacto, setContacto] = useState(precio?.contacto || "");
   const [actualizadoEn, setActualizadoEn] = useState(precio?.actualizadoEn || fechaDeHoyISO());
   const [preferido, setPreferido] = useState(precio?.preferido || false);
+  const [idCatalogo, setIdCatalogo] = useState(precio?.idCatalogo || null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -25,7 +80,7 @@ export default function PrecioMecanicoModal({ precio, categoriaSugerida, categor
     }
     setGuardando(true);
     try {
-      const datos = { laboratorio, categoria, trabajo, precio: precioValor, observaciones, contacto, actualizadoEn, preferido };
+      const datos = { laboratorio, categoria, trabajo, precio: precioValor, observaciones, contacto, actualizadoEn, preferido, idCatalogo };
       if (precio) {
         await actualizarPrecioMecanico(precio.id, datos);
       } else {
@@ -150,6 +205,8 @@ export default function PrecioMecanicoModal({ precio, categoriaSugerida, categor
             <input type="checkbox" checked={preferido} onChange={(e) => setPreferido(e.target.checked)} />
             ⭐ Este es el laboratorio elegido para este trabajo
           </label>
+
+          <VincularCatalogo idCatalogo={idCatalogo} setIdCatalogo={setIdCatalogo} catalogo={catalogo} />
 
           <div className="mt-2 flex items-center justify-between gap-2">
             {precio ? (
