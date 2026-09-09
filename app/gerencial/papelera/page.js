@@ -29,6 +29,7 @@ const ETIQUETAS_TABLA = {
   laboratorio_trabajos: "Trabajo de laboratorio",
   mecanicos_precios: "Precio de mecánico",
   cierres_mes_verificados: "Cierre de mes",
+  gastos_recurrentes: "Gasto recurrente",
 };
 
 const CAMPOS_PREFERIDOS = [
