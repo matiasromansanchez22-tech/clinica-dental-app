@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ConciliarBancoModal from "@/components/ConciliarBancoModal";
 import MovimientoPersonalFormModal from "@/components/MovimientoPersonalFormModal";
 import RegistrarSueldoModal from "@/components/RegistrarSueldoModal";
 import SoloDuena from "@/components/SoloDuena";
@@ -10,6 +11,7 @@ import {
   obtenerMovimientosPersonales,
   obtenerSaldosPersonales,
 } from "@/lib/data/finanzasPersonales";
+import { obtenerConciliacionesBanco } from "@/lib/data/conciliacionBanco";
 
 const PANELES = [
   { id: "Consultorio", label: "🏥 Consultorio" },
@@ -45,6 +47,9 @@ function FinanzasPersonalesContenido() {
   const [error, setError] = useState(null);
   const [mostrarSueldo, setMostrarSueldo] = useState(false);
   const [mostrarMovimiento, setMostrarMovimiento] = useState(false);
+  const [mostrarConciliar, setMostrarConciliar] = useState(false);
+  const [conciliaciones, setConciliaciones] = useState([]);
+  const [mostrarHistorialConciliacion, setMostrarHistorialConciliacion] = useState(false);
 
   async function recargar() {
     setCargando(true);
@@ -56,6 +61,15 @@ function FinanzasPersonalesContenido() {
       ]);
       setSaldos(s);
       setMovimientos(m);
+      // Tabla nueva — si todavía no se corrió esa migración, seguimos
+      // mostrando el resto de la pantalla en vez de romperla.
+      if (panel === "Consultorio") {
+        try {
+          setConciliaciones(await obtenerConciliacionesBanco());
+        } catch {
+          setConciliaciones([]);
+        }
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -96,12 +110,20 @@ function FinanzasPersonalesContenido() {
         <h1 className="text-2xl font-bold text-gray-900">💰 Consultorio y Personal</h1>
         <div className="flex flex-wrap gap-2">
           {panel === "Consultorio" && (
-            <button
-              onClick={() => setMostrarSueldo(true)}
-              className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-            >
-              💰 Registrar sueldo
-            </button>
+            <>
+              <button
+                onClick={() => setMostrarConciliar(true)}
+                className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+              >
+                🔍 Conciliar banco
+              </button>
+              <button
+                onClick={() => setMostrarSueldo(true)}
+                className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+              >
+                💰 Registrar sueldo
+              </button>
+            </>
           )}
           <button
             onClick={() => setMostrarMovimiento(true)}
@@ -143,6 +165,58 @@ function FinanzasPersonalesContenido() {
           <p className="text-xl font-bold">{formatoPesos(saldos.Efectivo + saldos.Banco)}</p>
         </div>
       </div>
+
+      {panel === "Consultorio" && conciliaciones.length > 0 && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setMostrarHistorialConciliacion((v) => !v)}
+            className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${
+              Math.abs(conciliaciones[0].diferencia) < 1
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            Última conciliación ({formatoFecha(conciliaciones[0].fecha)}, {conciliaciones[0].cuenta}):{" "}
+            {Math.abs(conciliaciones[0].diferencia) < 1
+              ? "✅ coincide"
+              : `⚠️ diferencia de ${formatoPesos(Math.abs(conciliaciones[0].diferencia))}`}{" "}
+            {mostrarHistorialConciliacion ? "▾" : "▸"}
+          </button>
+          {mostrarHistorialConciliacion && (
+            <div className="mt-2 overflow-hidden rounded-lg border border-gray-200">
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-500">
+                    <th className="px-3 py-1.5 text-left font-medium">Fecha</th>
+                    <th className="px-3 py-1.5 text-left font-medium">Cuenta</th>
+                    <th className="px-3 py-1.5 text-right font-medium">Sistema</th>
+                    <th className="px-3 py-1.5 text-right font-medium">Real</th>
+                    <th className="px-3 py-1.5 text-right font-medium">Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conciliaciones.map((c) => (
+                    <tr key={c.id} className="border-t border-gray-100">
+                      <td className="px-3 py-1.5">{formatoFecha(c.fecha)}</td>
+                      <td className="px-3 py-1.5">{c.cuenta}</td>
+                      <td className="px-3 py-1.5 text-right text-gray-600">{formatoPesos(c.saldoSistema)}</td>
+                      <td className="px-3 py-1.5 text-right text-gray-600">{formatoPesos(c.saldoReal)}</td>
+                      <td
+                        className={`px-3 py-1.5 text-right font-semibold ${
+                          Math.abs(c.diferencia) < 1 ? "text-emerald-700" : "text-amber-700"
+                        }`}
+                      >
+                        {formatoPesos(c.diferencia)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
 
@@ -228,6 +302,18 @@ function FinanzasPersonalesContenido() {
           onClose={() => setMostrarSueldo(false)}
           onGuardado={async () => {
             setMostrarSueldo(false);
+            await recargar();
+          }}
+        />
+      )}
+
+      {mostrarConciliar && (
+        <ConciliarBancoModal
+          saldos={saldos}
+          onClose={() => setMostrarConciliar(false)}
+          onGuardado={async () => {
+            setMostrarConciliar(false);
+            setMostrarHistorialConciliacion(true);
             await recargar();
           }}
         />
