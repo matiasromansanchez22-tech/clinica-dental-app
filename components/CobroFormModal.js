@@ -222,6 +222,10 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         pago: Number(pago),
         medioPago,
         desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
+        // Si se cargaron las prestaciones completas (para liquidar bien al
+        // profesional) pero el paciente pagó menos, queda anotada la
+        // diferencia para no perderla de vista.
+        saldoPendiente: !usaPlan && Number(pago) < importeTotal ? importeTotal - Number(pago) : null,
         idDocumento: usaPlan ? planActivo.numero_plan : null,
         tipoDocumento: usaPlan ? "Plan de financiación" : null,
         precioAnterior,
@@ -473,6 +477,12 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
           {!usaPlan && (
             <p className="text-right text-sm font-semibold text-gray-900">
               Total prestaciones: ${importeTotal.toLocaleString("es-AR")}
+              {Number(pago) < importeTotal && (
+                <span className="ml-2 font-normal text-amber-700">
+                  (queda pendiente ${(importeTotal - Number(pago)).toLocaleString("es-AR")} — se liquida igual al
+                  profesional)
+                </span>
+              )}
             </p>
           )}
 

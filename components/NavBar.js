@@ -27,6 +27,7 @@ const GRUPOS = [
       { href: "/catalogo", label: "Catálogo" },
       { href: "/presupuestos", label: "Presupuestos" },
       { href: "/planes", label: "Planes de Financiación" },
+      { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar" },
       { href: "/caja", label: "Caja" },
       { href: "/cierre-turno", label: "Cierre de Turno" },
     ],
