@@ -38,6 +38,7 @@ function FilaGasto({ gasto, pagos, onPagar, onEditar }) {
         {ultimoPago ? (
           <span className="text-xs font-medium text-emerald-700">
             ✓ Pagado {formatoFecha(ultimoPago.fecha)} — {formatoPesos(ultimoPago.monto)}
+            {ultimoPago.medioPago && <span className="text-emerald-600"> ({ultimoPago.medioPago})</span>}
           </span>
         ) : (
           <span className="text-xs font-medium text-amber-600">Pendiente este mes</span>
