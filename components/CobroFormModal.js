@@ -16,6 +16,10 @@ function filaVacia() {
   return { itemId: "", prestacion: "", codigo: "", cantidad: 1, valor: 0, valorOS: 0, sinHonorarios: false };
 }
 
+function parteVacia(medio) {
+  return { medio, monto: "" };
+}
+
 export default function CobroFormModal({ fecha, pacientes, profesionales, onClose, onCreado }) {
   const [pacienteId, setPacienteId] = useState("");
   const [profesionalAtencionId, setProfesionalAtencionId] = useState("");
@@ -25,6 +29,8 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestaciones, setPrestaciones] = useState([filaVacia()]);
   const [medioPago, setMedioPago] = useState("Efectivo");
+  const [pagoMixto, setPagoMixto] = useState(false);
+  const [desglosePago, setDesglosePago] = useState([parteVacia("Efectivo"), parteVacia("Transferencia")]);
   const [pago, setPago] = useState(0);
   const [numeroCuota, setNumeroCuota] = useState("");
   const [precioAnterior, setPrecioAnterior] = useState(false);
@@ -70,7 +76,10 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
     if (esObraSocial) {
       return { valor: Number(item.copago_oficial) || 0, valorOS: Number(item.valor_os) || 0 };
     }
-    const valor = medioPago === "Efectivo" ? item.valor_efectivo : item.valor_lista;
+    // Con pago mixto no hay un único medio para decidir el precio — se usa
+    // el de Lista (el mismo que Transferencia/tarjeta) en vez de asumir que
+    // le corresponde el descuento de Efectivo.
+    const valor = !pagoMixto && medioPago === "Efectivo" ? item.valor_efectivo : item.valor_lista;
     return { valor: Number(valor) || 0, valorOS: 0 };
   }
 
@@ -99,7 +108,8 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
     });
   }
 
-  // Si cambia el medio de pago, recalcular los valores de particulares (Lista/Efectivo)
+  // Si cambia el medio de pago (o se activa/desactiva el mixto), recalcular
+  // los valores de particulares (Lista/Efectivo)
   useEffect(() => {
     if (esObraSocial) return;
     setPrestaciones((filas) =>
@@ -111,7 +121,30 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medioPago]);
+  }, [medioPago, pagoMixto]);
+
+  const totalDesglosado = desglosePago.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
+
+  // Con pago mixto, el importe a cobrar sigue siempre la suma del
+  // desglose — no tiene sentido que se puedan desincronizar.
+  useEffect(() => {
+    if (pagoMixto) setPago(totalDesglosado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagoMixto, totalDesglosado]);
+
+  function actualizarParte(i, cambios) {
+    setDesglosePago((partes) => partes.map((p, idx) => (idx === i ? { ...p, ...cambios } : p)));
+  }
+
+  function agregarParte() {
+    const usados = new Set(desglosePago.map((p) => p.medio));
+    const disponible = MEDIOS_PAGO.find((m) => !usados.has(m)) || MEDIOS_PAGO[0];
+    setDesglosePago((partes) => [...partes, parteVacia(disponible)]);
+  }
+
+  function quitarParte(i) {
+    setDesglosePago((partes) => partes.filter((_, idx) => idx !== i));
+  }
 
   const importeTotal = useMemo(
     () => prestaciones.reduce((acc, f) => acc + (f.itemId ? Number(f.valor) * Number(f.cantidad) : 0), 0),
@@ -147,6 +180,17 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
       setError("Agregá al menos una prestación.");
       return;
     }
+    if (pagoMixto) {
+      if (desglosePago.some((p) => !p.medio || !p.monto || Number(p.monto) <= 0)) {
+        setError("Completá el medio y el monto de cada parte del pago mixto.");
+        return;
+      }
+      const mediosRepetidos = new Set(desglosePago.map((p) => p.medio)).size !== desglosePago.length;
+      if (mediosRepetidos) {
+        setError("No repitas el mismo medio de pago dos veces — sumalo en una sola parte.");
+        return;
+      }
+    }
 
     setGuardando(true);
     try {
@@ -177,6 +221,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         importeTotal: usaPlan ? Number(pago) : importeTotal,
         pago: Number(pago),
         medioPago,
+        desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
         idDocumento: usaPlan ? planActivo.numero_plan : null,
         tipoDocumento: usaPlan ? "Plan de financiación" : null,
         precioAnterior,
@@ -353,31 +398,77 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              Medio de pago
-              <select
-                value={medioPago}
-                onChange={(e) => setMedioPago(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              >
-                {MEDIOS_PAGO.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              {usaPlan ? "Pago" : "Importe a cobrar"}
-              <input
-                type="number"
-                value={pago}
-                onChange={(e) => setPago(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              />
-            </label>
-          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={pagoMixto} onChange={(e) => setPagoMixto(e.target.checked)} />
+            Pago mixto (más de un medio de pago)
+          </label>
+
+          {pagoMixto ? (
+            <div className="flex flex-col gap-2">
+              {desglosePago.map((p, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={p.medio}
+                    onChange={(e) => actualizarParte(i, { medio: e.target.value })}
+                    className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    {MEDIOS_PAGO.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={0}
+                    value={p.monto}
+                    onChange={(e) => actualizarParte(i, { monto: e.target.value })}
+                    placeholder="Monto"
+                    className="w-28 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                  />
+                  {desglosePago.length > 1 && (
+                    <button type="button" onClick={() => quitarParte(i)} className="text-gray-400 hover:text-red-600">
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              {desglosePago.length < MEDIOS_PAGO.length && (
+                <button type="button" onClick={agregarParte} className="w-fit text-xs text-blue-600 hover:underline">
+                  + Agregar otro medio
+                </button>
+              )}
+              <p className="text-right text-sm font-semibold text-gray-900">
+                Total pago mixto: ${totalDesglosado.toLocaleString("es-AR")}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Medio de pago
+                <select
+                  value={medioPago}
+                  onChange={(e) => setMedioPago(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                >
+                  {MEDIOS_PAGO.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                {usaPlan ? "Pago" : "Importe a cobrar"}
+                <input
+                  type="number"
+                  value={pago}
+                  onChange={(e) => setPago(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+            </div>
+          )}
 
           {!usaPlan && (
             <p className="text-right text-sm font-semibold text-gray-900">

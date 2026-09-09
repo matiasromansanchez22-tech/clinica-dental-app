@@ -7,7 +7,7 @@ import GastoFormModal from "@/components/GastoFormModal";
 import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
-import { eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
+import { desglosarPago, eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
@@ -93,7 +93,9 @@ export default function CajaPage() {
   }, []);
 
   const totalesPorMedio = cobros.reduce((acc, c) => {
-    acc[c.medioPago] = (acc[c.medioPago] || 0) + Number(c.pago);
+    for (const parte of desglosarPago(c)) {
+      acc[parte.medio] = (acc[parte.medio] || 0) + Number(parte.monto);
+    }
     return acc;
   }, {});
   const totalGeneral = Object.values(totalesPorMedio).reduce((a, b) => a + b, 0);
@@ -329,7 +331,15 @@ export default function CajaPage() {
                 <td className="px-3 py-2 text-gray-500">{c.profesionalResponsable || "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{c.profesionalAtencion}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.pago).toLocaleString("es-AR")}</td>
-                <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
+                <td className="px-3 py-2 text-gray-600">
+                  {c.desglosePago?.length ? (
+                    <span title={c.desglosePago.map((p) => `${p.medio}: $${Number(p.monto).toLocaleString("es-AR")}`).join(" + ")}>
+                      Mixto ({c.desglosePago.map((p) => p.medio).join(" + ")})
+                    </span>
+                  ) : (
+                    c.medioPago
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right">
                   {esContador ? null : c.cerrado && !esDuena ? (
                     <span className="text-xs text-gray-400" title="El turno ya se cerró. Solo la Dueña puede reabrirlo.">

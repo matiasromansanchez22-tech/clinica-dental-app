@@ -60,6 +60,15 @@ export default function EditarCobroModal({ cobro, onClose, onGuardado }) {
           </p>
         </div>
 
+        {cobro.desglosePago?.length > 0 && (
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Este cobro tiene <strong>pago mixto</strong> (
+            {cobro.desglosePago.map((p) => `${p.medio} $${Number(p.monto).toLocaleString("es-AR")}`).join(" + ")}).
+            Guardar acá lo va a dejar con un solo medio de pago — para corregir el desglose, borrá este cobro y
+            cargalo de nuevo.
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
