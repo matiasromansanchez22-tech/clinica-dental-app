@@ -157,7 +157,8 @@ function StockContenido() {
     setGuardandoInsumo(true);
     setError(null);
     try {
-      const nuevo = await crearInsumoStock(nuevoNombre.trim(), nuevoSector);
+      const sector = perfil?.rol === "Secretaria" ? "Insumos descartables" : nuevoSector;
+      const nuevo = await crearInsumoStock(nuevoNombre.trim(), sector);
       setInsumos((i) => [...i, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       setNuevoNombre("");
     } catch (e) {
@@ -266,7 +267,14 @@ function StockContenido() {
     totalTrasladado: resumenPorInsumo.reduce((acc, f) => acc + f.trasladado, 0),
   };
 
-  const grupos = SECTORES_STOCK.map((sector) => ({
+  // Simón (Secretaria) es el encargado de cargar los descartables, pero no
+  // necesita ver ni tocar el resto de los sectores ni las herramientas de
+  // administración (ubicaciones, cierre semanal) — Dueña y Laboratorio
+  // siguen viendo todo.
+  const soloDescartables = perfil?.rol === "Secretaria";
+  const sectoresVisibles = soloDescartables ? ["Insumos descartables"] : SECTORES_STOCK;
+
+  const grupos = sectoresVisibles.map((sector) => ({
     sector,
     items: insumos.filter((i) => i.sector === sector),
   })).filter((g) => g.items.length > 0);
@@ -274,22 +282,26 @@ function StockContenido() {
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Stock de Insumos</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMostrarRodantes(true)}
-            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-          >
-            Gestionar ubicaciones
-          </button>
-          <button
-            onClick={() => setMostrarTraspaso(true)}
-            disabled={!deposito || insumos.length === 0}
-            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-          >
-            + Completar rodante
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {soloDescartables ? "Stock de Insumos Descartables" : "Stock de Insumos"}
+        </h1>
+        {!soloDescartables && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMostrarRodantes(true)}
+              className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              Gestionar ubicaciones
+            </button>
+            <button
+              onClick={() => setMostrarTraspaso(true)}
+              disabled={!deposito || insumos.length === 0}
+              className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+            >
+              + Completar rodante
+            </button>
+          </div>
+        )}
       </div>
       <p className="mt-1 text-sm text-gray-500">
         El Stock se edita directo (lo que comprás/tenés guardado). Los rodantes se completan con el botón de arriba,
@@ -353,17 +365,19 @@ function StockContenido() {
                                         placeholder="Nombre del insumo"
                                         className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                                       />
-                                      <select
-                                        value={editSector}
-                                        onChange={(e) => setEditSector(e.target.value)}
-                                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                                      >
-                                        {SECTORES_STOCK.map((s) => (
-                                          <option key={s} value={s}>
-                                            {s}
-                                          </option>
-                                        ))}
-                                      </select>
+                                      {!soloDescartables && (
+                                        <select
+                                          value={editSector}
+                                          onChange={(e) => setEditSector(e.target.value)}
+                                          className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                                        >
+                                          {SECTORES_STOCK.map((s) => (
+                                            <option key={s} value={s}>
+                                              {s}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      )}
                                     </div>
                                     <input
                                       value={editObservaciones}
@@ -454,17 +468,19 @@ function StockContenido() {
                 placeholder="Nombre del insumo (ej. Guantes M)"
                 className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
               />
-              <select
-                value={nuevoSector}
-                onChange={(e) => setNuevoSector(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              >
-                {SECTORES_STOCK.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              {!soloDescartables && (
+                <select
+                  value={nuevoSector}
+                  onChange={(e) => setNuevoSector(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  {SECTORES_STOCK.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 type="submit"
                 disabled={guardandoInsumo}
@@ -475,6 +491,7 @@ function StockContenido() {
             </form>
           </div>
 
+          {!soloDescartables && (
           <div className="mt-8 rounded-lg border border-brand-tan bg-brand-tan/10 p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-sm font-semibold text-brand-brown">
@@ -567,6 +584,7 @@ function StockContenido() {
               {cerrando ? "Guardando..." : cierreSemanal ? "Actualizar cierre de la semana" : "✅ Cerrar semana"}
             </button>
           </div>
+          )}
         </>
       )}
 

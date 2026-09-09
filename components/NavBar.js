@@ -55,7 +55,7 @@ const GRUPOS = [
   },
   { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Tablero Mensual", soloDuena: true },
   { tipo: "link", href: "/gastos-recurrentes", label: "💼 Gastos de la Clínica", soloDuena: true },
-  { tipo: "link", href: "/gerencial/stock", label: "📦 Stock de Insumos", soloRoles: ["Duena", "Laboratorio"] },
+  { tipo: "link", href: "/gerencial/stock", label: "📦 Stock de Insumos", soloRoles: ["Duena", "Laboratorio", "Secretaria"] },
   {
     tipo: "grupo",
     label: "💼 Contador",
