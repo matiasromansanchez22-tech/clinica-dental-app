@@ -1,13 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { crearPedido, crearProveedor, SECTORES_INSUMO } from "@/lib/data/pedidosInsumos";
+import { crearPedidoConStock, crearProveedor, leerFacturaPedidoConIA, SECTORES_INSUMO } from "@/lib/data/pedidosInsumos";
+import { obtenerInsumosStock } from "@/lib/data/stock";
+import LeerComprobanteIA from "@/components/LeerComprobanteIA";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 
 function itemVacio() {
-  return { insumo: "", cantidad: 1, precioUnitario: "", sector: SECTORES_INSUMO[0] };
+  return { insumo: "", cantidad: 1, precioUnitario: "", sector: SECTORES_INSUMO[0], insumoId: "", crearNuevo: false };
+}
+
+function normalizar(s) {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+}
+
+// Busca, entre los insumos/proveedores ya cargados, el que más se parezca
+// al nombre que leyó la IA — así se puede sugerir un vínculo automático,
+// pero la persona siempre puede cambiarlo antes de guardar.
+function mejorCoincidencia(nombre, opciones, campoNombre) {
+  const n = normalizar(nombre);
+  if (!n) return null;
+  let mejor = null;
+  let mejorScore = 0;
+  for (const opcion of opciones) {
+    const ni = normalizar(opcion[campoNombre]);
+    if (!ni) continue;
+    let score = 0;
+    if (ni === n) score = 1;
+    else if (ni.includes(n) || n.includes(ni)) score = 0.7;
+    else {
+      const palabrasN = n.split(/\s+/);
+      const palabrasI = ni.split(/\s+/);
+      const comunes = palabrasN.filter((p) => p.length > 2 && palabrasI.includes(p));
+      score = comunes.length / Math.max(palabrasN.length, palabrasI.length);
+    }
+    if (score > mejorScore) {
+      mejorScore = score;
+      mejor = opcion;
+    }
+  }
+  return mejorScore >= 0.5 ? mejor : null;
 }
 
 export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardado }) {
@@ -18,8 +56,15 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
   const [estado, setEstado] = useState("Recibido");
   const [items, setItems] = useState([itemVacio()]);
   const [observaciones, setObservaciones] = useState("");
+  const [insumosStock, setInsumosStock] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    obtenerInsumosStock()
+      .then(setInsumosStock)
+      .catch(() => {});
+  }, []);
 
   function actualizarItem(i, cambios) {
     setItems((fs) => fs.map((f, idx) => (idx === i ? { ...f, ...cambios } : f)));
@@ -31,6 +76,39 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
 
   function quitarItem(i) {
     setItems((fs) => fs.filter((_, idx) => idx !== i));
+  }
+
+  function aplicarSugerenciaFactura(datos) {
+    if (datos.fecha) setFecha(datos.fecha);
+    if (datos.medioPago) setMedioPago(datos.medioPago);
+    if (datos.observaciones) setObservaciones(datos.observaciones);
+
+    if (datos.proveedor) {
+      const match = mejorCoincidencia(datos.proveedor, proveedores, "nombre");
+      if (match) {
+        setProveedorId(match.id);
+        setProveedorNuevo("");
+      } else {
+        setProveedorId("");
+        setProveedorNuevo(datos.proveedor);
+      }
+    }
+
+    if (datos.items?.length) {
+      setItems(
+        datos.items.map((it) => {
+          const match = mejorCoincidencia(it.nombre, insumosStock, "nombre");
+          return {
+            insumo: it.nombre,
+            cantidad: it.cantidad || 1,
+            precioUnitario: it.precioUnitario || "",
+            sector: match?.sector || SECTORES_INSUMO[0],
+            insumoId: match?.id || "",
+            crearNuevo: !match,
+          };
+        })
+      );
+    }
   }
 
   const total = items.reduce((acc, i) => acc + (Number(i.cantidad) || 0) * (Number(i.precioUnitario) || 0), 0);
@@ -57,7 +135,7 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
         idProveedorFinal = nuevo.id;
       }
 
-      await crearPedido({
+      await crearPedidoConStock({
         fecha,
         proveedorId: idProveedorFinal,
         items: itemsValidos.map((i) => ({
@@ -65,6 +143,8 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
           cantidad: Number(i.cantidad),
           precioUnitario: Number(i.precioUnitario) || 0,
           sector: i.sector || SECTORES_INSUMO[0],
+          ...(i.insumoId ? { insumoId: i.insumoId } : {}),
+          ...(i.crearNuevo ? { crearInsumoNuevo: true } : {}),
         })),
         medioPago,
         estado,
@@ -93,6 +173,12 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <LeerComprobanteIA
+            titulo="📷 Factura del proveedor (opcional)"
+            leerFn={leerFacturaPedidoConIA}
+            onLeido={aplicarSugerenciaFactura}
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Fecha
@@ -158,44 +244,72 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
             </div>
             <div className="flex flex-col gap-2">
               {items.map((it, i) => (
-                <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border border-gray-100 p-2">
-                  <input
-                    value={it.insumo}
-                    onChange={(e) => actualizarItem(i, { insumo: e.target.value })}
-                    placeholder="Insumo"
-                    className="min-w-[10rem] flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                  />
-                  <select
-                    value={it.sector || SECTORES_INSUMO[0]}
-                    onChange={(e) => actualizarItem(i, { sector: e.target.value })}
-                    className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                  >
-                    {SECTORES_INSUMO.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={it.cantidad}
-                    onChange={(e) => actualizarItem(i, { cantidad: e.target.value })}
-                    placeholder="Cant."
-                    className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    type="number"
-                    value={it.precioUnitario}
-                    onChange={(e) => actualizarItem(i, { precioUnitario: e.target.value })}
-                    placeholder="Precio unit."
-                    className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                  />
-                  <span className="w-20 text-right text-xs text-gray-500">
-                    ${((Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0)).toLocaleString("es-AR")}
-                  </span>
-                  <button type="button" onClick={() => quitarItem(i)} className="text-gray-400 hover:text-red-600">
-                    ✕
-                  </button>
+                <div key={i} className="flex flex-col gap-1.5 rounded-md border border-gray-100 p-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={it.insumo}
+                      onChange={(e) => actualizarItem(i, { insumo: e.target.value })}
+                      placeholder="Insumo"
+                      className="min-w-[10rem] flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                    <select
+                      value={it.sector || SECTORES_INSUMO[0]}
+                      onChange={(e) => actualizarItem(i, { sector: e.target.value })}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    >
+                      {SECTORES_INSUMO.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={it.cantidad}
+                      onChange={(e) => actualizarItem(i, { cantidad: e.target.value })}
+                      placeholder="Cant."
+                      className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                    <input
+                      type="number"
+                      value={it.precioUnitario}
+                      onChange={(e) => actualizarItem(i, { precioUnitario: e.target.value })}
+                      placeholder="Precio unit."
+                      className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                    <span className="w-20 text-right text-xs text-gray-500">
+                      ${((Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0)).toLocaleString("es-AR")}
+                    </span>
+                    <button type="button" onClick={() => quitarItem(i)} className="text-gray-400 hover:text-red-600">
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pl-1">
+                    <span className="text-xs text-gray-400">Sumar a Stock:</span>
+                    <select
+                      value={it.crearNuevo ? "__nuevo__" : it.insumoId || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "__nuevo__") actualizarItem(i, { insumoId: "", crearNuevo: true });
+                        else if (v === "") actualizarItem(i, { insumoId: "", crearNuevo: false });
+                        else actualizarItem(i, { insumoId: v, crearNuevo: false });
+                      }}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-xs"
+                    >
+                      <option value="">No actualizar stock</option>
+                      <option value="__nuevo__">+ Crear insumo nuevo en Stock</option>
+                      {insumosStock.map((ins) => (
+                        <option key={ins.id} value={ins.id}>
+                          {ins.nombre} ({ins.sector})
+                        </option>
+                      ))}
+                    </select>
+                    {it.crearNuevo && (
+                      <span className="text-xs text-amber-700">
+                        se va a crear como insumo nuevo en Stock, sector "{it.sector || SECTORES_INSUMO[0]}"
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -216,6 +330,13 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
               <option value="Recibido">Recibido</option>
               <option value="Cancelado">Cancelado</option>
             </select>
+            {items.some((i) => i.insumoId || i.crearNuevo) && (
+              <span className="text-xs text-gray-400">
+                {estado === "Recibido"
+                  ? "Como está \"Recibido\", el stock se suma al guardar."
+                  : "El stock solo se suma cuando el estado es \"Recibido\"."}
+              </span>
+            )}
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

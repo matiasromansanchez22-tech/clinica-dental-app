@@ -6,7 +6,15 @@ import { leerComprobanteConIA } from "@/lib/data/comprobantes";
 // Selector de archivo + botón "Leer con IA": el padre recibe el archivo
 // elegido (para subirlo recién al guardar de verdad) y lo que la IA pudo
 // sugerir, y decide qué hacer con eso — acá no se carga nada solo.
-export default function LeerComprobanteIA({ categoriasDisponibles = [], onArchivoElegido, onLeido }) {
+// `leerFn` permite reusar este mismo selector con otras lecturas con IA
+// (ej. facturas de proveedores) en vez de duplicar el componente.
+export default function LeerComprobanteIA({
+  categoriasDisponibles = [],
+  onArchivoElegido,
+  onLeido,
+  leerFn = leerComprobanteConIA,
+  titulo = "📷 Comprobante o factura (opcional)",
+}) {
   const [archivo, setArchivo] = useState(null);
   const [leyendo, setLeyendo] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +33,7 @@ export default function LeerComprobanteIA({ categoriasDisponibles = [], onArchiv
     setLeyendo(true);
     setError(null);
     try {
-      const sugerencia = await leerComprobanteConIA(archivo, categoriasDisponibles);
+      const sugerencia = await leerFn(archivo, categoriasDisponibles);
       setLeido(true);
       onLeido?.(sugerencia);
     } catch (err) {
@@ -37,7 +45,7 @@ export default function LeerComprobanteIA({ categoriasDisponibles = [], onArchiv
 
   return (
     <div className="rounded-md border border-dashed border-brand-tan bg-brand-tan/10 p-3">
-      <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">📷 Comprobante o factura (opcional)</p>
+      <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">{titulo}</p>
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="file"
