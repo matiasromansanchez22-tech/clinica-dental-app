@@ -4,13 +4,21 @@ import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { MEDIOS_PAGO_GASTO } from "@/lib/data/gastos";
 import { registrarPagoRecurrente } from "@/lib/data/gastosRecurrentes";
+import LeerComprobanteIA from "@/components/LeerComprobanteIA";
 
 export default function RegistrarPagoRecurrenteModal({ gastoRecurrente, categorias, onClose, onGuardado }) {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState(gastoRecurrente.montoSugerido ?? "");
   const [medioPago, setMedioPago] = useState("Transferencia");
+  const [comprobante, setComprobante] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  function aplicarSugerencia(sugerencia) {
+    if (sugerencia.monto) setMonto(sugerencia.monto);
+    if (sugerencia.fecha) setFecha(sugerencia.fecha);
+    if (sugerencia.medioPago) setMedioPago(sugerencia.medioPago);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -21,7 +29,7 @@ export default function RegistrarPagoRecurrenteModal({ gastoRecurrente, categori
     }
     setGuardando(true);
     try {
-      await registrarPagoRecurrente(gastoRecurrente, { fecha, monto, medioPago }, categorias);
+      await registrarPagoRecurrente(gastoRecurrente, { fecha, monto, medioPago, comprobante }, categorias);
       onGuardado();
     } catch (err) {
       setError(err.message);
@@ -48,6 +56,12 @@ export default function RegistrarPagoRecurrenteModal({ gastoRecurrente, categori
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <LeerComprobanteIA
+            categoriasDisponibles={[gastoRecurrente.categoria]}
+            onArchivoElegido={setComprobante}
+            onLeido={aplicarSugerencia}
+          />
+
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Fecha
             <input

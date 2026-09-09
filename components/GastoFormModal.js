@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { actualizarGasto, crearGastoConReserva, MEDIOS_PAGO_GASTO } from "@/lib/data/gastos";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { subirComprobante, obtenerUrlComprobante } from "@/lib/data/comprobantes";
+import LeerComprobanteIA from "@/components/LeerComprobanteIA";
 
 const ESPECIALIDADES = ["", "General", "Ortodoncia"];
 
@@ -32,8 +34,31 @@ export default function GastoFormModal({
   const [observaciones, setObservaciones] = useState(gasto?.observaciones || "");
   const [mecanico, setMecanico] = useState(gasto?.mecanico || mecanicoInicial || "");
   const [trabajosSeleccionados, setTrabajosSeleccionados] = useState(new Set());
+  const [comprobante, setComprobante] = useState(null);
+  const [viendoComprobante, setViendoComprobante] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  function aplicarSugerencia(sugerencia) {
+    if (sugerencia.monto) setMonto(sugerencia.monto);
+    if (sugerencia.fecha) setFecha(sugerencia.fecha);
+    if (sugerencia.medioPago) setMedioPago(sugerencia.medioPago);
+    if (sugerencia.categoriaSugerida) setCategoria(sugerencia.categoriaSugerida);
+    if (sugerencia.descripcion) setDescripcion(sugerencia.descripcion);
+  }
+
+  async function verComprobante() {
+    if (!gasto?.comprobantePath) return;
+    setViendoComprobante(true);
+    try {
+      const url = await obtenerUrlComprobante(gasto.comprobantePath);
+      window.open(url, "_blank");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setViendoComprobante(false);
+    }
+  }
 
   const sumaSeleccionada = trabajosMecanico
     .filter((t) => trabajosSeleccionados.has(t.id))
@@ -61,6 +86,7 @@ export default function GastoFormModal({
     }
     setGuardando(true);
     try {
+      const comprobantePath = comprobante ? await subirComprobante(comprobante) : null;
       const datos = {
         fecha,
         categoria,
@@ -74,6 +100,7 @@ export default function GastoFormModal({
           !gasto && categoria === CATEGORIA_PAGO_LABORATORIO && trabajosSeleccionados.size > 0
             ? Array.from(trabajosSeleccionados)
             : undefined,
+        ...(comprobantePath ? { comprobantePath } : {}),
       };
       if (gasto) {
         await actualizarGasto(gasto.id, datos);
@@ -103,6 +130,23 @@ export default function GastoFormModal({
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <LeerComprobanteIA
+            categoriasDisponibles={categorias.map((c) => c.nombre)}
+            onArchivoElegido={setComprobante}
+            onLeido={aplicarSugerencia}
+          />
+
+          {gasto?.comprobantePath && (
+            <button
+              type="button"
+              onClick={verComprobante}
+              disabled={viendoComprobante}
+              className="self-start text-xs font-medium text-brand-brown underline hover:text-brand-brown-dark disabled:opacity-50"
+            >
+              {viendoComprobante ? "Abriendo..." : "📎 Ver comprobante cargado"}
+            </button>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Fecha

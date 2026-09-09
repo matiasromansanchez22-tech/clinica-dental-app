@@ -191,7 +191,10 @@ function GastosContenido() {
               <tr key={g.id} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-3 py-2 text-gray-600">{g.fecha}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">{g.categoria}</td>
-                <td className="px-3 py-2 text-gray-600">{g.descripcion || "—"}</td>
+                <td className="px-3 py-2 text-gray-600">
+                  {g.descripcion || "—"}
+                  {g.comprobantePath && <span title="Tiene comprobante adjunto"> 📎</span>}
+                </td>
                 <td className="px-3 py-2 text-gray-600">{g.especialidad || "General"}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${g.monto.toLocaleString("es-AR")}</td>
                 <td className="px-3 py-2 text-gray-600">{g.medioPago}</td>
