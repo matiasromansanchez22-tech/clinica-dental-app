@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { obtenerPresupuestoPorId } from "@/lib/data/presupuestos";
+import { generarPresupuestoPdf } from "@/lib/pdf/generarPresupuestoPdf";
 
 function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
@@ -17,6 +18,7 @@ export default function ImprimirPresupuestoPage() {
   const [presupuesto, setPresupuesto] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
 
   useEffect(() => {
     obtenerPresupuestoPorId(id)
@@ -35,18 +37,37 @@ export default function ImprimirPresupuestoPage() {
     return f.toISOString().slice(0, 10);
   })();
 
+  async function descargarPdf() {
+    setGenerandoPdf(true);
+    try {
+      const doc = await generarPresupuestoPdf(presupuesto, vigenciaHasta);
+      doc.save(`Presupuesto ${presupuesto.numero} - ${presupuesto.paciente}.pdf`);
+    } finally {
+      setGenerandoPdf(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 print:bg-white">
       <div className="mx-auto flex max-w-3xl items-center justify-between p-4 print:hidden">
         <Link href="/presupuestos" className="text-sm text-brand-brown hover:underline">
           ← Volver a Presupuestos
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-        >
-          🖨 Imprimir / Guardar como PDF
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.print()}
+            className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+          >
+            🖨 Imprimir
+          </button>
+          <button
+            onClick={descargarPdf}
+            disabled={generandoPdf}
+            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            {generandoPdf ? "Generando..." : "📄 Descargar PDF"}
+          </button>
+        </div>
       </div>
 
       <div className="mx-auto max-w-3xl bg-white p-10 shadow-sm print:shadow-none print:p-0">
