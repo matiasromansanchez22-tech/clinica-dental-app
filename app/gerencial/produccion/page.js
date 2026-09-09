@@ -467,50 +467,64 @@ function ProduccionPorProfesionalContenido() {
       <div className="hidden print:block">
         {filas
           .filter((f) => f.profesionalId === profesionalAImprimir)
-          .map((f) => (
-            <div key={f.profesionalId} className="break-after-page">
-              <h1 className="text-xl font-bold text-gray-900">Clínica Dental Marianela Ramírez</h1>
-              <h2 className="mt-1 text-lg font-semibold text-gray-800">Liquidación — {f.nombre}</h2>
-              <p className="text-sm text-gray-600">
-                Período: {fechaInicio} a {fechaFin} · {f.especialidad}
-              </p>
-              <table className="mt-3 w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b-2 border-gray-800 text-left">
-                    <th className="py-1 pr-2">Fecha</th>
-                    <th className="py-1 pr-2">Paciente</th>
-                    <th className="py-1 pr-2">Prestación / concepto</th>
-                    <th className="py-1 pr-2 text-right">Abonó</th>
-                    <th className="py-1 text-right">Corresponde cobrar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {f.detalle.map((d, i) => (
-                    <tr key={i} className="border-b border-gray-200">
-                      <td className="py-1 pr-2">{d.fecha}</td>
-                      <td className="py-1 pr-2">{d.paciente}</td>
-                      <td className="py-1 pr-2">{d.concepto}</td>
-                      <td className="py-1 pr-2 text-right">${d.monto.toLocaleString("es-AR")}</td>
-                      <td className="py-1 text-right">${Math.round(d.montoHonorarios).toLocaleString("es-AR")}</td>
+          .map((f) => {
+            // La obra social se liquida a mes vencido (recién cuando la
+            // clínica cobra del intermediario) — el impreso de liquidación
+            // es solo lo que hay que pagarle HOY: copago y particular.
+            const detalleALiquidar = f.detalle.filter((d) => d.tipo !== "Obra social (a cobrar del intermediario)");
+            const detalleOS = f.detalle.filter((d) => d.tipo === "Obra social (a cobrar del intermediario)");
+            const totalOS = detalleOS.reduce((a, d) => a + d.montoHonorarios, 0);
+            return (
+              <div key={f.profesionalId} className="break-after-page">
+                <h1 className="text-xl font-bold text-gray-900">Clínica Dental Marianela Ramírez</h1>
+                <h2 className="mt-1 text-lg font-semibold text-gray-800">Liquidación — {f.nombre}</h2>
+                <p className="text-sm text-gray-600">
+                  Período: {fechaInicio} a {fechaFin} · {f.especialidad}
+                </p>
+                <table className="mt-3 w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-gray-800 text-left">
+                      <th className="py-1 pr-2">Fecha</th>
+                      <th className="py-1 pr-2">Paciente</th>
+                      <th className="py-1 pr-2">Prestación / concepto</th>
+                      <th className="py-1 pr-2 text-right">Abonó</th>
+                      <th className="py-1 text-right">Corresponde cobrar</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-800 font-bold">
-                    <td colSpan={3} className="py-2 pr-2 text-right">
-                      Total
-                    </td>
-                    <td className="py-2 pr-2 text-right">
-                      ${f.detalle.reduce((a, d) => a + d.monto, 0).toLocaleString("es-AR")}
-                    </td>
-                    <td className="py-2 text-right">
-                      ${Math.round(f.detalle.reduce((a, d) => a + d.montoHonorarios, 0)).toLocaleString("es-AR")}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ))}
+                  </thead>
+                  <tbody>
+                    {detalleALiquidar.map((d, i) => (
+                      <tr key={i} className="border-b border-gray-200">
+                        <td className="py-1 pr-2">{d.fecha}</td>
+                        <td className="py-1 pr-2">{d.paciente}</td>
+                        <td className="py-1 pr-2">{d.concepto}</td>
+                        <td className="py-1 pr-2 text-right">${d.monto.toLocaleString("es-AR")}</td>
+                        <td className="py-1 text-right">${Math.round(d.montoHonorarios).toLocaleString("es-AR")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-800 font-bold">
+                      <td colSpan={3} className="py-2 pr-2 text-right">
+                        Total a liquidar
+                      </td>
+                      <td className="py-2 pr-2 text-right">
+                        ${detalleALiquidar.reduce((a, d) => a + d.monto, 0).toLocaleString("es-AR")}
+                      </td>
+                      <td className="py-2 text-right">
+                        ${Math.round(detalleALiquidar.reduce((a, d) => a + d.montoHonorarios, 0)).toLocaleString("es-AR")}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+                {detalleOS.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    No incluye obra social (${Math.round(totalOS).toLocaleString("es-AR")} pendientes, se liquidan a mes
+                    vencido).
+                  </p>
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {modalPago && (
