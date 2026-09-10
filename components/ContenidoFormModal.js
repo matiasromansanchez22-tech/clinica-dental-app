@@ -4,11 +4,11 @@ import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { ESTADOS_CONTENIDO, REDES_SOCIALES } from "@/lib/data/calendarioContenido";
 
-export default function ContenidoFormModal({ contenido, pacientesConAutorizacion, onClose, onGuardar }) {
-  const [fecha, setFecha] = useState(contenido?.fecha || fechaDeHoyISO());
+export default function ContenidoFormModal({ contenido, prefill, pacientesConAutorizacion, onClose, onGuardar }) {
+  const [fecha, setFecha] = useState(contenido?.fecha || prefill?.fecha || fechaDeHoyISO());
   const [redSocial, setRedSocial] = useState(contenido?.redSocial || REDES_SOCIALES[0]);
   const [estado, setEstado] = useState(contenido?.estado || "Idea");
-  const [texto, setTexto] = useState(contenido?.texto || "");
+  const [texto, setTexto] = useState(contenido?.texto || prefill?.texto || "");
   const [observaciones, setObservaciones] = useState(contenido?.observaciones || "");
   const [pacienteElegido, setPacienteElegido] = useState(
     contenido?.pacienteId ? { id: contenido.pacienteId, tipo: contenido.tipoPaciente, nombre: contenido.pacienteNombre } : null

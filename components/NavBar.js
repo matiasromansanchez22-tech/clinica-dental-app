@@ -54,6 +54,7 @@ const GRUPOS = [
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
   { tipo: "link", href: "/calendario-contenido", label: "📅 Calendario de Contenido", soloRoles: ["Duena", "CM"] },
+  { tipo: "link", href: "/biblioteca-marca", label: "🎨 Biblioteca de marca", soloRoles: ["Duena", "CM"] },
   { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Tablero Mensual", soloDuena: true },
   { tipo: "link", href: "/gerencial/metas", label: "🎯 Metas y Seguimiento", soloDuena: true },
   { tipo: "link", href: "/gastos-recurrentes", label: "💼 Gastos de la Clínica", soloDuena: true },
