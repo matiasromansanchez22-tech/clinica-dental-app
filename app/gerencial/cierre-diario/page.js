@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { calcularTotalesDelDia } from "@/lib/data/cierres";
 import { aprobarCierreDelDia, obtenerCierreDelDia } from "@/lib/data/cierresDia";
-import { calcularTotalesDelDiaOrtodoncia } from "@/lib/data/cierresTurnoOrtodoncia";
+import { calcularTotalesDelDiaOrtodoncia, obtenerCierresTurnoOrtodonciaDelDia } from "@/lib/data/cierresTurnoOrtodoncia";
+import { obtenerCierresTurnoDelDia } from "@/lib/data/cierresTurno";
 import { obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPerfiles } from "@/lib/data/perfiles";
@@ -48,6 +49,31 @@ function TarjetasMedioPago({ totales, coloreado }) {
   );
 }
 
+function TarjetaCierreTurno({ etiqueta, cierres, cantidadCobros }) {
+  return (
+    <div className="rounded-md border border-gray-200 p-3">
+      <p className="text-xs font-semibold uppercase text-gray-500">{etiqueta}</p>
+      {cierres.length > 0 ? (
+        <div className="mt-1 flex flex-col gap-1">
+          {cierres.map((c) => (
+            <p key={c.id} className="text-sm text-brand-green">
+              ✅ {c.nombre_secretaria || "—"} cerró a las{" "}
+              {new Date(c.guardado_en).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} — reportó $
+              {Number(c.total_general).toLocaleString("es-AR")}
+            </p>
+          ))}
+        </div>
+      ) : cantidadCobros > 0 ? (
+        <p className="mt-1 text-sm font-medium text-amber-700">
+          ⚠️ Hubo {cantidadCobros} cobro{cantidadCobros === 1 ? "" : "s"} hoy y todavía nadie cerró el turno.
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-gray-400">Sin actividad hoy.</p>
+      )}
+    </div>
+  );
+}
+
 function CierreDiarioContenido() {
   const { user, perfil } = useAuth();
   const hoy = fechaDeHoyISO();
@@ -60,6 +86,8 @@ function CierreDiarioContenido() {
   const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
   const [perfiles, setPerfiles] = useState([]);
+  const [cierresTurnoGeneral, setCierresTurnoGeneral] = useState([]);
+  const [cierresTurnoOrto, setCierresTurnoOrto] = useState([]);
   const [cierreAprobado, setCierreAprobado] = useState(null);
   const [observacionesAprobacion, setObservacionesAprobacion] = useState("");
   const [cargando, setCargando] = useState(true);
@@ -71,7 +99,7 @@ function CierreDiarioContenido() {
     setCargando(true);
     setMensaje(null);
     try {
-      const [g, o, cg, co, gas, cat, pagos, pf, aprobado] = await Promise.all([
+      const [g, o, cg, co, gas, cat, pagos, pf, aprobado, ctg, cto] = await Promise.all([
         calcularTotalesDelDia(fecha),
         calcularTotalesDelDiaOrtodoncia(fecha),
         obtenerCobrosPorFecha(fecha),
@@ -81,6 +109,8 @@ function CierreDiarioContenido() {
         obtenerPagosProfesionales(fecha, fecha),
         obtenerPerfiles(),
         obtenerCierreDelDia(fecha),
+        obtenerCierresTurnoDelDia(fecha),
+        obtenerCierresTurnoOrtodonciaDelDia(fecha),
       ]);
       setTotalesGeneral(g);
       setTotalesOrto(o);
@@ -91,6 +121,8 @@ function CierreDiarioContenido() {
       setPagosProfesionales(pagos);
       setPerfiles(pf);
       setCierreAprobado(aprobado);
+      setCierresTurnoGeneral(ctg);
+      setCierresTurnoOrto(cto);
       setObservacionesAprobacion(aprobado?.observaciones || "");
     } catch (e) {
       setError(e.message);
@@ -274,6 +306,20 @@ function CierreDiarioContenido() {
         <p className="mt-6 text-sm text-gray-500">Calculando...</p>
       ) : (
         <>
+          <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">👤 Cierres de turno</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <TarjetaCierreTurno
+              etiqueta="Odontología General"
+              cierres={cierresTurnoGeneral}
+              cantidadCobros={detalleMostrado.totalesGeneral.cantidadCobros}
+            />
+            <TarjetaCierreTurno
+              etiqueta="Ortodoncia"
+              cierres={cierresTurnoOrto}
+              cantidadCobros={detalleMostrado.totalesOrto.cantidadCobros}
+            />
+          </div>
+
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
             Odontología General ({detalleMostrado.totalesGeneral.cantidadCobros} cobros)
           </h2>
