@@ -236,6 +236,28 @@ export default function PanoramicasPage() {
     }
   }
 
+  // Baja el archivo de verdad a la compu (no solo lo abre en el
+  // navegador) — hace falta traer el archivo como blob primero porque el
+  // link firmado es de otro dominio (Supabase), y el navegador ahí no
+  // respeta el atributo "descargar" en vez de abrirlo.
+  async function descargar(item) {
+    try {
+      const url = urls[item.id] || (await obtenerUrlPanoramica(item.storagePath));
+      const respuesta = await fetch(url);
+      const blob = await respuesta.blob();
+      const urlLocal = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = urlLocal;
+      link.download = item.nombreArchivo;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(urlLocal);
+    } catch (e) {
+      setError(`No se pudo descargar "${item.nombreArchivo}" (${e.message}).`);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🩻 Pano y fotos de pacientes</h1>
@@ -479,6 +501,13 @@ export default function PanoramicasPage() {
                         )}
                       </button>
                       <p className="truncate text-center text-xs text-gray-500">{formatoFecha(item.fecha)}</p>
+                      <button
+                        type="button"
+                        onClick={() => descargar(item)}
+                        className="text-center text-xs text-brand-brown hover:underline"
+                      >
+                        ⬇ Descargar
+                      </button>
                       {!esCM && (
                         <button
                           type="button"
@@ -507,9 +536,14 @@ export default function PanoramicasPage() {
               <span>
                 {formatoFecha(imagenAmpliada.fecha)} — {imagenAmpliada.nombreArchivo}
               </span>
-              <button type="button" onClick={() => setImagenAmpliada(null)} className="text-xl hover:text-gray-300">
-                ✕
-              </button>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => descargar(imagenAmpliada)} className="hover:underline">
+                  ⬇ Descargar
+                </button>
+                <button type="button" onClick={() => setImagenAmpliada(null)} className="text-xl hover:text-gray-300">
+                  ✕
+                </button>
+              </div>
             </div>
             {!urls[imagenAmpliada.id] ? (
               <p className="text-white">Cargando...</p>
