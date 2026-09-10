@@ -240,8 +240,9 @@ export default function PanoramicasPage() {
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🩻 Pano y fotos de pacientes</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Cada paciente tiene su propia carpeta, armada sola apenas se sube la primera foto. Bajá el adjunto del mail
-        (o arrastralo directo) y subilo acá.
+        {esCM
+          ? "Fotos de los pacientes que autorizaron su uso en redes."
+          : "Cada paciente tiene su propia carpeta, armada sola apenas se sube la primera foto. Bajá el adjunto del mail (o arrastralo directo) y subilo acá."}
       </p>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
