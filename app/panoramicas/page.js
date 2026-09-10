@@ -9,6 +9,7 @@ import {
   obtenerCarpetasPanoramicas,
   obtenerPanoramicasPaciente,
   obtenerUrlPanoramica,
+  prepararArchivoParaSubir,
   subirPanoramica,
 } from "@/lib/data/panoramicas";
 
@@ -36,6 +37,7 @@ export default function PanoramicasPage() {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [observaciones, setObservaciones] = useState("");
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [convirtiendo, setConvirtiendo] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
   const [urls, setUrls] = useState({});
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
@@ -130,10 +132,18 @@ export default function PanoramicasPage() {
     recargarCarpetas();
   }
 
-  function elegirArchivo(archivo) {
+  async function elegirArchivo(archivo) {
     if (!archivo) return;
-    setArchivoSeleccionado(archivo);
     setError(null);
+    setConvirtiendo(true);
+    try {
+      const archivoListo = await prepararArchivoParaSubir(archivo);
+      setArchivoSeleccionado(archivoListo);
+    } catch (e) {
+      setError(`No se pudo convertir "${archivo.name}" (${e.message}). Probá con otra foto.`);
+    } finally {
+      setConvirtiendo(false);
+    }
   }
 
   function alSoltar(e) {
@@ -323,18 +333,23 @@ export default function PanoramicasPage() {
               <input
                 ref={inputArchivoRef}
                 type="file"
-                accept="image/*,.pdf"
+                accept="image/*,.heic,.heif,.pdf"
                 onChange={(e) => elegirArchivo(e.target.files?.[0])}
                 className="hidden"
               />
-              {archivoSeleccionado ? (
+              {convirtiendo ? (
+                <span className="font-medium text-gray-600">Convirtiendo la foto...</span>
+              ) : archivoSeleccionado ? (
                 <span className="font-medium text-gray-900">📎 {archivoSeleccionado.name}</span>
               ) : (
                 <>
                   <span className="text-gray-600">
                     Arrastrá acá el adjunto directo desde el mail (o hacé clic para elegirlo)
                   </span>
-                  <span className="text-xs text-gray-400">Tip: abrí el mail en otra pestaña y arrastrá el archivo hasta acá</span>
+                  <span className="text-xs text-gray-400">
+                    Tip: abrí el mail en otra pestaña y arrastrá el archivo hasta acá. Las fotos mandadas "como
+                    documento" desde un iPhone (HEIC) también andan.
+                  </span>
                 </>
               )}
             </label>
@@ -360,7 +375,7 @@ export default function PanoramicasPage() {
               <button
                 type="button"
                 onClick={subir}
-                disabled={subiendo}
+                disabled={subiendo || convirtiendo}
                 className="h-fit rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
               >
                 {subiendo ? "Subiendo..." : "Subir"}
