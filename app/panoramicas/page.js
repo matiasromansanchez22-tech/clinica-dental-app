@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { obtenerPacientes } from "@/lib/data/pacientes";
-import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import { actualizarAutorizacionFotos, obtenerAutorizacionesFotos, obtenerPacientes } from "@/lib/data/pacientes";
+import {
+  actualizarAutorizacionFotosOrtodoncia,
+  obtenerAutorizacionesFotosOrtodoncia,
+  obtenerPacientesOrtodoncia,
+} from "@/lib/data/pacientesOrtodoncia";
 import {
   eliminarPanoramica,
   obtenerCarpetasPanoramicas,
@@ -21,6 +26,9 @@ function formatoFecha(fechaISO) {
 }
 
 export default function PanoramicasPage() {
+  const { perfil } = useAuth();
+  const esCM = perfil?.rol === "CM";
+
   const [carpetas, setCarpetas] = useState([]);
   const [cargandoCarpetas, setCargandoCarpetas] = useState(true);
   const [letrasAbiertas, setLetrasAbiertas] = useState(() => new Set());
@@ -28,6 +36,9 @@ export default function PanoramicasPage() {
   const [tipoPaciente, setTipoPaciente] = useState("General");
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
+  const [autorizacionesGeneral, setAutorizacionesGeneral] = useState({});
+  const [autorizacionesOrto, setAutorizacionesOrto] = useState({});
+  const [guardandoAutorizacion, setGuardandoAutorizacion] = useState(false);
   const [busquedaPaciente, setBusquedaPaciente] = useState("");
   const [pacienteElegido, setPacienteElegido] = useState(null);
   const [carpeta, setCarpeta] = useState([]);
@@ -52,10 +63,20 @@ export default function PanoramicasPage() {
     });
   }
 
+  // La CM solo puede ver/usar carpetas de pacientes que ya autorizaron el
+  // uso de sus fotos en redes — al resto del personal no se les esconde
+  // nada, ellos sí necesitan ver todo para el trabajo clínico.
+  const carpetasVisibles = useMemo(() => {
+    if (!esCM) return carpetas;
+    return carpetas.filter((c) =>
+      c.tipoPaciente === "General" ? autorizacionesGeneral[c.pacienteId] : autorizacionesOrto[c.pacienteId]
+    );
+  }, [carpetas, esCM, autorizacionesGeneral, autorizacionesOrto]);
+
   const gruposPorLetra = useMemo(() => {
     const acentos = { Á: "A", É: "E", Í: "I", Ó: "O", Ú: "U" };
     const porLetra = {};
-    for (const c of carpetas) {
+    for (const c of carpetasVisibles) {
       let letra = (c.pacienteNombre || "").trim().charAt(0).toUpperCase();
       letra = acentos[letra] || letra;
       if (!ALFABETO.includes(letra)) continue;
@@ -66,7 +87,7 @@ export default function PanoramicasPage() {
       letra,
       items: (porLetra[letra] || []).sort((a, b) => a.pacienteNombre.localeCompare(b.pacienteNombre, "es")),
     }));
-  }, [carpetas]);
+  }, [carpetasVisibles]);
 
   function recargarCarpetas() {
     setCargandoCarpetas(true);
@@ -79,14 +100,39 @@ export default function PanoramicasPage() {
   useEffect(() => {
     obtenerPacientes().then(setPacientesGeneral).catch((e) => setError(e.message));
     obtenerPacientesOrtodoncia().then(setPacientesOrtodoncia).catch((e) => setError(e.message));
+    obtenerAutorizacionesFotos().then(setAutorizacionesGeneral);
+    obtenerAutorizacionesFotosOrtodoncia().then(setAutorizacionesOrto);
     recargarCarpetas();
   }, []);
 
+  async function alternarAutorizacion() {
+    if (!pacienteElegido) return;
+    const nuevoValor = tipoPaciente === "General" ? !autorizacionesGeneral[pacienteElegido.id] : !autorizacionesOrto[pacienteElegido.id];
+    setGuardandoAutorizacion(true);
+    try {
+      if (tipoPaciente === "General") {
+        await actualizarAutorizacionFotos(pacienteElegido.id, nuevoValor);
+        setAutorizacionesGeneral((a) => ({ ...a, [pacienteElegido.id]: nuevoValor }));
+      } else {
+        await actualizarAutorizacionFotosOrtodoncia(pacienteElegido.id, nuevoValor);
+        setAutorizacionesOrto((a) => ({ ...a, [pacienteElegido.id]: nuevoValor }));
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoAutorizacion(false);
+    }
+  }
+
   const listaPacientes = tipoPaciente === "General" ? pacientesGeneral : pacientesOrtodoncia;
   const nombreDe = (p) => (tipoPaciente === "General" ? p.apellidoYNombre : p.nombre);
+  const autorizacionesDelTipo = tipoPaciente === "General" ? autorizacionesGeneral : autorizacionesOrto;
   const coincidencias =
     busquedaPaciente.trim().length >= 2
-      ? listaPacientes.filter((p) => nombreDe(p).toLowerCase().includes(busquedaPaciente.trim().toLowerCase())).slice(0, 8)
+      ? listaPacientes
+          .filter((p) => nombreDe(p).toLowerCase().includes(busquedaPaciente.trim().toLowerCase()))
+          .filter((p) => !esCM || autorizacionesDelTipo[p.id])
+          .slice(0, 8)
       : [];
 
   async function recargarCarpeta(tipo, paciente) {
@@ -205,10 +251,14 @@ export default function PanoramicasPage() {
           <div className="mt-5">
             <p className="mb-2 text-sm font-semibold text-gray-700">Carpetas de pacientes</p>
             {cargandoCarpetas && <p className="text-sm text-gray-500">Cargando...</p>}
-            {!cargandoCarpetas && carpetas.length === 0 && (
-              <p className="text-sm text-gray-500">Todavía no hay ninguna carpeta. Buscá un paciente más abajo para crear la primera.</p>
+            {!cargandoCarpetas && carpetasVisibles.length === 0 && (
+              <p className="text-sm text-gray-500">
+                {esCM
+                  ? "Todavía no hay ningún paciente que haya autorizado el uso de sus fotos en redes."
+                  : "Todavía no hay ninguna carpeta. Buscá un paciente más abajo para crear la primera."}
+              </p>
             )}
-            {!cargandoCarpetas && carpetas.length > 0 && (
+            {!cargandoCarpetas && carpetasVisibles.length > 0 && (
               <div className="flex flex-col gap-2">
                 {gruposPorLetra.map((g) => {
                   const abierto = letrasAbiertas.has(g.letra);
@@ -316,6 +366,21 @@ export default function PanoramicasPage() {
             </button>
           </div>
 
+          {esCM ? (
+            <p className="mt-2 text-xs text-brand-green">✓ Este paciente autorizó el uso de sus fotos en redes.</p>
+          ) : (
+            <label className="mt-2 flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={Boolean(tipoPaciente === "General" ? autorizacionesGeneral[pacienteElegido.id] : autorizacionesOrto[pacienteElegido.id])}
+                onChange={alternarAutorizacion}
+                disabled={guardandoAutorizacion}
+              />
+              📸 Autoriza el uso de sus fotos en redes sociales (para la Community Manager)
+            </label>
+          )}
+
+          {!esCM && (
           <div className="mt-5 rounded-lg border border-gray-200 p-4">
             <p className="mb-3 text-sm font-semibold text-gray-700">Subir nueva panorámica</p>
 
@@ -382,6 +447,7 @@ export default function PanoramicasPage() {
               </button>
             </div>
           </div>
+          )}
 
           <div className="mt-5">
             <p className="mb-2 text-sm font-semibold text-gray-700">
@@ -412,13 +478,15 @@ export default function PanoramicasPage() {
                         )}
                       </button>
                       <p className="truncate text-center text-xs text-gray-500">{formatoFecha(item.fecha)}</p>
-                      <button
-                        type="button"
-                        onClick={() => borrar(item)}
-                        className="text-center text-xs text-red-600 hover:underline"
-                      >
-                        Eliminar
-                      </button>
+                      {!esCM && (
+                        <button
+                          type="button"
+                          onClick={() => borrar(item)}
+                          className="text-center text-xs text-red-600 hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      )}
                     </div>
                   );
                 })}

@@ -17,7 +17,7 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Sistema General",
-    ocultarRoles: ["Contador"],
+    ocultarRoles: ["Contador", "CM"],
     items: [
       { href: "/agenda", label: "Agenda" },
       { href: "/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
@@ -35,7 +35,7 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Sistema Ortodoncia",
-    ocultarRoles: ["Contador"],
+    ocultarRoles: ["Contador", "CM"],
     items: [
       { href: "/ortodoncia/agenda", label: "Agenda" },
       { href: "/ortodoncia/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
@@ -50,9 +50,10 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Laboratorio",
-    ocultarRoles: ["Secretaria", "Contador"],
+    ocultarRoles: ["Secretaria", "Contador", "CM"],
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
+  { tipo: "link", href: "/calendario-contenido", label: "📅 Calendario de Contenido", soloRoles: ["Duena", "CM"] },
   { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Tablero Mensual", soloDuena: true },
   { tipo: "link", href: "/gerencial/metas", label: "🎯 Metas y Seguimiento", soloDuena: true },
   { tipo: "link", href: "/gastos-recurrentes", label: "💼 Gastos de la Clínica", soloDuena: true },
