@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { obtenerPresupuestoPorId } from "@/lib/data/presupuestos";
 import { generarPresupuestoPdf } from "@/lib/pdf/generarPresupuestoPdf";
+import { redondear } from "@/lib/presupuestos";
 
 function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
@@ -36,6 +37,11 @@ export default function ImprimirPresupuestoPage() {
     f.setDate(f.getDate() + 30);
     return f.toISOString().slice(0, 10);
   })();
+
+  const valorCuota =
+    presupuesto.modalidadPago === "Financiado" && Number(presupuesto.cantidadCuotas) > 0
+      ? redondear(Number(presupuesto.saldo) / Number(presupuesto.cantidadCuotas))
+      : 0;
 
   async function descargarPdf() {
     setGenerandoPdf(true);
@@ -134,14 +140,21 @@ export default function ImprimirPresupuestoPage() {
             <p className="mb-2 text-xs font-semibold uppercase text-gray-400">Condiciones de pago</p>
             <p className="text-gray-700">
               Modalidad: <span className="font-medium">{presupuesto.modalidadPago}</span>
-              {presupuesto.modalidadPago === "Financiado" && (
-                <> — {presupuesto.cantidadCuotas} cuotas</>
-              )}
             </p>
             {presupuesto.modalidadPago === "Financiado" && (
-              <div className="mt-1 grid grid-cols-2 gap-2 text-gray-700">
-                <p>Anticipo: ${Number(presupuesto.anticipo).toLocaleString("es-AR")}</p>
-                <p>Saldo a financiar: ${Number(presupuesto.saldo).toLocaleString("es-AR")}</p>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-gray-700">
+                <div>
+                  <p className="text-xs text-gray-400">Anticipo</p>
+                  <p className="font-medium">${Number(presupuesto.anticipo).toLocaleString("es-AR")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Saldo a financiar</p>
+                  <p className="font-medium">${Number(presupuesto.saldo).toLocaleString("es-AR")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">{presupuesto.cantidadCuotas} cuotas de</p>
+                  <p className="font-medium">${valorCuota.toLocaleString("es-AR")}</p>
+                </div>
               </div>
             )}
           </div>

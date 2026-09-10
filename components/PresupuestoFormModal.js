@@ -76,6 +76,7 @@ export default function PresupuestoFormModal({
 
   const cuotas = modalidadPago === "Contado" ? 1 : Number(cantidadCuotas) || 0;
   const saldo = redondear(total - (Number(anticipo) || 0));
+  const valorCuota = modalidadPago === "Financiado" && cuotas > 0 ? redondear(saldo / cuotas) : 0;
 
   function actualizarFila(indice, cambios) {
     setPrestaciones((filas) => {
@@ -355,7 +356,7 @@ export default function PresupuestoFormModal({
           </div>
 
           {modalidadPago && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${modalidadPago === "Financiado" ? "grid-cols-3" : "grid-cols-2"}`}>
               <label className="flex flex-col gap-1 text-sm text-gray-700">
                 Anticipo
                 <input
@@ -375,6 +376,14 @@ export default function PresupuestoFormModal({
                   ${saldo.toLocaleString("es-AR")}
                 </div>
               </div>
+              {modalidadPago === "Financiado" && (
+                <div className="flex flex-col gap-1 text-sm text-gray-700">
+                  Valor de cada cuota
+                  <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 font-medium text-brand-brown">
+                    ${valorCuota.toLocaleString("es-AR")}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
