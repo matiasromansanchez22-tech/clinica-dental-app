@@ -43,10 +43,6 @@ export default function NuevoTurnoModal({
   const [consultorio, setConsultorio] = useState(consultorioInicial);
   const [horaInicio, setHoraInicio] = useState(horaInicial);
   const [duracionMin, setDuracionMin] = useState(30);
-  // Una vez que la secretaria toca el campo Duración a mano, ese valor
-  // manda — si no, cada vez que se agrega/saca una prestación se
-  // recalculaba solo y pisaba en silencio lo que ella había elegido.
-  const [duracionEditadaManual, setDuracionEditadaManual] = useState(false);
   const [pacienteNombre, setPacienteNombre] = useState("");
   const [celular, setCelular] = useState("");
   const [profesionalDeTurnoId, setProfesionalDeTurnoId] = useState(profesionales[0]?.id ?? "");
@@ -115,6 +111,10 @@ export default function NuevoTurnoModal({
     setPrestacionesTurno((f) => [...f, { itemId: "", prestacion: "", tiempoEstimadoMin: 0 }]);
   }
 
+  // La Duración nunca se toca sola con esto — solo arma la lista de
+  // prestaciones. El tiempo sugerido se muestra aparte, y se aplica
+  // únicamente si la secretaria aprieta "Usar" (ver más abajo), para no
+  // pisarle en silencio la duración que ya haya puesto a mano.
   function actualizarPrestacionTurno(indice, itemId) {
     const item = prestacionesDisponibles.find((p) => p.itemId === itemId);
     setPrestacionesTurno((filas) => {
@@ -122,19 +122,12 @@ export default function NuevoTurnoModal({
       nuevas[indice] = item
         ? { itemId: item.itemId, prestacion: item.prestacion, tiempoEstimadoMin: item.tiempoEstimadoMin }
         : { itemId: "", prestacion: "", tiempoEstimadoMin: 0 };
-      const suma = nuevas.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
-      if (suma > 0 && !duracionEditadaManual) setDuracionMin(suma);
       return nuevas;
     });
   }
 
   function quitarPrestacionTurno(indice) {
-    setPrestacionesTurno((filas) => {
-      const nuevas = filas.filter((_, i) => i !== indice);
-      const suma = nuevas.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
-      if (suma > 0 && !duracionEditadaManual) setDuracionMin(suma);
-      return nuevas;
-    });
+    setPrestacionesTurno((filas) => filas.filter((_, i) => i !== indice));
   }
 
   const diaSemana = diaSemanaDeFecha(fechaLocal);
@@ -436,10 +429,7 @@ export default function NuevoTurnoModal({
             Duración
             <select
               value={duracionMin}
-              onChange={(e) => {
-                setDuracionMin(Number(e.target.value));
-                setDuracionEditadaManual(true);
-              }}
+              onChange={(e) => setDuracionMin(Number(e.target.value))}
               className="rounded-md border border-gray-300 px-2 py-1.5"
             >
               {[30, 60, 90, 120].map((min) => (
@@ -588,13 +578,22 @@ export default function NuevoTurnoModal({
                 </div>
               ))}
             </div>
-            {prestacionesTurno.some((p) => p.tiempoEstimadoMin > 0) && (
-              <p className="mt-1 text-xs text-gray-500">
-                Duración sugerida según las prestaciones:{" "}
-                {prestacionesTurno.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0)} min (ya aplicada
-                abajo, la podés cambiar si hace falta).
-              </p>
-            )}
+            {(() => {
+              const sumaSugerida = prestacionesTurno.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
+              if (sumaSugerida <= 0 || sumaSugerida === Number(duracionMin)) return null;
+              return (
+                <p className="mt-1 text-xs text-gray-500">
+                  Duración sugerida según las prestaciones: {sumaSugerida} min.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setDuracionMin(sumaSugerida)}
+                    className="font-medium text-blue-600 hover:underline"
+                  >
+                    Usar
+                  </button>
+                </p>
+              );
+            })()}
           </div>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
