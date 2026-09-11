@@ -389,6 +389,17 @@ function CierreDiarioContenido() {
           <p className="mt-1 text-right text-sm font-semibold text-gray-700">
             Total: ${detalleMostrado.totalEgresos.toLocaleString("es-AR")}
           </p>
+          {egresosDetalle.length > 0 && (
+            <div className="mt-2 flex flex-col gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+              {egresosDetalle.map((e) => (
+                <p key={e.id} className="text-xs text-gray-600">
+                  {e.concepto}
+                  {e.detalle !== "—" ? ` — ${e.detalle}` : ""}: <span className="font-medium text-red-700">-${e.importe.toLocaleString("es-AR")}</span>{" "}
+                  ({e.medioPago || "—"})
+                </p>
+              ))}
+            </div>
+          )}
 
           <h2 className="mt-6 mb-2 font-heading text-sm font-semibold text-brand-brown">
             Lo que queda limpio (ingresos − egresos)
@@ -452,49 +463,6 @@ function CierreDiarioContenido() {
                         <span className="text-amber-600">Abierto</span>
                       )}
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <h2 className="mt-8 mb-2 font-heading text-sm font-semibold text-brand-brown">
-            Detalle de egresos del día ({egresosDetalle.length})
-          </h2>
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-brand-brown text-white">
-                  <th className="px-3 py-2 text-left font-semibold">Tipo</th>
-                  <th className="px-3 py-2 text-left font-semibold">A dónde fue</th>
-                  <th className="px-3 py-2 text-left font-semibold">Detalle</th>
-                  <th className="px-3 py-2 text-right font-semibold">Importe</th>
-                  <th className="px-3 py-2 text-left font-semibold">Medio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {egresosDetalle.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
-                      No hay egresos registrados este día.
-                    </td>
-                  </tr>
-                )}
-                {egresosDetalle.map((e) => (
-                  <tr key={e.id} className="border-t border-gray-100">
-                    <td className="px-3 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          e.tipo === "Pago a profesional" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {e.tipo}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 font-medium text-gray-900">{e.concepto}</td>
-                    <td className="px-3 py-2 text-gray-600">{e.detalle}</td>
-                    <td className="px-3 py-2 text-right text-red-700">-${e.importe.toLocaleString("es-AR")}</td>
-                    <td className="px-3 py-2 text-gray-600">{e.medioPago || "—"}</td>
                   </tr>
                 ))}
               </tbody>
