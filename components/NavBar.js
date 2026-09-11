@@ -9,6 +9,10 @@ import InstalarAppBoton from "@/components/InstalarAppBoton";
 import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
+import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
+import { obtenerCantidadDeudoresOrtodoncia } from "@/lib/data/controlesOrtodoncia";
+import { obtenerCantidadTurnosSinCerrarHoy } from "@/lib/data/cierres";
+import { obtenerCantidadMesesPendientesAprobar } from "@/lib/data/cierresMes";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -20,7 +24,6 @@ const GRUPOS = [
     tipo: "grupo",
     label: "Sistema General",
     ocultarRoles: ["Contador", "CM"],
-    badgeKey: "general",
     items: [
       { href: "/agenda", label: "Agenda" },
       { href: "/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
@@ -30,7 +33,7 @@ const GRUPOS = [
       { href: "/catalogo", label: "Catálogo" },
       { href: "/presupuestos", label: "Presupuestos" },
       { href: "/planes", label: "Planes de Financiación" },
-      { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar" },
+      { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarGeneral" },
       { href: "/caja", label: "Caja" },
       { href: "/cierre-turno", label: "Cierre de Turno" },
     ],
@@ -39,14 +42,13 @@ const GRUPOS = [
     tipo: "grupo",
     label: "Sistema Ortodoncia",
     ocultarRoles: ["Contador", "CM"],
-    badgeKey: "ortodoncia",
     items: [
       { href: "/ortodoncia/agenda", label: "Agenda" },
       { href: "/ortodoncia/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
       { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar", badgeKey: "ortodoncia" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/controles", label: "Controles" },
-      { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar" },
+      { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia" },
       { href: "/ortodoncia/caja", label: "Caja" },
       { href: "/ortodoncia/cierre-turno", label: "Cierre de Turno" },
     ],
@@ -87,8 +89,8 @@ const GRUPOS = [
       { href: "/gerencial/cuentas-mecanicos", label: "🔧 Cuentas por mecánico" },
       { href: "/gerencial/rentabilidad-diaria", label: "📅 Rentabilidad diaria por profesional" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
-      { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
-      { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes" },
+      { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)", badgeKey: "cierreDiario" },
+      { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes", badgeKey: "cierreMes" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/ranking-prestaciones", label: "Ranking de prestaciones" },
       { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
@@ -132,7 +134,7 @@ function MenuDesplegable({ grupo, activo, badges }) {
     return () => document.removeEventListener("mousedown", alClickearAfuera);
   }, []);
 
-  const tieneAviso = grupo.badgeKey && badges[grupo.badgeKey] > 0;
+  const tieneAviso = grupo.items.some((item) => item.badgeKey && badges[item.badgeKey] > 0);
 
   return (
     <div ref={ref} className="relative">
@@ -172,9 +174,25 @@ export default function NavBar() {
 
   useEffect(() => {
     if (!user || perfil?.rol === "Contador" || perfil?.rol === "CM") return;
-    Promise.all([obtenerCantidadTurnosAReprogramar(), obtenerCantidadTurnosOrtodonciaAReprogramar()])
-      .then(([general, ortodoncia]) => setBadges({ general, ortodoncia }))
+
+    Promise.all([
+      obtenerCantidadTurnosAReprogramar(),
+      obtenerCantidadTurnosOrtodonciaAReprogramar(),
+      obtenerCantidadCobrosConSaldoPendiente(),
+      obtenerCantidadDeudoresOrtodoncia(),
+    ])
+      .then(([general, ortodoncia, cobrarGeneral, cobrarOrtodoncia]) =>
+        setBadges((b) => ({ ...b, general, ortodoncia, cobrarGeneral, cobrarOrtodoncia }))
+      )
       .catch(() => {});
+
+    // Cierre Diario y Cierre de Mes solo los ve la Dueña — no hace falta
+    // (ni conviene, por los permisos) pedirlos para los demás roles.
+    if (perfil?.rol === "Duena") {
+      Promise.all([obtenerCantidadTurnosSinCerrarHoy(), obtenerCantidadMesesPendientesAprobar()])
+        .then(([cierreDiario, cierreMes]) => setBadges((b) => ({ ...b, cierreDiario, cierreMes })))
+        .catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, perfil?.rol]);
 
