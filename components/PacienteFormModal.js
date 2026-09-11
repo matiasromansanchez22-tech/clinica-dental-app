@@ -34,7 +34,7 @@ const VACIO = {
   profesionalResponsableId: "",
 };
 
-export default function PacienteFormModal({ paciente, profesionales, onClose, onGuardado }) {
+export default function PacienteFormModal({ paciente, profesionales, obrasSocialesSugeridas = [], onClose, onGuardado }) {
   const [form, setForm] = useState(paciente ? mapearAFormulario(paciente) : VACIO);
   const [duplicados, setDuplicados] = useState([]);
   const [guardando, setGuardando] = useState(false);
@@ -267,10 +267,17 @@ export default function PacienteFormModal({ paciente, profesionales, onClose, on
                 <label className="flex flex-col gap-1 text-sm text-gray-700">
                   Obra social
                   <input
+                    list="obras-sociales-sugeridas"
                     value={form.obraSocial}
                     onChange={(e) => set("obraSocial", e.target.value)}
+                    placeholder="Elegí una o escribí una nueva"
                     className="rounded-md border border-gray-300 px-2 py-1.5"
                   />
+                  <datalist id="obras-sociales-sugeridas">
+                    {obrasSocialesSugeridas.map((o) => (
+                      <option key={o} value={o} />
+                    ))}
+                  </datalist>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-gray-700">
                   N.º de afiliado

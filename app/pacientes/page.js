@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
 import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
-import { actualizarBanderasPaciente, obtenerPacientes } from "@/lib/data/pacientes";
+import { actualizarBanderasPaciente, obtenerObrasSocialesSugeridas, obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { linkWhatsApp } from "@/lib/whatsapp";
 
 function PacientesContenido() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
+  const [obrasSocialesSugeridas, setObrasSocialesSugeridas] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -26,10 +27,11 @@ function PacientesContenido() {
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerPacientes({ busqueda }), obtenerProfesionales()])
-      .then(([p, prof]) => {
+    Promise.all([obtenerPacientes({ busqueda }), obtenerProfesionales(), obtenerObrasSocialesSugeridas()])
+      .then(([p, prof, obras]) => {
         setPacientes(p);
         setProfesionales(prof);
+        setObrasSocialesSugeridas(obras);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -227,6 +229,7 @@ function PacientesContenido() {
         <PacienteFormModal
           paciente={pacienteEnEdicion}
           profesionales={profesionales}
+          obrasSocialesSugeridas={obrasSocialesSugeridas}
           onClose={() => {
             setMostrarNuevo(false);
             setPacienteEnEdicion(null);
