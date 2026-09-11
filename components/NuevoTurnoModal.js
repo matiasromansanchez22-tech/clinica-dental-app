@@ -43,6 +43,10 @@ export default function NuevoTurnoModal({
   const [consultorio, setConsultorio] = useState(consultorioInicial);
   const [horaInicio, setHoraInicio] = useState(horaInicial);
   const [duracionMin, setDuracionMin] = useState(30);
+  // Una vez que la secretaria toca el campo Duración a mano, ese valor
+  // manda — si no, cada vez que se agrega/saca una prestación se
+  // recalculaba solo y pisaba en silencio lo que ella había elegido.
+  const [duracionEditadaManual, setDuracionEditadaManual] = useState(false);
   const [pacienteNombre, setPacienteNombre] = useState("");
   const [celular, setCelular] = useState("");
   const [profesionalDeTurnoId, setProfesionalDeTurnoId] = useState(profesionales[0]?.id ?? "");
@@ -119,7 +123,7 @@ export default function NuevoTurnoModal({
         ? { itemId: item.itemId, prestacion: item.prestacion, tiempoEstimadoMin: item.tiempoEstimadoMin }
         : { itemId: "", prestacion: "", tiempoEstimadoMin: 0 };
       const suma = nuevas.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
-      if (suma > 0) setDuracionMin(suma);
+      if (suma > 0 && !duracionEditadaManual) setDuracionMin(suma);
       return nuevas;
     });
   }
@@ -128,7 +132,7 @@ export default function NuevoTurnoModal({
     setPrestacionesTurno((filas) => {
       const nuevas = filas.filter((_, i) => i !== indice);
       const suma = nuevas.reduce((acc, p) => acc + (Number(p.tiempoEstimadoMin) || 0), 0);
-      if (suma > 0) setDuracionMin(suma);
+      if (suma > 0 && !duracionEditadaManual) setDuracionMin(suma);
       return nuevas;
     });
   }
@@ -432,7 +436,10 @@ export default function NuevoTurnoModal({
             Duración
             <select
               value={duracionMin}
-              onChange={(e) => setDuracionMin(Number(e.target.value))}
+              onChange={(e) => {
+                setDuracionMin(Number(e.target.value));
+                setDuracionEditadaManual(true);
+              }}
               className="rounded-md border border-gray-300 px-2 py-1.5"
             >
               {[30, 60, 90, 120].map((min) => (
