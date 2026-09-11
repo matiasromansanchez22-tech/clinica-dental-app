@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { obtenerTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
 import { linkWhatsApp } from "@/lib/whatsapp";
+
+function formatoFecha(fechaISO) {
+  const [anio, mes, dia] = fechaISO.split("-");
+  return `${dia}/${mes}/${anio}`;
+}
 
 export default function ReprogramarPage() {
   const [turnos, setTurnos] = useState([]);
@@ -35,6 +40,20 @@ export default function ReprogramarPage() {
     }
   }
 
+  // Agrupados por fecha del turno original, así no quedan todos
+  // mezclados en una lista larga — de un vistazo se ve cuántos se cayeron
+  // el mismo día.
+  const gruposPorFecha = useMemo(() => {
+    const mapa = {};
+    for (const t of turnos) {
+      if (!mapa[t.fecha]) mapa[t.fecha] = [];
+      mapa[t.fecha].push(t);
+    }
+    return Object.entries(mapa)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([fecha, items]) => ({ fecha, items }));
+  }, [turnos]);
+
   return (
     <main className="mx-auto max-w-4xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Turnos a reprogramar</h1>
@@ -46,68 +65,69 @@ export default function ReprogramarPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-brand-brown text-white">
-              <th className="px-3 py-2 text-left font-semibold">Paciente</th>
-              <th className="px-3 py-2 text-left font-semibold">Celular</th>
-              <th className="px-3 py-2 text-left font-semibold">Turno original</th>
-              <th className="px-3 py-2 text-left font-semibold">Profesional</th>
-              <th className="px-3 py-2 text-left font-semibold">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cargando && (
-              <tr>
-                <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
-                  Cargando...
-                </td>
-              </tr>
-            )}
-            {!cargando && turnos.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
-                  No hay turnos pendientes de reprogramar. 🎉
-                </td>
-              </tr>
-            )}
-            {turnos.map((t) => (
-              <tr key={t.id} className="border-t border-gray-100">
-                <td className="px-3 py-2 font-medium text-gray-900">{t.paciente}</td>
-                <td className="px-3 py-2 text-gray-600">{t.celular}</td>
-                <td className="px-3 py-2 text-gray-600">
-                  {t.fecha} · {t.horaInicio} · Consultorio {t.consultorio} · {t.tipoAtencion}
-                </td>
-                <td className="px-3 py-2 text-gray-600">{t.profesionalDeTurno}</td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-3">
-                    {linkWhatsApp(t.celular) && (
-                      <a
-                        href={linkWhatsApp(
-                          t.celular,
-                          `Hola ${t.paciente}, te escribimos de Clínica Dental Marianela Ramírez para reprogramar tu turno.`
+      {cargando && <p className="mt-4 text-sm text-gray-500">Cargando...</p>}
+
+      {!cargando && turnos.length === 0 && (
+        <p className="mt-4 text-sm text-gray-500">No hay turnos pendientes de reprogramar. 🎉</p>
+      )}
+
+      <div className="mt-4 flex flex-col gap-4">
+        {gruposPorFecha.map((grupo) => (
+          <div key={grupo.fecha} className="overflow-hidden rounded-lg border border-gray-200">
+            <div className="bg-brand-tan/30 px-4 py-2">
+              <p className="font-heading text-sm font-semibold text-brand-brown">
+                {formatoFecha(grupo.fecha)} · {grupo.items.length} turno{grupo.items.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-xs uppercase text-gray-400">
+                  <th className="px-3 py-2 font-semibold">Paciente</th>
+                  <th className="px-3 py-2 font-semibold">Celular</th>
+                  <th className="px-3 py-2 font-semibold">Horario original</th>
+                  <th className="px-3 py-2 font-semibold">Profesional</th>
+                  <th className="px-3 py-2 font-semibold">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grupo.items.map((t) => (
+                  <tr key={t.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2 font-medium text-gray-900">{t.paciente}</td>
+                    <td className="px-3 py-2 text-gray-600">{t.celular}</td>
+                    <td className="px-3 py-2 text-gray-600">
+                      {t.horaInicio} · Consultorio {t.consultorio} · {t.tipoAtencion}
+                    </td>
+                    <td className="px-3 py-2 text-gray-600">{t.profesionalDeTurno}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        {linkWhatsApp(t.celular) && (
+                          <a
+                            href={linkWhatsApp(
+                              t.celular,
+                              `Hola ${t.paciente}, te escribimos de Clínica Dental Marianela Ramírez para reprogramar tu turno.`
+                            )}
+                            target="whatsapp_clinica"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-emerald-600 hover:underline"
+                          >
+                            💬 WhatsApp
+                          </a>
                         )}
-                        target="whatsapp_clinica"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-emerald-600 hover:underline"
-                      >
-                        💬 WhatsApp
-                      </a>
-                    )}
-                    <button
-                      disabled={procesando === t.id}
-                      onClick={() => marcarResuelto(t)}
-                      className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
-                    >
-                      Ya lo reprogramé
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        <button
+                          disabled={procesando === t.id}
+                          onClick={() => marcarResuelto(t)}
+                          className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                        >
+                          Ya lo reprogramé
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </main>
   );
