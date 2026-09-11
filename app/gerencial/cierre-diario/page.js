@@ -49,19 +49,38 @@ function TarjetasMedioPago({ totales, coloreado }) {
   );
 }
 
+const ETIQUETAS_MEDIO_CIERRE = [
+  { clave: "efectivo", label: "Efectivo" },
+  { clave: "transferencia", label: "Transferencia" },
+  { clave: "debito", label: "Débito" },
+  { clave: "credito", label: "Crédito" },
+  { clave: "mercado_pago", label: "Mercado Pago" },
+  { clave: "qr", label: "QR" },
+];
+
 function TarjetaCierreTurno({ etiqueta, cierres, cantidadCobros }) {
   return (
     <div className="rounded-md border border-gray-200 p-3">
       <p className="text-xs font-semibold uppercase text-gray-500">{etiqueta}</p>
       {cierres.length > 0 ? (
-        <div className="mt-1 flex flex-col gap-1">
-          {cierres.map((c) => (
-            <p key={c.id} className="text-sm text-brand-green">
-              ✅ {c.nombre_secretaria || "—"} cerró a las{" "}
-              {new Date(c.guardado_en).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} — reportó $
-              {Number(c.total_general).toLocaleString("es-AR")}
-            </p>
-          ))}
+        <div className="mt-1 flex flex-col gap-2">
+          {cierres.map((c) => {
+            const desglose = ETIQUETAS_MEDIO_CIERRE.filter((m) => Number(c[m.clave]) > 0);
+            return (
+              <div key={c.id} className="text-sm text-brand-green">
+                <p>
+                  ✅ {c.nombre_secretaria || "—"} cerró a las{" "}
+                  {new Date(c.guardado_en).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} — total $
+                  {Number(c.total_general).toLocaleString("es-AR")}
+                </p>
+                {desglose.length > 0 && (
+                  <p className="ml-5 text-xs text-gray-500">
+                    {desglose.map((m) => `${m.label}: $${Number(c[m.clave]).toLocaleString("es-AR")}`).join(" · ")}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : cantidadCobros > 0 ? (
         <p className="mt-1 text-sm font-medium text-amber-700">
