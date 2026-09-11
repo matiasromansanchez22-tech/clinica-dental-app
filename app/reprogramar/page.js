@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { obtenerTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
 import { linkWhatsApp } from "@/lib/whatsapp";
+import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 
 function formatoFecha(fechaISO) {
   const [anio, mes, dia] = fechaISO.split("-");
@@ -15,6 +16,7 @@ export default function ReprogramarPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [procesando, setProcesando] = useState(null);
+  const [fechaFiltro, setFechaFiltro] = useState("");
 
   async function recargar() {
     const data = await obtenerTurnosAReprogramar();
@@ -54,12 +56,41 @@ export default function ReprogramarPage() {
       .map(([fecha, items]) => ({ fecha, items }));
   }, [turnos]);
 
+  const gruposMostrados = fechaFiltro ? gruposPorFecha.filter((g) => g.fecha === fechaFiltro) : gruposPorFecha;
+
+  function irADia(delta) {
+    setFechaFiltro((f) => sumarDias(f || fechaDeHoyISO(), delta));
+  }
+
   return (
     <main className="mx-auto max-w-4xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Turnos a reprogramar</h1>
       <p className="mt-1 text-sm text-gray-500">
         Pacientes que quedaron sin un horario fijo — llamalos y agendales un turno nuevo desde la Agenda.
       </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button onClick={() => irADia(-1)} className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50">
+          ← Día anterior
+        </button>
+        <input
+          type="date"
+          value={fechaFiltro}
+          onChange={(e) => setFechaFiltro(e.target.value)}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+        />
+        <button onClick={() => irADia(1)} className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50">
+          Día siguiente →
+        </button>
+        {fechaFiltro && (
+          <button
+            onClick={() => setFechaFiltro("")}
+            className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50"
+          >
+            Ver todos
+          </button>
+        )}
+      </div>
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
@@ -71,8 +102,12 @@ export default function ReprogramarPage() {
         <p className="mt-4 text-sm text-gray-500">No hay turnos pendientes de reprogramar. 🎉</p>
       )}
 
+      {!cargando && turnos.length > 0 && gruposMostrados.length === 0 && (
+        <p className="mt-4 text-sm text-gray-500">No hay turnos para reprogramar ese día.</p>
+      )}
+
       <div className="mt-4 flex flex-col gap-4">
-        {gruposPorFecha.map((grupo) => (
+        {gruposMostrados.map((grupo) => (
           <div key={grupo.fecha} className="overflow-hidden rounded-lg border border-gray-200">
             <div className="bg-brand-tan/30 px-4 py-2">
               <p className="font-heading text-sm font-semibold text-brand-brown">
