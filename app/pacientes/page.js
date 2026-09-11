@@ -172,7 +172,6 @@ function PacientesContenido() {
                     {p.celular && linkWhatsApp(p.celular) && (
                       <a
                         href={linkWhatsApp(p.celular)}
-                        target="whatsapp_clinica"
                         onClick={(e) => e.stopPropagation()}
                         title="Escribir por WhatsApp"
                         className="text-emerald-600 hover:text-emerald-700"
