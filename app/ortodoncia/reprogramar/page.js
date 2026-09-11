@@ -27,8 +27,12 @@ export default function ReprogramarOrtodonciaPage() {
       .finally(() => setCargando(false));
   }, []);
 
+  // La forma normal de resolver esto es agendándole un turno nuevo al
+  // paciente desde la Agenda — eso ya lo saca solo de esta lista. Este
+  // botón es solo para el caso excepcional de que no se le vaya a dar un
+  // turno nuevo (ej. decidió no volver) y haya que sacarlo igual.
   async function marcarResuelto(turno) {
-    if (!window.confirm(`¿Ya le conseguiste un nuevo horario a ${turno.paciente}? Esto lo saca de esta lista.`)) return;
+    if (!window.confirm(`¿Sacar a ${turno.paciente} de esta lista sin agendarle un turno nuevo?`)) return;
     setProcesando(turno.id);
     try {
       await actualizarEstadoTurnoOrtodoncia(turno.id, { estado: "Cancelado" });
@@ -64,7 +68,8 @@ export default function ReprogramarOrtodonciaPage() {
     <main className="mx-auto max-w-4xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Turnos a reprogramar — Ortodoncia</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Pacientes que quedaron sin un horario fijo — llamalos y agendales un turno nuevo desde la Agenda.
+        Pacientes que quedaron sin un horario fijo — llamalos y agendales un turno nuevo desde la Agenda. Apenas le
+        cargues el turno nuevo, se saca solo de esta lista.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -135,9 +140,9 @@ export default function ReprogramarOrtodonciaPage() {
                       <button
                         disabled={procesando === t.id}
                         onClick={() => marcarResuelto(t)}
-                        className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+                        className="text-xs text-gray-400 hover:underline disabled:opacity-50"
                       >
-                        Ya lo reprogramé
+                        Sacar de la lista
                       </button>
                     </td>
                   </tr>
