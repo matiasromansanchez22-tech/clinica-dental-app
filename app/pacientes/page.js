@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
 import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
-import { actualizarBanderasPaciente, obtenerObrasSocialesSugeridas, obtenerPacientes } from "@/lib/data/pacientes";
+import {
+  actualizarBanderasPaciente,
+  obtenerObrasSocialesSugeridas,
+  obtenerPacientePorId,
+  obtenerPacientes,
+} from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { linkWhatsApp } from "@/lib/whatsapp";
 
@@ -238,6 +243,11 @@ function PacientesContenido() {
             await recargar();
             setMostrarNuevo(false);
             setPacienteEnEdicion(null);
+          }}
+          onAbrirOtroPaciente={async (id) => {
+            const p = await obtenerPacientePorId(id);
+            setMostrarNuevo(false);
+            setPacienteEnEdicion(p);
           }}
         />
       )}

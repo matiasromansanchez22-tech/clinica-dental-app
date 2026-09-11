@@ -6,7 +6,12 @@ import {
   actualizarPaciente,
   buscarPosiblesDuplicados,
   crearPacienteCompleto,
+  crearVinculoFamiliar,
   eliminarPaciente,
+  eliminarVinculoFamiliar,
+  obtenerFamiliaresDePaciente,
+  obtenerPacientes,
+  RELACIONES_FAMILIARES,
 } from "@/lib/data/pacientes";
 
 const COMO_NOS_CONOCIO = ["Instagram", "Facebook", "Google", "Referido", "Obra Social", "Cartel", "Página Web", "Otro"];
@@ -34,12 +39,85 @@ const VACIO = {
   profesionalResponsableId: "",
 };
 
-export default function PacienteFormModal({ paciente, profesionales, obrasSocialesSugeridas = [], onClose, onGuardado }) {
+export default function PacienteFormModal({
+  paciente,
+  profesionales,
+  obrasSocialesSugeridas = [],
+  onClose,
+  onGuardado,
+  onAbrirOtroPaciente,
+}) {
   const [form, setForm] = useState(paciente ? mapearAFormulario(paciente) : VACIO);
   const [duplicados, setDuplicados] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [borrando, setBorrando] = useState(false);
+
+  const [familiares, setFamiliares] = useState([]);
+  const [mostrarBuscadorFamiliar, setMostrarBuscadorFamiliar] = useState(false);
+  const [busquedaFamiliar, setBusquedaFamiliar] = useState("");
+  const [resultadosBusquedaFamiliar, setResultadosBusquedaFamiliar] = useState([]);
+  const [familiarElegido, setFamiliarElegido] = useState(null);
+  const [relacionElegida, setRelacionElegida] = useState(RELACIONES_FAMILIARES[0]);
+  const [vinculando, setVinculando] = useState(false);
+  const [errorFamiliar, setErrorFamiliar] = useState(null);
+
+  async function recargarFamiliares() {
+    if (!paciente) return;
+    const data = await obtenerFamiliaresDePaciente(paciente.id);
+    setFamiliares(data);
+  }
+
+  useEffect(() => {
+    recargarFamiliares().catch((e) => setErrorFamiliar(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paciente?.id]);
+
+  useEffect(() => {
+    const texto = busquedaFamiliar.trim();
+    if (!texto || !paciente) {
+      setResultadosBusquedaFamiliar([]);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      obtenerPacientes({ busqueda: texto })
+        .then((data) =>
+          setResultadosBusquedaFamiliar(
+            data.filter((p) => p.id !== paciente.id && !familiares.some((f) => f.pacienteId === p.id))
+          )
+        )
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [busquedaFamiliar, paciente, familiares]);
+
+  async function confirmarVinculoFamiliar() {
+    if (!familiarElegido) return;
+    setVinculando(true);
+    setErrorFamiliar(null);
+    try {
+      await crearVinculoFamiliar(paciente.id, familiarElegido.id, relacionElegida);
+      await recargarFamiliares();
+      setMostrarBuscadorFamiliar(false);
+      setBusquedaFamiliar("");
+      setFamiliarElegido(null);
+      setResultadosBusquedaFamiliar([]);
+    } catch (e) {
+      setErrorFamiliar(e.message);
+    } finally {
+      setVinculando(false);
+    }
+  }
+
+  async function quitarVinculoFamiliar(vinculoId) {
+    if (!window.confirm("¿Sacar este vínculo familiar?")) return;
+    try {
+      await eliminarVinculoFamiliar(vinculoId);
+      await recargarFamiliares();
+    } catch (e) {
+      setErrorFamiliar(e.message);
+    }
+  }
 
   function mapearAFormulario(p) {
     return {
@@ -290,6 +368,127 @@ export default function PacienteFormModal({ paciente, profesionales, obrasSocial
               </>
             )}
           </div>
+
+          {paciente && (
+            <>
+              <hr className="border-gray-200" />
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase text-gray-400">Familiares vinculados</p>
+                  {!mostrarBuscadorFamiliar && (
+                    <button
+                      type="button"
+                      onClick={() => setMostrarBuscadorFamiliar(true)}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      + Vincular familiar
+                    </button>
+                  )}
+                </div>
+
+                {errorFamiliar && <p className="mb-1 text-xs text-red-600">{errorFamiliar}</p>}
+
+                {familiares.length === 0 && !mostrarBuscadorFamiliar && (
+                  <p className="text-xs text-gray-400">Todavía no tiene familiares vinculados.</p>
+                )}
+
+                <div className="flex flex-col gap-1">
+                  {familiares.map((f) => (
+                    <div
+                      key={f.vinculoId}
+                      className="flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onAbrirOtroPaciente?.(f.pacienteId)}
+                        className="text-left text-blue-700 hover:underline"
+                      >
+                        {f.nombre} <span className="text-gray-500">({f.relacion})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => quitarVinculoFamiliar(f.vinculoId)}
+                        className="text-xs text-gray-400 hover:text-red-600"
+                      >
+                        ✕ Quitar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {mostrarBuscadorFamiliar && (
+                  <div className="mt-2 flex flex-col gap-2 rounded-md border border-gray-200 p-3">
+                    {!familiarElegido ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={busquedaFamiliar}
+                          onChange={(e) => setBusquedaFamiliar(e.target.value)}
+                          placeholder="Buscar paciente por nombre, DNI o celular..."
+                          className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                        />
+                        {resultadosBusquedaFamiliar.length > 0 && (
+                          <div className="flex flex-col gap-1">
+                            {resultadosBusquedaFamiliar.slice(0, 8).map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setFamiliarElegido(p)}
+                                className="rounded-md px-2 py-1 text-left text-sm hover:bg-gray-100"
+                              >
+                                {p.apellidoYNombre}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium text-gray-900">{familiarElegido.apellidoYNombre}</span>
+                        <span className="text-gray-500">es</span>
+                        <select
+                          value={relacionElegida}
+                          onChange={(e) => setRelacionElegida(e.target.value)}
+                          className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                        >
+                          {RELACIONES_FAMILIARES.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-gray-500">de {form.apellidoYNombre || "este paciente"}</span>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      {familiarElegido && (
+                        <button
+                          type="button"
+                          disabled={vinculando}
+                          onClick={confirmarVinculoFamiliar}
+                          className="rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+                        >
+                          {vinculando ? "Vinculando..." : "Vincular"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMostrarBuscadorFamiliar(false);
+                          setBusquedaFamiliar("");
+                          setFamiliarElegido(null);
+                          setResultadosBusquedaFamiliar([]);
+                        }}
+                        className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <hr className="border-gray-200" />
 
