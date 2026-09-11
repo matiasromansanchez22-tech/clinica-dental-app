@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import InstalarAppBoton from "@/components/InstalarAppBoton";
 import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
+import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
+import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -18,10 +20,11 @@ const GRUPOS = [
     tipo: "grupo",
     label: "Sistema General",
     ocultarRoles: ["Contador", "CM"],
+    badgeKey: "general",
     items: [
       { href: "/agenda", label: "Agenda" },
       { href: "/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
-      { href: "/reprogramar", label: "Turnos a reprogramar" },
+      { href: "/reprogramar", label: "Turnos a reprogramar", badgeKey: "general" },
       { href: "/pacientes", label: "Pacientes" },
       { href: "/nomenclador", label: "Nomenclador" },
       { href: "/catalogo", label: "Catálogo" },
@@ -36,10 +39,11 @@ const GRUPOS = [
     tipo: "grupo",
     label: "Sistema Ortodoncia",
     ocultarRoles: ["Contador", "CM"],
+    badgeKey: "ortodoncia",
     items: [
       { href: "/ortodoncia/agenda", label: "Agenda" },
       { href: "/ortodoncia/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
-      { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar" },
+      { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar", badgeKey: "ortodoncia" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/controles", label: "Controles" },
       { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar" },
@@ -104,7 +108,19 @@ const GRUPOS = [
   },
 ];
 
-function MenuDesplegable({ grupo, activo }) {
+function PuntoRojo() {
+  return <span className="h-2 w-2 rounded-full bg-red-600" aria-label="Hay pendientes" />;
+}
+
+function BadgeCantidad({ cantidad }) {
+  return (
+    <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+      {cantidad}
+    </span>
+  );
+}
+
+function MenuDesplegable({ grupo, activo, badges }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
 
@@ -116,15 +132,18 @@ function MenuDesplegable({ grupo, activo }) {
     return () => document.removeEventListener("mousedown", alClickearAfuera);
   }, []);
 
+  const tieneAviso = grupo.badgeKey && badges[grupo.badgeKey] > 0;
+
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setAbierto((a) => !a)}
-        className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium ${
+        className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
           activo ? "bg-brand-brown text-brand-cream" : "text-brand-charcoal/70 hover:bg-brand-tan/40"
         }`}
       >
         {grupo.label}
+        {tieneAviso && <PuntoRojo />}
         <span className="text-xs">▾</span>
       </button>
       {abierto && (
@@ -134,9 +153,10 @@ function MenuDesplegable({ grupo, activo }) {
               key={item.href}
               href={item.href}
               onClick={() => setAbierto(false)}
-              className="block px-4 py-2 text-sm text-brand-charcoal hover:bg-brand-tan/40"
+              className="flex items-center justify-between gap-2 px-4 py-2 text-sm text-brand-charcoal hover:bg-brand-tan/40"
             >
               {item.label}
+              {item.badgeKey && badges[item.badgeKey] > 0 && <BadgeCantidad cantidad={badges[item.badgeKey]} />}
             </Link>
           ))}
         </div>
@@ -148,6 +168,15 @@ function MenuDesplegable({ grupo, activo }) {
 export default function NavBar() {
   const pathname = usePathname();
   const { user, perfil, cerrarSesion } = useAuth();
+  const [badges, setBadges] = useState({});
+
+  useEffect(() => {
+    if (!user || perfil?.rol === "Contador" || perfil?.rol === "CM") return;
+    Promise.all([obtenerCantidadTurnosAReprogramar(), obtenerCantidadTurnosOrtodonciaAReprogramar()])
+      .then(([general, ortodoncia]) => setBadges({ general, ortodoncia }))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, perfil?.rol]);
 
   if (!user) return null;
 
@@ -181,7 +210,7 @@ export default function NavBar() {
             );
           }
           const activo = g.items.some((i) => i.href === pathname);
-          return <MenuDesplegable key={g.label} grupo={g} activo={activo} />;
+          return <MenuDesplegable key={g.label} grupo={g} activo={activo} badges={badges} />;
         })}
         <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
           <ActivarAvisosBoton />
