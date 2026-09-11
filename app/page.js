@@ -6,9 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerActividadDelDia } from "@/lib/data/estadisticas";
-import { calcularTotalesDelDia } from "@/lib/data/cierres";
-import { obtenerCierresTurnoDelDia } from "@/lib/data/cierresTurno";
-import { calcularTotalesDelDiaOrtodoncia, obtenerCierresTurnoOrtodonciaDelDia } from "@/lib/data/cierresTurnoOrtodoncia";
+import { obtenerTurnosSinCerrarHoy } from "@/lib/data/cierres";
 
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES = [
@@ -91,8 +89,8 @@ function TarjetaStat({ etiqueta, valor }) {
 }
 
 // Solo para la Dueña: un vistazo rápido de cómo viene el día, y un aviso
-// si hubo cobros en alguna especialidad y todavía nadie cerró el turno
-// (mismo chequeo que Cierre Diario, para verlo sin tener que entrar ahí).
+// si algún secretario ya marcó su salida y dejó la caja de alguna
+// especialidad sin cerrar (mismo chequeo que el punto rojo del menú).
 function ResumenDelDia() {
   const hoy = fechaDeHoyISO();
   const [actividad, setActividad] = useState(null);
@@ -102,16 +100,11 @@ function ResumenDelDia() {
     obtenerActividadDelDia(hoy)
       .then(setActividad)
       .catch(() => {});
-    Promise.all([
-      calcularTotalesDelDia(hoy),
-      calcularTotalesDelDiaOrtodoncia(hoy),
-      obtenerCierresTurnoDelDia(hoy),
-      obtenerCierresTurnoOrtodonciaDelDia(hoy),
-    ])
-      .then(([g, o, ctg, cto]) => {
+    obtenerTurnosSinCerrarHoy()
+      .then(({ general, ortodoncia }) => {
         const faltantes = [];
-        if (g.cantidadCobros > 0 && ctg.length === 0) faltantes.push("Odontología General");
-        if (o.cantidadCobros > 0 && cto.length === 0) faltantes.push("Ortodoncia");
+        if (general) faltantes.push("Odontología General");
+        if (ortodoncia) faltantes.push("Ortodoncia");
         setAvisoCierre(faltantes.length > 0 ? faltantes : null);
       })
       .catch(() => {});
