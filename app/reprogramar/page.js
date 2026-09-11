@@ -144,7 +144,7 @@ export default function ReprogramarPage() {
                           <a
                             href={linkWhatsApp(
                               t.celular,
-                              `Hola ${t.paciente}, te escribimos de Clínica Dental Marianela Ramírez para reprogramar tu turno.`
+                              `Hola ${t.paciente}, ¿cómo está? Nos comunicamos desde Clínica Dental Marianela Ramírez. Su turno quedó pendiente de reprogramar y nos gustaría coordinar uno nuevo. ¿Qué día y horario le resultaría conveniente?`
                             )}
                             target="whatsapp_clinica"
                             rel="noopener noreferrer"

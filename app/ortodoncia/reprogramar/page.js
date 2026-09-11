@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { actualizarEstadoTurnoOrtodoncia, obtenerTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
+import { linkWhatsApp } from "@/lib/whatsapp";
 
 function formatoFecha(fechaISO) {
   const [anio, mes, dia] = fechaISO.split("-");
@@ -137,13 +138,28 @@ export default function ReprogramarOrtodonciaPage() {
                     </td>
                     <td className="px-3 py-2 text-gray-600">{t.profesionalDeTurno}</td>
                     <td className="px-3 py-2">
-                      <button
-                        disabled={procesando === t.id}
-                        onClick={() => marcarResuelto(t)}
-                        className="text-xs text-gray-400 hover:underline disabled:opacity-50"
-                      >
-                        Sacar de la lista
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {linkWhatsApp(t.whatsapp) && (
+                          <a
+                            href={linkWhatsApp(
+                              t.whatsapp,
+                              `Hola ${t.paciente}, ¿cómo está? Nos comunicamos desde Clínica Dental Marianela Ramírez. Su turno de ortodoncia quedó pendiente de reprogramar y nos gustaría coordinar uno nuevo. ¿Qué día y horario le resultaría conveniente?`
+                            )}
+                            target="whatsapp_clinica"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-emerald-600 hover:underline"
+                          >
+                            💬 WhatsApp
+                          </a>
+                        )}
+                        <button
+                          disabled={procesando === t.id}
+                          onClick={() => marcarResuelto(t)}
+                          className="text-xs text-gray-400 hover:underline disabled:opacity-50"
+                        >
+                          Sacar de la lista
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
