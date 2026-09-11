@@ -124,7 +124,9 @@ export default function ReprogramarPage() {
                 <tr className="border-b border-gray-200 text-left text-xs uppercase text-gray-400">
                   <th className="px-3 py-2 font-semibold">Paciente</th>
                   <th className="px-3 py-2 font-semibold">Celular</th>
-                  <th className="px-3 py-2 font-semibold">Horario original</th>
+                  <th className="px-3 py-2 font-semibold">Fecha</th>
+                  <th className="px-3 py-2 font-semibold">Hora</th>
+                  <th className="px-3 py-2 font-semibold">Consultorio / Tipo</th>
                   <th className="px-3 py-2 font-semibold">Profesional</th>
                   <th className="px-3 py-2 font-semibold">Acciones</th>
                 </tr>
@@ -134,8 +136,10 @@ export default function ReprogramarPage() {
                   <tr key={t.id} className="border-t border-gray-100">
                     <td className="px-3 py-2 font-medium text-gray-900">{t.paciente}</td>
                     <td className="px-3 py-2 text-gray-600">{t.celular}</td>
+                    <td className="px-3 py-2 text-gray-600">{formatoFecha(t.fecha)}</td>
+                    <td className="px-3 py-2 text-gray-600">{t.horaInicio}</td>
                     <td className="px-3 py-2 text-gray-600">
-                      {t.horaInicio} · Consultorio {t.consultorio} · {t.tipoAtencion}
+                      Consultorio {t.consultorio} · {t.tipoAtencion}
                     </td>
                     <td className="px-3 py-2 text-gray-600">{t.profesionalDeTurno}</td>
                     <td className="px-3 py-2">
