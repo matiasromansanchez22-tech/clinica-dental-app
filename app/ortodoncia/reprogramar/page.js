@@ -146,7 +146,6 @@ export default function ReprogramarOrtodonciaPage() {
                               `Hola ${t.paciente}, ¿cómo está? Nos comunicamos desde Clínica Dental Marianela Ramírez. Su turno de ortodoncia quedó pendiente de reprogramar y nos gustaría coordinar uno nuevo. ¿Qué día y horario le resultaría conveniente?`
                             )}
                             target="whatsapp_clinica"
-                            rel="noopener noreferrer"
                             className="text-xs font-medium text-emerald-600 hover:underline"
                           >
                             💬 WhatsApp
