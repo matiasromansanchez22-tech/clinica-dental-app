@@ -4,9 +4,15 @@ import { Fragment, useEffect, useState } from "react";
 import RegistrarPagoHistoricoPlanModal from "@/components/RegistrarPagoHistoricoPlanModal";
 import {
   eliminarPagoHistoricoPlan,
-  obtenerPagosHistoricosPlan,
+  obtenerHistorialPagosPlan,
   obtenerPlanesFinanciacion,
 } from "@/lib/data/presupuestos";
+
+function formatoFecha(fechaISO) {
+  if (!fechaISO) return "—";
+  const [anio, mes, dia] = fechaISO.split("-");
+  return `${dia}/${mes}/${anio}`;
+}
 
 const ESTADO_COLOR = {
   Activo: "bg-emerald-100 text-emerald-700",
@@ -20,7 +26,7 @@ export default function PlanesPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [expandido, setExpandido] = useState(null);
-  const [pagosHistoricos, setPagosHistoricos] = useState({});
+  const [historiales, setHistoriales] = useState({});
   const [mostrarPagoHistorico, setMostrarPagoHistorico] = useState(null);
 
   async function recargar() {
@@ -34,29 +40,32 @@ export default function PlanesPage() {
       .finally(() => setCargando(false));
   }, []);
 
+  async function recargarHistorial(plan) {
+    const historial = await obtenerHistorialPagosPlan(plan);
+    setHistoriales((h) => ({ ...h, [plan.id]: historial }));
+  }
+
   async function toggleExpandido(plan) {
     if (expandido === plan.id) {
       setExpandido(null);
       return;
     }
     setExpandido(plan.id);
-    if (!pagosHistoricos[plan.id]) {
+    if (!historiales[plan.id]) {
       try {
-        const pagos = await obtenerPagosHistoricosPlan(plan.id);
-        setPagosHistoricos((p) => ({ ...p, [plan.id]: pagos }));
+        await recargarHistorial(plan);
       } catch (e) {
         setError(e.message);
       }
     }
   }
 
-  async function borrarPagoHistorico(pago) {
-    if (!window.confirm(`¿Borrar el pago histórico de $${Number(pago.monto).toLocaleString("es-AR")}?`)) return;
+  async function borrarPagoHistorico(plan, entrada) {
+    if (!window.confirm(`¿Borrar el pago histórico de $${Number(entrada.monto).toLocaleString("es-AR")}?`)) return;
     try {
-      await eliminarPagoHistoricoPlan(pago);
+      await eliminarPagoHistoricoPlan({ id: entrada.idOriginal, plan_id: plan.id });
       await recargar();
-      const pagos = await obtenerPagosHistoricosPlan(pago.plan_id);
-      setPagosHistoricos((p) => ({ ...p, [pago.plan_id]: pagos }));
+      await recargarHistorial(plan);
     } catch (e) {
       setError(e.message);
     }
@@ -86,20 +95,21 @@ export default function PlanesPage() {
               <th className="px-3 py-2 text-right font-semibold">Valor cuota</th>
               <th className="px-3 py-2 text-right font-semibold">Saldo pendiente</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
+              <th className="px-3 py-2 text-left font-semibold">Último pago</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && planes.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
                   Todavía no hay planes de financiación.
                 </td>
               </tr>
@@ -131,6 +141,18 @@ export default function PlanesPage() {
                       {p.estadoPlan}
                     </span>
                   </td>
+                  <td className="px-3 py-2 text-gray-600">
+                    {p.fechaUltimoPago ? (
+                      <>
+                        {formatoFecha(p.fechaUltimoPago)}
+                        {p.medioPagoUltimoPago && (
+                          <span className="text-gray-400"> ({p.medioPagoUltimoPago})</span>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <button
                       onClick={() => setMostrarPagoHistorico(p)}
@@ -142,21 +164,31 @@ export default function PlanesPage() {
                 </tr>
                 {expandido === p.id && (
                   <tr className="bg-gray-50">
-                    <td colSpan={9} className="px-3 py-2">
-                      <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Pagos históricos registrados</p>
-                      {!pagosHistoricos[p.id] || pagosHistoricos[p.id].length === 0 ? (
-                        <p className="text-xs text-gray-500">Ninguno.</p>
+                    <td colSpan={10} className="px-3 py-2">
+                      <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Historial de pagos</p>
+                      {!historiales[p.id] || historiales[p.id].length === 0 ? (
+                        <p className="text-xs text-gray-500">Todavía no se registró ningún pago.</p>
                       ) : (
                         <ul className="flex flex-col gap-1 text-xs text-gray-600">
-                          {pagosHistoricos[p.id].map((h) => (
+                          {historiales[p.id].map((h) => (
                             <li key={h.id} className="flex items-center justify-between">
                               <span>
-                                {h.fecha} — ${Number(h.monto).toLocaleString("es-AR")}
-                                {h.observaciones ? ` (${h.observaciones})` : ""}
+                                {formatoFecha(h.fecha)} — ${Number(h.monto).toLocaleString("es-AR")}
+                                {h.medioPago ? ` · ${h.medioPago}` : ""}
+                                {" · "}
+                                <span className={h.origen === "Caja" ? "text-emerald-600" : "text-gray-400"}>
+                                  {h.origen === "Caja" ? "Cobrado en Caja" : "Pago histórico"}
+                                </span>
+                                {h.observaciones ? ` — ${h.observaciones}` : ""}
                               </span>
-                              <button onClick={() => borrarPagoHistorico(h)} className="text-red-600 hover:underline">
-                                Borrar
-                              </button>
+                              {h.origen === "Histórico" && (
+                                <button
+                                  onClick={() => borrarPagoHistorico(p, h)}
+                                  className="text-red-600 hover:underline"
+                                >
+                                  Borrar
+                                </button>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -176,8 +208,7 @@ export default function PlanesPage() {
           onClose={() => setMostrarPagoHistorico(null)}
           onGuardado={async () => {
             await recargar();
-            const pagos = await obtenerPagosHistoricosPlan(mostrarPagoHistorico.id);
-            setPagosHistoricos((p) => ({ ...p, [mostrarPagoHistorico.id]: pagos }));
+            await recargarHistorial(mostrarPagoHistorico);
             setMostrarPagoHistorico(null);
             setExpandido(mostrarPagoHistorico.id);
           }}
