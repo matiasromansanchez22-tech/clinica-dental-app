@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import RegistrarPagoHistoricoPlanModal from "@/components/RegistrarPagoHistoricoPlanModal";
 import {
+  actualizarTotalPlan,
   eliminarPagoHistoricoPlan,
   obtenerHistorialPagosPlan,
   obtenerPlanesFinanciacion,
@@ -57,6 +58,29 @@ export default function PlanesPage() {
       } catch (e) {
         setError(e.message);
       }
+    }
+  }
+
+  async function editarTotalPlan(plan) {
+    const actualTexto = String(Math.round(Number(plan.totalTratamiento)));
+    const nuevoTexto = window.prompt(
+      `Nuevo total del tratamiento para ${plan.paciente} (actual: $${Number(plan.totalTratamiento).toLocaleString("es-AR")}):`,
+      actualTexto
+    );
+    if (nuevoTexto === null) return;
+    const nuevoTotal = Number(nuevoTexto.replace(/[^\d.-]/g, ""));
+    if (!nuevoTotal || nuevoTotal <= 0) {
+      setError("El total tiene que ser un número mayor a 0.");
+      return;
+    }
+    const motivo = window.prompt("¿Por qué se actualiza? (opcional, dejalo vacío si no hace falta)");
+    if (motivo === null) return;
+    try {
+      await actualizarTotalPlan(plan, nuevoTotal, motivo.trim() || null);
+      await recargar();
+      if (historiales[plan.id]) await recargarHistorial(plan);
+    } catch (e) {
+      setError(e.message);
     }
   }
 
@@ -154,17 +178,30 @@ export default function PlanesPage() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={() => setMostrarPagoHistorico(p)}
-                      className="text-xs font-medium text-brand-brown hover:underline"
-                    >
-                      + Pago histórico
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        onClick={() => editarTotalPlan(p)}
+                        className="text-xs font-medium text-blue-600 hover:underline"
+                      >
+                        ✏️ Editar total
+                      </button>
+                      <button
+                        onClick={() => setMostrarPagoHistorico(p)}
+                        className="text-xs font-medium text-brand-brown hover:underline"
+                      >
+                        + Pago histórico
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {expandido === p.id && (
                   <tr className="bg-gray-50">
                     <td colSpan={10} className="px-3 py-2">
+                      {p.observaciones && (
+                        <div className="mb-2 whitespace-pre-line rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-500">
+                          {p.observaciones}
+                        </div>
+                      )}
                       <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Historial de pagos</p>
                       {!historiales[p.id] || historiales[p.id].length === 0 ? (
                         <p className="text-xs text-gray-500">Todavía no se registró ningún pago.</p>
