@@ -92,8 +92,20 @@ function ProduccionPorProfesionalContenido() {
     setFechaFin(ultimo);
   }
 
+  // Un % fuera de 0-100 (por ejemplo, un click de más en las flechitas del
+  // campo, o un dígito de más al tipear) antes multiplicaba directo contra
+  // el total y mostraba un "a liquidar" absurdo — y encima lo guardaba
+  // como el % real del profesional. Ahora no se guarda si no tiene sentido.
+  function porcentajeValido(valor) {
+    return Number.isFinite(valor) && valor >= 0 && valor <= 100;
+  }
+
   async function guardarPorcentajeCopago(fila, valor) {
     if (fila.profesionalId === "sin-asignar") return;
+    if (!porcentajeValido(valor)) {
+      setError(`Ese % de copago (${valor}) no tiene sentido — tiene que estar entre 0 y 100.`);
+      return;
+    }
     try {
       await actualizarPorcentajeHonorariosCopago(fila.profesionalId, valor);
       setFilas((fs) =>
@@ -110,6 +122,10 @@ function ProduccionPorProfesionalContenido() {
 
   async function guardarPorcentajeOS(fila, valor) {
     if (fila.profesionalId === "sin-asignar") return;
+    if (!porcentajeValido(valor)) {
+      setError(`Ese % de obra social (${valor}) no tiene sentido — tiene que estar entre 0 y 100.`);
+      return;
+    }
     try {
       await actualizarPorcentajeHonorariosOS(fila.profesionalId, valor);
       setFilas((fs) =>
@@ -282,6 +298,8 @@ function ProduccionPorProfesionalContenido() {
                     ) : (
                       <input
                         type="number"
+                        min={0}
+                        max={100}
                         defaultValue={f.porcentajeCopago}
                         onBlur={(e) => guardarPorcentajeCopago(f, Number(e.target.value))}
                         className="print:hidden w-16 rounded-md border border-gray-300 px-1 py-0.5 text-center"
@@ -302,6 +320,8 @@ function ProduccionPorProfesionalContenido() {
                     ) : (
                       <input
                         type="number"
+                        min={0}
+                        max={100}
                         defaultValue={f.porcentajeOS}
                         onBlur={(e) => guardarPorcentajeOS(f, Number(e.target.value))}
                         className="print:hidden w-16 rounded-md border border-gray-300 px-1 py-0.5 text-center"
