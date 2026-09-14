@@ -45,14 +45,26 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
     }
   }
 
+  // Distingue "tocó Cancelar en el cuadro de texto" (no seguir con la
+  // acción) de "lo dejó vacío a propósito" (seguir, sin motivo guardado).
+  function pedirMotivo(pregunta) {
+    const respuesta = window.prompt(`${pregunta} (opcional, dejalo vacío si no hace falta)`);
+    if (respuesta === null) return { cancelado: true };
+    return { cancelado: false, motivo: respuesta.trim() || null };
+  }
+
   function cancelarTurno() {
     if (!window.confirm("¿Cancelar este turno? Se va a liberar el horario en la grilla.")) return;
-    aplicarCambio("cancelar", { estado: "Cancelado" });
+    const resultado = pedirMotivo("¿Por qué se cancela?");
+    if (resultado.cancelado) return;
+    aplicarCambio("cancelar", { estado: "Cancelado", motivo: resultado.motivo });
   }
 
   function reprogramarTurno() {
     if (!window.confirm("¿Marcar para reprogramar? Va a aparecer en el reporte de seguimiento.")) return;
-    aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar" });
+    const resultado = pedirMotivo("¿Por qué hay que reprogramarlo?");
+    if (resultado.cancelado) return;
+    aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar", motivo: resultado.motivo });
   }
 
   async function confirmarMovimiento() {
@@ -110,6 +122,11 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
           <span>Presencia: <span className="font-medium text-gray-700">{turnoActual.presencia}</span></span>
           {turnoActual.whatsapp && <span>WhatsApp: <span className="font-medium text-gray-700">{turnoActual.whatsapp}</span></span>}
         </div>
+        {turnoActual.motivo && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span className="font-semibold uppercase">Motivo:</span> {turnoActual.motivo}
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           <div>
@@ -180,11 +197,15 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
               <BotonAccion
                 activo={turnoActual.asistencia === "No asistió"}
                 disabled={guardando !== null}
-                onClick={() =>
-                  aplicarCambio("noasistio", {
-                    asistencia: turnoActual.asistencia === "No asistió" ? "Pendiente" : "No asistió",
-                  })
-                }
+                onClick={() => {
+                  if (turnoActual.asistencia === "No asistió") {
+                    aplicarCambio("noasistio", { asistencia: "Pendiente" });
+                    return;
+                  }
+                  const resultado = pedirMotivo("¿Por qué no asistió?");
+                  if (resultado.cancelado) return;
+                  aplicarCambio("noasistio", { asistencia: "No asistió", motivo: resultado.motivo });
+                }}
               >
                 No asistió
               </BotonAccion>

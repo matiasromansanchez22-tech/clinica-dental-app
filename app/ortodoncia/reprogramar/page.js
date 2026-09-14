@@ -127,6 +127,7 @@ export default function ReprogramarOrtodonciaPage() {
                   <th className="px-3 py-2 font-semibold">Hora</th>
                   <th className="px-3 py-2 font-semibold">Consultorio / Tipo</th>
                   <th className="px-3 py-2 font-semibold">Ortodoncista</th>
+                  <th className="px-3 py-2 font-semibold">Motivo</th>
                   <th className="px-3 py-2 font-semibold">Acciones</th>
                 </tr>
               </thead>
@@ -141,6 +142,7 @@ export default function ReprogramarOrtodonciaPage() {
                       Consultorio {t.consultorio} · {t.concepto}
                     </td>
                     <td className="px-3 py-2 text-gray-600">{t.profesionalDeTurno}</td>
+                    <td className="px-3 py-2 text-gray-500">{t.motivo || "—"}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-3">
                         {linkWhatsApp(t.whatsapp) && (
