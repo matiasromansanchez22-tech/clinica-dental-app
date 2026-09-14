@@ -10,6 +10,7 @@ import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
+import { obtenerCantidadPresupuestosPendientesConPagos } from "@/lib/data/presupuestos";
 import { obtenerCantidadDeudoresOrtodoncia } from "@/lib/data/controlesOrtodoncia";
 import { obtenerCantidadTurnosSinCerrarHoy } from "@/lib/data/cierres";
 import { obtenerCantidadMesesPendientesAprobar } from "@/lib/data/cierresMes";
@@ -31,7 +32,7 @@ const GRUPOS = [
       { href: "/pacientes", label: "Pacientes" },
       { href: "/nomenclador", label: "Nomenclador" },
       { href: "/catalogo", label: "Catálogo" },
-      { href: "/presupuestos", label: "Presupuestos" },
+      { href: "/presupuestos", label: "Presupuestos", badgeKey: "presupuestosPendientesConPago" },
       { href: "/planes", label: "Planes de Financiación" },
       { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarGeneral" },
       { href: "/caja", label: "Caja" },
@@ -180,9 +181,10 @@ export default function NavBar() {
       obtenerCantidadTurnosOrtodonciaAReprogramar(),
       obtenerCantidadCobrosConSaldoPendiente(),
       obtenerCantidadDeudoresOrtodoncia(),
+      obtenerCantidadPresupuestosPendientesConPagos(),
     ])
-      .then(([general, ortodoncia, cobrarGeneral, cobrarOrtodoncia]) =>
-        setBadges((b) => ({ ...b, general, ortodoncia, cobrarGeneral, cobrarOrtodoncia }))
+      .then(([general, ortodoncia, cobrarGeneral, cobrarOrtodoncia, presupuestosPendientesConPago]) =>
+        setBadges((b) => ({ ...b, general, ortodoncia, cobrarGeneral, cobrarOrtodoncia, presupuestosPendientesConPago }))
       )
       .catch(() => {});
 

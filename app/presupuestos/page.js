@@ -7,7 +7,11 @@ import { obtenerConfiguracionGeneral } from "@/lib/data/configuracionGeneral";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { cambiarEstadoPresupuesto, obtenerPresupuestos } from "@/lib/data/presupuestos";
+import {
+  cambiarEstadoPresupuesto,
+  obtenerPresupuestos,
+  obtenerPresupuestosPendientesConPagos,
+} from "@/lib/data/presupuestos";
 import { obtenerObrasSociales } from "@/lib/data/nomenclador";
 
 const ESTADO_COLOR = {
@@ -28,10 +32,12 @@ export default function PresupuestosPage() {
   const [presupuestoEnEdicion, setPresupuestoEnEdicion] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [procesando, setProcesando] = useState(null);
+  const [pendientesConPagos, setPendientesConPagos] = useState([]);
 
   async function recargar() {
-    const data = await obtenerPresupuestos();
+    const [data, avisos] = await Promise.all([obtenerPresupuestos(), obtenerPresupuestosPendientesConPagos()]);
     setPresupuestos(data);
+    setPendientesConPagos(avisos);
   }
 
   useEffect(() => {
@@ -42,18 +48,22 @@ export default function PresupuestosPage() {
       obtenerCatalogo(),
       obtenerConfiguracionGeneral(),
       obtenerObrasSociales(),
+      obtenerPresupuestosPendientesConPagos(),
     ])
-      .then(([p, pac, prof, cat, conf, os]) => {
+      .then(([p, pac, prof, cat, conf, os, avisos]) => {
         setPresupuestos(p);
         setPacientes(pac);
         setProfesionales(prof);
         setCatalogo(cat.filter((c) => c.estado === "Activo"));
         setConfig(conf);
         setObrasSociales(os);
+        setPendientesConPagos(avisos);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, []);
+
+  const idsConAviso = new Set(pendientesConPagos.map((a) => a.id));
 
   async function handleCambiarEstado(presupuesto, nuevoEstado) {
     if (nuevoEstado === "Anulado" && !window.confirm("¿Anular este presupuesto? El plan de financiación asociado (si existe) se va a cancelar, pero conserva su historial.")) {
@@ -91,6 +101,24 @@ export default function PresupuestosPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
 
+      {pendientesConPagos.length > 0 && (
+        <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="font-medium">
+            ⚠️ {pendientesConPagos.length} presupuesto{pendientesConPagos.length === 1 ? "" : "s"} en Pendiente ya
+            tiene{pendientesConPagos.length === 1 ? "" : "n"} pagos cargados en Caja — probablemente haya que
+            aceptarlos.
+          </p>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {pendientesConPagos.map((a) => (
+              <li key={a.id}>
+                {a.numero} · {a.paciente} — {a.cantidadCobros} cobro{a.cantidadCobros === 1 ? "" : "s"} por $
+                {a.totalCobrado.toLocaleString("es-AR")} (presupuesto de ${a.total.toLocaleString("es-AR")})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -121,7 +149,10 @@ export default function PresupuestosPage() {
               </tr>
             )}
             {presupuestos.map((p) => (
-              <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
+              <tr
+                key={p.id}
+                className={`border-t border-gray-100 hover:bg-gray-50 ${idsConAviso.has(p.id) ? "bg-amber-50" : ""}`}
+              >
                 <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 font-medium text-gray-900">
                   {p.numero}
                 </td>
@@ -144,6 +175,11 @@ export default function PresupuestosPage() {
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[p.estado]}`}>
                     {p.estado}
                   </span>
+                  {idsConAviso.has(p.id) && (
+                    <span className="ml-1 text-amber-600" title="Ya tiene pagos cargados en Caja">
+                      ⚠️
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-2">
