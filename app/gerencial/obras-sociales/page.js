@@ -6,9 +6,20 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   actualizarEstadoFicha,
   actualizarEstadoFichaMasivo,
+  agruparBalanceObrasSocialesPorProfesional,
   ESTADOS_FICHA,
   obtenerFacturacionObrasSociales,
 } from "@/lib/data/facturacionObrasSociales";
+
+const NOMBRES_MES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+function formatoMes(mesISO) {
+  const [anio, mes] = mesISO.split("-").map(Number);
+  return `${NOMBRES_MES[mes - 1]} ${anio}`;
+}
 
 function primerYUltimoDiaDelMes(fechaISO) {
   const [anio, mes] = fechaISO.split("-").map(Number);
@@ -77,6 +88,13 @@ function ControlObrasSocialesContenido() {
     }
     return Object.values(mapa).sort((a, b) => b.total - a.total);
   }, [filasFiltradas]);
+
+  // Balance por profesional y mes: siempre sobre TODAS las fichas del
+  // período elegido (sin el filtro de obra social/estado de la tabla de
+  // abajo, que es para revisar el detalle), así responde "cuánto le
+  // corresponde cobrar a cada uno" sin importar cómo esté filtrada la tabla.
+  const [mostrarBalance, setMostrarBalance] = useState(true);
+  const balancePorProfesional = useMemo(() => agruparBalanceObrasSocialesPorProfesional(fichas), [fichas]);
 
   const totalGeneral = filasFiltradas.reduce((acc, f) => acc + f.valorOS, 0);
 
@@ -183,6 +201,53 @@ function ControlObrasSocialesContenido() {
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
+
+      <div className="mt-6 rounded-lg border border-gray-200">
+        <button
+          onClick={() => setMostrarBalance((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="font-semibold text-gray-900">
+            📊 Balance por profesional {fechaInicio.slice(0, 7) !== fechaFin.slice(0, 7) ? "y mes" : ""}
+          </span>
+          <span className="text-sm text-gray-500">{mostrarBalance ? "Ocultar ▲" : "Mostrar ▼"}</span>
+        </button>
+        {mostrarBalance && (
+          <div className="overflow-x-auto border-t border-gray-200">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-600">
+                  <th className="px-3 py-2 text-left font-semibold">Mes</th>
+                  <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+                  <th className="px-3 py-2 text-center font-semibold">Pacientes atendidos</th>
+                  <th className="px-3 py-2 text-right font-semibold">Total facturado a OS</th>
+                  <th className="px-3 py-2 text-right font-semibold">Le corresponde cobrar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {balancePorProfesional.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                      No hay facturación de obra social en este período.
+                    </td>
+                  </tr>
+                )}
+                {balancePorProfesional.map((b) => (
+                  <tr key={`${b.mes}|${b.profesionalId}`} className="border-t border-gray-100">
+                    <td className="px-3 py-2 text-gray-600">{formatoMes(b.mes)}</td>
+                    <td className="px-3 py-2 font-medium text-gray-900">{b.profesional}</td>
+                    <td className="px-3 py-2 text-center text-gray-600">{b.cantidadPacientes}</td>
+                    <td className="px-3 py-2 text-right text-gray-600">${b.totalFacturado.toLocaleString("es-AR")}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-brand-brown">
+                      ${Math.round(b.honorarios).toLocaleString("es-AR")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button onClick={seleccionarTodasFiltradas} className="text-xs text-blue-600 hover:underline">
