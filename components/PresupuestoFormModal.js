@@ -63,6 +63,28 @@ export default function PresupuestoFormModal({
 
   const total = useMemo(() => calcularTotalPrestaciones(prestaciones), [prestaciones]);
 
+  // Para que el paciente pueda decidir en el momento cómo le conviene
+  // pagar, sin tener que armar dos presupuestos iguales: muestra cómo
+  // quedaría el total de lista contra el de efectivo, prestación por
+  // prestación, sin importar qué tipoPrecio esté elegido ahora en cada
+  // fila. Para obra social no aplica — ahí se paga el copago, no hay
+  // "lista" ni "efectivo".
+  const comparacionPrecios = useMemo(() => {
+    if (esObraSocial) return null;
+    let totalLista = 0;
+    let totalEfectivo = 0;
+    for (const p of prestaciones) {
+      if (!p.catalogoId) continue;
+      const item = catalogo.find((c) => c.id === p.catalogoId);
+      if (!item) continue;
+      const cantidad = Number(p.cantidad) || 0;
+      totalLista += cantidad * (Number(item.valor_lista) || 0);
+      totalEfectivo += cantidad * (Number(item.valor_efectivo) || 0);
+    }
+    if (totalLista <= 0 && totalEfectivo <= 0) return null;
+    return { totalLista: redondear(totalLista), totalEfectivo: redondear(totalEfectivo) };
+  }, [prestaciones, catalogo, esObraSocial]);
+
   useEffect(() => {
     if (!modalidadPago) return;
     const sugerido = calcularAnticipoSugerido(total, modalidadPago, config);
@@ -321,6 +343,27 @@ export default function PresupuestoFormModal({
           <div className="flex justify-end text-sm font-semibold text-gray-900">
             Total: ${total.toLocaleString("es-AR")}
           </div>
+
+          {comparacionPrecios && (
+            <div className="rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-sm">
+              <p className="text-xs font-semibold uppercase text-brand-brown">
+                Cómo le queda al paciente según cómo pague (para decidir en el momento)
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-4">
+                <span className="text-gray-700">
+                  Valor de lista: <strong>${comparacionPrecios.totalLista.toLocaleString("es-AR")}</strong>
+                </span>
+                <span className="text-gray-700">
+                  Valor en efectivo: <strong className="text-emerald-700">${comparacionPrecios.totalEfectivo.toLocaleString("es-AR")}</strong>
+                </span>
+                {comparacionPrecios.totalLista > comparacionPrecios.totalEfectivo && (
+                  <span className="text-xs text-gray-500">
+                    (ahorra ${(comparacionPrecios.totalLista - comparacionPrecios.totalEfectivo).toLocaleString("es-AR")} pagando en efectivo)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           <hr className="border-gray-200" />
 
