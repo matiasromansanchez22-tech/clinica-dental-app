@@ -13,6 +13,7 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
   const [vinculadas, setVinculadas] = useState([]);
   const [seleccionadas, setSeleccionadas] = useState(new Set());
   const [filtroObraSocial, setFiltroObraSocial] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -47,7 +48,17 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
     [todasLasFichas]
   );
 
-  const fichasFiltradas = todasLasFichas.filter((f) => !filtroObraSocial || f.obraSocial === filtroObraSocial);
+  const categorias = useMemo(
+    () => [...new Set(todasLasFichas.map((f) => f.categoria))].sort(),
+    [todasLasFichas]
+  );
+
+  // Obra social + categoría por separado (no combinadas en un solo
+  // desplegable): ASOR liquida, ej., "IAPOS Prótesis" y "IAPOS comunes" en
+  // transferencias distintas, así que hace falta poder aislar cada una.
+  const fichasFiltradas = todasLasFichas
+    .filter((f) => !filtroObraSocial || f.obraSocial === filtroObraSocial)
+    .filter((f) => !filtroCategoria || f.categoria === filtroCategoria);
 
   function alternar(id) {
     setSeleccionadas((s) => {
@@ -102,7 +113,7 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
 
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <select
             value={filtroObraSocial}
             onChange={(e) => setFiltroObraSocial(e.target.value)}
@@ -112,6 +123,18 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
             {obrasSociales.map((os) => (
               <option key={os} value={os}>
                 {os}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filtroCategoria}
+            onChange={(e) => setFiltroCategoria(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            <option value="">Todas las categorías</option>
+            {categorias.map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
@@ -135,6 +158,7 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
                   <th className="px-3 py-2 text-left font-semibold">Fecha</th>
                   <th className="px-3 py-2 text-left font-semibold">Paciente</th>
                   <th className="px-3 py-2 text-left font-semibold">Obra Social</th>
+                  <th className="px-3 py-2 text-left font-semibold">Categoría</th>
                   <th className="px-3 py-2 text-left font-semibold">Prestación</th>
                   <th className="px-3 py-2 text-right font-semibold">Valor OS</th>
                 </tr>
@@ -142,8 +166,9 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
               <tbody>
                 {fichasFiltradas.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
-                      No hay fichas pendientes de conciliar{filtroObraSocial ? ` para ${filtroObraSocial}` : ""}.
+                    <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                      No hay fichas pendientes de conciliar{filtroObraSocial ? ` para ${filtroObraSocial}` : ""}
+                      {filtroCategoria ? ` (${filtroCategoria})` : ""}.
                     </td>
                   </tr>
                 )}
@@ -155,6 +180,15 @@ export default function ConciliarPagoAsorModal({ pago, onClose, onGuardado }) {
                     <td className="px-3 py-2 text-gray-600">{f.fecha}</td>
                     <td className="px-3 py-2 font-medium text-gray-900">{f.paciente}</td>
                     <td className="px-3 py-2 text-gray-600">{f.obraSocial}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          f.categoria === "Prótesis" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {f.categoria}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-gray-600">{f.prestacion}</td>
                     <td className="px-3 py-2 text-right text-gray-600">${f.valorOS.toLocaleString("es-AR")}</td>
                   </tr>

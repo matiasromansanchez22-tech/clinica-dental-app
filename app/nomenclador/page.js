@@ -5,6 +5,7 @@ import ConfiguracionCopagoModal from "@/components/ConfiguracionCopagoModal";
 import NomencladorFilaModal from "@/components/NomencladorFilaModal";
 import { calcularCopagoSugerido } from "@/lib/copago";
 import {
+  CATEGORIAS_NOMENCLADOR,
   obtenerConfiguracionCopagoParticular,
   obtenerExcepcionesCopago,
   obtenerNomencladorPorObraSocial,
@@ -15,6 +16,7 @@ export default function NomencladorPage() {
   const [obrasSociales, setObrasSociales] = useState([]);
   const [obraSocial, setObraSocial] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filas, setFilas] = useState([]);
   const [porcentajeParticular, setPorcentajeParticular] = useState(80);
   const [excepciones, setExcepciones] = useState([]);
@@ -62,6 +64,8 @@ export default function NomencladorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obraSocial, busqueda]);
 
+  const filasFiltradas = filas.filter((f) => !filtroCategoria || f.categoria === filtroCategoria);
+
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="flex items-center justify-between">
@@ -97,6 +101,19 @@ export default function NomencladorPage() {
           disabled={!obraSocial}
           className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
         />
+        <select
+          value={filtroCategoria}
+          onChange={(e) => setFiltroCategoria(e.target.value)}
+          disabled={!obraSocial}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+        >
+          <option value="">Todas las categorías</option>
+          {CATEGORIAS_NOMENCLADOR.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -115,6 +132,7 @@ export default function NomencladorPage() {
                 <th className="px-3 py-2 text-left font-semibold">Código</th>
                 <th className="px-3 py-2 text-left font-semibold">Prestación (obra social)</th>
                 <th className="px-3 py-2 text-left font-semibold">Prestación interna</th>
+                <th className="px-3 py-2 text-left font-semibold">Categoría</th>
                 <th className="px-3 py-2 text-right font-semibold">Valor OS</th>
                 <th className="px-3 py-2 text-right font-semibold">Copago</th>
               </tr>
@@ -122,19 +140,19 @@ export default function NomencladorPage() {
             <tbody>
               {cargando && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                  <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
                     Cargando...
                   </td>
                 </tr>
               )}
-              {!cargando && filas.length === 0 && (
+              {!cargando && filasFiltradas.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                  <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
                     No se encontraron prestaciones.
                   </td>
                 </tr>
               )}
-              {filas.map((f) => {
+              {filasFiltradas.map((f) => {
                 const sugerido = calcularCopagoSugerido(
                   Number(f.valor_os),
                   Number(f.valor_efectivo) || 0,
@@ -152,6 +170,15 @@ export default function NomencladorPage() {
                     <td className="px-3 py-2 text-gray-600">{f.codigo || "—"}</td>
                     <td className="px-3 py-2 text-gray-900">{f.prestacion_os}</td>
                     <td className="px-3 py-2 text-gray-600">{f.prestacion_interna || "—"}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          f.categoria === "Prótesis" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {f.categoria || "Común"}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-right text-gray-600">
                       ${Number(f.valor_os).toLocaleString("es-AR")}
                     </td>

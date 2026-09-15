@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { calcularCopagoSugerido } from "@/lib/copago";
-import { actualizarFilaNomenclador } from "@/lib/data/nomenclador";
+import { actualizarFilaNomenclador, CATEGORIAS_NOMENCLADOR } from "@/lib/data/nomenclador";
 
 export default function NomencladorFilaModal({ fila, porcentajeParticular, excepciones, onClose, onGuardado }) {
   const [valorOS, setValorOS] = useState(fila.valor_os);
   const [copago, setCopago] = useState(fila.copago_oficial);
+  const [categoria, setCategoria] = useState(fila.categoria || "Común");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,6 +27,7 @@ export default function NomencladorFilaModal({ fila, porcentajeParticular, excep
       await actualizarFilaNomenclador(fila.id, {
         valor_os: Number(valorOS),
         copago_oficial: Number(copago),
+        categoria,
       });
       onGuardado();
     } catch (err) {
@@ -53,6 +55,21 @@ export default function NomencladorFilaModal({ fila, porcentajeParticular, excep
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1 text-sm text-gray-700">
+            Categoría (para separar cómo liquida ASOR — ej. IAPOS paga prótesis y prestaciones comunes por separado)
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5"
+            >
+              {CATEGORIAS_NOMENCLADOR.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Valor OS (lo que factura la clínica a la obra social)
             <input

@@ -98,6 +98,9 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         // Producción pueda liquidar un % distinto según la especialidad de
         // la prestación, no solo un % fijo por profesional.
         fila.especialidad = item?.especialidad || null;
+        // Categoría del nomenclador (solo obra social) — para poder separar,
+        // ej., lo que ASOR liquida como "Prótesis" de las prestaciones comunes.
+        fila.categoria = item?.categoria || null;
         // Prestaciones administrativas conocidas (no le corresponden % a
         // ningún profesional) se marcan solas al elegirlas — se puede
         // destildar a mano si hiciera falta.
@@ -217,6 +220,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                 valorOS: p.valorOS,
                 sinHonorarios: p.sinHonorarios,
                 especialidad: p.especialidad || null,
+                categoria: p.categoria || null,
               })),
         importeTotal: usaPlan ? Number(pago) : importeTotal,
         pago: Number(pago),
