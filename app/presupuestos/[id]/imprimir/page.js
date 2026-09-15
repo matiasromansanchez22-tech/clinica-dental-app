@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { obtenerPresupuestoPorId } from "@/lib/data/presupuestos";
+import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { generarPresupuestoPdf } from "@/lib/pdf/generarPresupuestoPdf";
 import { redondear } from "@/lib/presupuestos";
 
@@ -17,16 +18,40 @@ function formatoFecha(fechaISO) {
 export default function ImprimirPresupuestoPage() {
   const { id } = useParams();
   const [presupuesto, setPresupuesto] = useState(null);
+  const [catalogo, setCatalogo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [generandoPdf, setGenerandoPdf] = useState(false);
 
   useEffect(() => {
-    obtenerPresupuestoPorId(id)
-      .then(setPresupuesto)
+    Promise.all([obtenerPresupuestoPorId(id), obtenerCatalogo()])
+      .then(([p, cat]) => {
+        setPresupuesto(p);
+        setCatalogo(cat);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [id]);
+
+  // Misma comparación que se ve al armar el presupuesto — para que el
+  // paciente la tenga también en lo que se le entrega/manda, sin tener
+  // que pedirla aparte. No aplica si se armó con copago de obra social.
+  const comparacionPrecios = useMemo(() => {
+    if (!presupuesto || catalogo.length === 0) return null;
+    const esObraSocial = presupuesto.prestaciones.some((p) => p.tipoPrecio === "Copago");
+    if (esObraSocial) return null;
+    let totalLista = 0;
+    let totalEfectivo = 0;
+    for (const p of presupuesto.prestaciones) {
+      const item = catalogo.find((c) => c.id === p.catalogoId);
+      if (!item) continue;
+      const cantidad = Number(p.cantidad) || 0;
+      totalLista += cantidad * (Number(item.valor_lista) || 0);
+      totalEfectivo += cantidad * (Number(item.valor_efectivo) || 0);
+    }
+    if (totalLista <= 0 && totalEfectivo <= 0) return null;
+    return { totalLista: redondear(totalLista), totalEfectivo: redondear(totalEfectivo) };
+  }, [presupuesto, catalogo]);
 
   if (cargando) return <p className="p-10 text-sm text-gray-500">Cargando...</p>;
   if (error) return <p className="p-10 text-sm text-red-700">{error}</p>;
@@ -46,7 +71,7 @@ export default function ImprimirPresupuestoPage() {
   async function descargarPdf() {
     setGenerandoPdf(true);
     try {
-      const doc = await generarPresupuestoPdf(presupuesto, vigenciaHasta);
+      const doc = await generarPresupuestoPdf(presupuesto, vigenciaHasta, comparacionPrecios);
       doc.save(`Presupuesto ${presupuesto.numero} - ${presupuesto.paciente}.pdf`);
     } finally {
       setGenerandoPdf(false);
@@ -134,6 +159,25 @@ export default function ImprimirPresupuestoPage() {
             </div>
           </div>
         </div>
+
+        {comparacionPrecios && (
+          <div className="mt-4 rounded-md border border-brand-tan bg-brand-tan/10 px-4 py-3 text-sm">
+            <p className="mb-1 text-xs font-semibold uppercase text-brand-brown">Según cómo prefiera pagar</p>
+            <div className="flex flex-wrap items-center gap-6">
+              <span className="text-gray-700">
+                Valor de lista: <strong>${comparacionPrecios.totalLista.toLocaleString("es-AR")}</strong>
+              </span>
+              <span className="text-gray-700">
+                Valor en efectivo: <strong className="text-emerald-700">${comparacionPrecios.totalEfectivo.toLocaleString("es-AR")}</strong>
+              </span>
+              {comparacionPrecios.totalLista > comparacionPrecios.totalEfectivo && (
+                <span className="text-xs text-gray-500">
+                  (ahorra ${(comparacionPrecios.totalLista - comparacionPrecios.totalEfectivo).toLocaleString("es-AR")} pagando en efectivo)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {presupuesto.modalidadPago && (
           <div className="mt-6 rounded-md border border-gray-200 p-4 text-sm">
