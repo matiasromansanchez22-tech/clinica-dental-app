@@ -14,6 +14,13 @@ function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
 
+function colorEstadoTrabajo(estado) {
+  if (estado === "Entregado") return "text-emerald-600";
+  if (estado === "Prueba con el paciente") return "text-sky-600";
+  if (estado === "Ajuste pendiente") return "text-amber-600";
+  return "text-gray-400";
+}
+
 export default function GastoFormModal({
   gasto,
   categorias,
@@ -196,25 +203,42 @@ export default function GastoFormModal({
             <div className="flex flex-col gap-1 text-sm text-gray-700">
               ¿A qué trabajos corresponde este pago? (opcional)
               <div className="max-h-40 overflow-y-auto rounded-md border border-gray-300">
-                {trabajosMecanico.map((t) => (
-                  <label
-                    key={t.id}
-                    className="flex cursor-pointer items-center justify-between gap-2 border-b border-gray-100 px-2 py-1.5 text-xs last:border-b-0 hover:bg-gray-50"
-                  >
-                    <span className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={trabajosSeleccionados.has(t.id)}
-                        onChange={() => alternarTrabajo(t.id)}
-                      />
-                      {t.pacienteNombre} — {t.tipoTrabajo}
-                      {t.pieza ? ` (${t.pieza})` : ""}
-                    </span>
-                    <span className="whitespace-nowrap text-gray-500">
-                      {t.valor ? formatoPesos(t.valor) : "sin valor"}
-                    </span>
-                  </label>
-                ))}
+                {trabajosMecanico.map((t) => {
+                  // Mario cobra la mitad en el momento de traer para probar
+                  // (el resto recién al entregar) — se aclara acá para no
+                  // pagarle de más creyendo que ese trabajo ya está completo.
+                  const enPruebaDeMario =
+                    mecanico.trim().toLowerCase() === "mario" && t.estado === "Prueba con el paciente" && t.valor;
+                  return (
+                    <label
+                      key={t.id}
+                      className="flex cursor-pointer items-center justify-between gap-2 border-b border-gray-100 px-2 py-1.5 text-xs last:border-b-0 hover:bg-gray-50"
+                    >
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={trabajosSeleccionados.has(t.id)}
+                          onChange={() => alternarTrabajo(t.id)}
+                        />
+                        <span className="flex flex-col">
+                          <span>
+                            {t.pacienteNombre} — {t.tipoTrabajo}
+                            {t.pieza ? ` (${t.pieza})` : ""}
+                          </span>
+                          <span className={`text-[10px] font-medium ${colorEstadoTrabajo(t.estado)}`}>{t.estado}</span>
+                        </span>
+                      </span>
+                      <span className="flex flex-col items-end whitespace-nowrap">
+                        <span className="text-gray-500">{t.valor ? formatoPesos(t.valor) : "sin valor"}</span>
+                        {enPruebaDeMario && (
+                          <span className="text-[10px] font-medium text-amber-600">
+                            en prueba — 50%: {formatoPesos(t.valor / 2)}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
               {trabajosSeleccionados.size > 0 && (
                 <p
