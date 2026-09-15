@@ -5,6 +5,7 @@ import CobroFormModal from "@/components/CobroFormModal";
 import EditarCobroModal from "@/components/EditarCobroModal";
 import GastoFormModal from "@/components/GastoFormModal";
 import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
+import TransferenciaCajaModal from "@/components/TransferenciaCajaModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { desglosarPago, eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
@@ -13,6 +14,7 @@ import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
+import { eliminarTransferenciaCaja, obtenerTransferenciasCajaPorFecha } from "@/lib/data/transferenciasCaja";
 
 export default function CajaPage() {
   const { perfil } = useAuth();
@@ -31,6 +33,8 @@ export default function CajaPage() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [mostrarNuevoPago, setMostrarNuevoPago] = useState(false);
   const [mostrarNuevoPagoProfesional, setMostrarNuevoPagoProfesional] = useState(false);
+  const [mostrarNuevaTransferencia, setMostrarNuevaTransferencia] = useState(false);
+  const [transferencias, setTransferencias] = useState([]);
   const [cobroEnEdicion, setCobroEnEdicion] = useState(null);
 
   // Los sueldos (Registrar sueldo, en Consultorio) y las categorías
@@ -53,14 +57,16 @@ export default function CajaPage() {
   }
 
   async function recargar() {
-    const [c, g, pp] = await Promise.all([
+    const [c, g, pp, t] = await Promise.all([
       obtenerCobrosPorFecha(fecha),
       obtenerGastos(fecha, fecha),
       obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
+      obtenerTransferenciasCajaPorFecha(fecha),
     ]);
     setCobros(c);
     setGastos(gastosDeEstaCaja(g, categoriasGasto));
     setPagosProfesionales(pagosDeEstaCaja(pp));
+    setTransferencias(t);
   }
 
   useEffect(() => {
@@ -69,14 +75,16 @@ export default function CajaPage() {
       obtenerCobrosPorFecha(fecha),
       obtenerGastos(fecha, fecha),
       obtenerPagosProfesionales(fecha, fecha, { origen: "Caja" }),
+      obtenerTransferenciasCajaPorFecha(fecha),
       obtenerPacientesActivos(),
       obtenerProfesionales(),
       obtenerCategoriasGasto(),
     ])
-      .then(([c, g, pp, p, prof, cat]) => {
+      .then(([c, g, pp, t, p, prof, cat]) => {
         setCobros(c);
         setGastos(gastosDeEstaCaja(g, cat));
         setPagosProfesionales(pagosDeEstaCaja(pp));
+        setTransferencias(t);
         setPacientes(p);
         setProfesionales(prof);
         setCategoriasGasto(cat);
@@ -92,12 +100,20 @@ export default function CajaPage() {
       .catch(() => {});
   }, []);
 
+  // Una transferencia que ENTRA a esta caja suma como si fuera un cobro
+  // más (es plata real que está disponible hoy); una que SALE resta como
+  // un egreso más — así ninguna de las dos cajas queda con un número que
+  // no se explica solo cuando una le presta plata a la otra.
+  const transferenciasEntrantes = transferencias.filter((t) => t.destino === "General");
+  const transferenciasSalientes = transferencias.filter((t) => t.origen === "General");
+
   const totalesPorMedio = cobros.reduce((acc, c) => {
     for (const parte of desglosarPago(c)) {
       acc[parte.medio] = (acc[parte.medio] || 0) + Number(parte.monto);
     }
     return acc;
   }, {});
+  for (const t of transferenciasEntrantes) totalesPorMedio[t.medioPago] = (totalesPorMedio[t.medioPago] || 0) + t.monto;
   const totalGeneral = Object.values(totalesPorMedio).reduce((a, b) => a + b, 0);
 
   const egresosDelDia = [
@@ -108,6 +124,13 @@ export default function CajaPage() {
       etiqueta: `Pago a ${p.profesional} (${p.tipo})`,
       monto: p.monto,
       medioPago: p.medioPago,
+    })),
+    ...transferenciasSalientes.map((t) => ({
+      id: t.id,
+      tipo: "transferencia",
+      etiqueta: `🔄 Transferencia a Caja Ortodoncia`,
+      monto: t.monto,
+      medioPago: t.medioPago,
     })),
   ];
   const totalesEgresosPorMedio = egresosDelDia.reduce((acc, e) => {
@@ -141,6 +164,16 @@ export default function CajaPage() {
     }
   }
 
+  async function borrarTransferencia(t) {
+    if (!window.confirm(`¿Borrar esta transferencia de $${Number(t.monto).toLocaleString("es-AR")}?`)) return;
+    try {
+      await eliminarTransferenciaCaja(t.id);
+      await recargar();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   async function borrarCobro(cobro) {
     if (
       !window.confirm(
@@ -167,6 +200,12 @@ export default function CajaPage() {
               className="rounded-md border border-brand-brown/40 px-2.5 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
             >
               💰 Pago a profesional
+            </button>
+            <button
+              onClick={() => setMostrarNuevaTransferencia(true)}
+              className="rounded-md border border-brand-brown/40 px-2.5 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              🔄 Transferencia entre cajas
             </button>
             <button
               onClick={() => setMostrarNuevoPago(true)}
@@ -228,6 +267,29 @@ export default function CajaPage() {
         </div>
       </div>
 
+      {transferenciasEntrantes.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {transferenciasEntrantes.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800"
+            >
+              <span>
+                🔄 Transferencia recibida de Caja Ortodoncia ({t.medioPago}){t.observaciones ? ` — ${t.observaciones}` : ""}
+              </span>
+              <span className="flex items-center gap-3">
+                <span className="font-medium">${t.monto.toLocaleString("es-AR")}</span>
+                {!esContador && (
+                  <button onClick={() => borrarTransferencia(t)} className="text-red-600 hover:underline">
+                    Borrar
+                  </button>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <p className="mt-3 text-xs font-semibold uppercase text-gray-400">Disponible (después de pagos)</p>
       <div className="mt-1 flex flex-wrap gap-3">
         {mediosUnicos.map((medio) => (
@@ -273,6 +335,21 @@ export default function CajaPage() {
                   <span className="font-medium text-gray-900">${Number(p.monto).toLocaleString("es-AR")}</span>
                   {!esContador && (
                     <button onClick={() => borrarPagoProfesional(p)} className="text-xs text-red-600 hover:underline">
+                      Borrar
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+            {transferenciasSalientes.map((t) => (
+              <li key={`transferencia-${t.id}`} className="flex items-center justify-between border-t border-gray-100 px-3 py-2 text-sm">
+                <span className="text-gray-700">
+                  🔄 Transferencia a Caja Ortodoncia <span className="text-xs text-gray-400">({t.medioPago})</span>
+                </span>
+                <span className="flex items-center gap-3">
+                  <span className="font-medium text-gray-900">${Number(t.monto).toLocaleString("es-AR")}</span>
+                  {!esContador && (
+                    <button onClick={() => borrarTransferencia(t)} className="text-xs text-red-600 hover:underline">
                       Borrar
                     </button>
                   )}
@@ -407,6 +484,18 @@ export default function CajaPage() {
           onGuardado={async () => {
             await recargar();
             setMostrarNuevoPagoProfesional(false);
+          }}
+        />
+      )}
+
+      {mostrarNuevaTransferencia && (
+        <TransferenciaCajaModal
+          fecha={fecha}
+          cajaActual="General"
+          onClose={() => setMostrarNuevaTransferencia(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarNuevaTransferencia(false);
           }}
         />
       )}
