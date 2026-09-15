@@ -20,6 +20,18 @@ function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
 
+// Mario cobra la mitad del valor del trabajo en el momento en que lo trae
+// para probar con el paciente (el resto se paga después, al entregarlo) —
+// se avisa acá para no tener que acordarse ni calcularlo a mano.
+function avisarPagoDePrueba(trabajo) {
+  const esMario = (trabajo.laboratorio || "").trim().toLowerCase() === "mario";
+  if (!esMario || !trabajo.valor) return;
+  const mitad = Math.round(Number(trabajo.valor) / 2);
+  window.alert(
+    `💰 Recordá pagarle a Mario ahora: ${formatoPesos(mitad)} (la mitad de ${formatoPesos(trabajo.valor)}) — cobra el 50% al traer para probar.`
+  );
+}
+
 // Lista de nombre + precio de ESE mecánico, clickeable, como el catálogo
 // propio de la clínica — para elegir el trabajo viendo el valor de una,
 // en vez de escribir a ciegas.
@@ -645,6 +657,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     setError(null);
     try {
       await agregarEventoTrabajo(trabajo.id, nuevo);
+      if (nuevo.tipoEvento === "Prueba con el paciente") avisarPagoDePrueba(trabajo);
       setNuevo({ fecha: fechaDeHoyISO(), tipoEvento: "Recibido del mecánico", observaciones: "" });
       setMostrarNuevo(false);
       await cargar();
@@ -666,6 +679,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     setError(null);
     try {
       await agregarEventoTrabajo(trabajo.id, { fecha: fechaDeHoyISO(), tipoEvento, observaciones: "" });
+      if (tipoEvento === "Prueba con el paciente") avisarPagoDePrueba(trabajo);
       await cargar();
       await onEventoGuardado();
     } catch (e) {
