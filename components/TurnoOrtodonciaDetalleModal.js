@@ -134,10 +134,17 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
             <BotonAccion
               activo={turnoActual.confirmacion === "Confirmado"}
               disabled={guardando !== null}
-              onClick={() => aplicarCambio("confirmar", { confirmacion: "Confirmado" })}
+              onClick={() =>
+                aplicarCambio("confirmar", {
+                  confirmacion: turnoActual.confirmacion === "Confirmado" ? "Sin confirmar" : "Confirmado",
+                })
+              }
             >
               {guardando === "confirmar" ? "Guardando..." : "✓ Confirmar turno"}
             </BotonAccion>
+            {turnoActual.confirmacion === "Confirmado" && (
+              <p className="mt-1 text-[11px] text-gray-400">Tocá "Confirmar turno" de nuevo para destildarlo.</p>
+            )}
           </div>
 
           <div>
