@@ -161,39 +161,43 @@ function PacientesOrtodonciaContenido() {
         </label>
       </div>
 
-      {!cargando && pacientesEnConsulta.length > 0 && (
+      {!cargando && (
         <div className="mt-4 overflow-hidden rounded-lg border border-sky-200">
           <div className="bg-sky-50 px-4 py-2">
             <p className="font-heading text-sm font-semibold text-sky-800">
               🔎 En consulta — todavía sin arrancar tratamiento ({pacientesEnConsulta.length})
             </p>
             <p className="text-xs text-sky-700">
-              Si arranca con un turno de "Instalación superior/inferior" pasa solo a la lista de abajo. O marcalo acá si
-              ya decidió.
+              Se cargan solos al agendar un turno con concepto "Consulta de ortodoncia". Si después arranca con un
+              turno de "Instalación superior/inferior" pasa solo a la lista de abajo — o marcalo acá si ya decidió.
             </p>
           </div>
-          <table className="w-full border-collapse text-sm">
-            <tbody>
-              {pacientesEnConsulta.map((p) => (
-                <tr key={p.id} className="border-t border-sky-100">
-                  <td className="cursor-pointer px-4 py-2 font-medium text-gray-900" onClick={() => setPacienteEnEdicion(p)}>
-                    {p.nombre}
-                  </td>
-                  <td className="px-3 py-2 text-gray-600">{p.whatsapp || "—"}</td>
-                  <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={() => empezarTratamiento(p)}
-                      disabled={promoviendo === p.id}
-                      className="rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-50"
-                    >
-                      {promoviendo === p.id ? "Guardando..." : "✅ Empezar tratamiento"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {pacientesEnConsulta.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-gray-500">Por ahora no hay ningún paciente en consulta.</p>
+          ) : (
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                {pacientesEnConsulta.map((p) => (
+                  <tr key={p.id} className="border-t border-sky-100">
+                    <td className="cursor-pointer px-4 py-2 font-medium text-gray-900" onClick={() => setPacienteEnEdicion(p)}>
+                      {p.nombre}
+                    </td>
+                    <td className="px-3 py-2 text-gray-600">{p.whatsapp || "—"}</td>
+                    <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => empezarTratamiento(p)}
+                        disabled={promoviendo === p.id}
+                        className="rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-50"
+                      >
+                        {promoviendo === p.id ? "Guardando..." : "✅ Empezar tratamiento"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
