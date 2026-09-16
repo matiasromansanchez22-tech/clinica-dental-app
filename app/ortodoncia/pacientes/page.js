@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
 import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
 import {
@@ -17,6 +18,8 @@ function documentosDe(p) {
 }
 
 function PacientesOrtodonciaContenido() {
+  const { perfil } = useAuth();
+  const esDuena = perfil?.rol === "Duena";
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [config, setConfig] = useState({});
@@ -26,7 +29,7 @@ function PacientesOrtodonciaContenido() {
   const [pacienteEnEdicion, setPacienteEnEdicion] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [soloDocIncompleta, setSoloDocIncompleta] = useState(false);
-  const [mostrarConsulta, setMostrarConsulta] = useState(true);
+  const [mostrarConsulta, setMostrarConsulta] = useState(false);
 
   async function recargar() {
     const data = await obtenerPacientesOrtodoncia({ busqueda });
@@ -164,23 +167,33 @@ function PacientesOrtodonciaContenido() {
 
       {!cargando && (
         <div className="mt-4 overflow-hidden rounded-lg border border-sky-200">
-          <button
-            type="button"
-            onClick={() => setMostrarConsulta((v) => !v)}
-            className="flex w-full items-center justify-between bg-sky-50 px-4 py-2 text-left"
-          >
-            <div>
+          {esDuena ? (
+            <button
+              type="button"
+              onClick={() => setMostrarConsulta((v) => !v)}
+              className="flex w-full items-center justify-between bg-sky-50 px-4 py-2 text-left"
+            >
+              <div>
+                <p className="font-heading text-sm font-semibold text-sky-800">
+                  🔎 En consulta — todavía sin arrancar tratamiento ({pacientesEnConsulta.length})
+                </p>
+                <p className="text-xs text-sky-700">
+                  Se cargan solos al agendar un turno con concepto "Consulta de ortodoncia". Si después arranca con un
+                  turno de "Instalación superior/inferior" pasa solo a la lista de abajo — o marcalo acá si ya
+                  decidió.
+                </p>
+              </div>
+              <span className="shrink-0 pl-3 text-xs text-sky-700">{mostrarConsulta ? "Ocultar ▲" : "Mostrar ▼"}</span>
+            </button>
+          ) : (
+            <div className="flex w-full items-center justify-between bg-sky-50 px-4 py-2 text-left">
               <p className="font-heading text-sm font-semibold text-sky-800">
                 🔎 En consulta — todavía sin arrancar tratamiento ({pacientesEnConsulta.length})
               </p>
-              <p className="text-xs text-sky-700">
-                Se cargan solos al agendar un turno con concepto "Consulta de ortodoncia". Si después arranca con un
-                turno de "Instalación superior/inferior" pasa solo a la lista de abajo — o marcalo acá si ya decidió.
-              </p>
             </div>
-            <span className="shrink-0 pl-3 text-xs text-sky-700">{mostrarConsulta ? "Ocultar ▲" : "Mostrar ▼"}</span>
-          </button>
-          {mostrarConsulta &&
+          )}
+          {esDuena &&
+            mostrarConsulta &&
             (pacientesEnConsulta.length === 0 ? (
               <p className="px-4 py-3 text-sm text-gray-500">Por ahora no hay ningún paciente en consulta.</p>
             ) : (
