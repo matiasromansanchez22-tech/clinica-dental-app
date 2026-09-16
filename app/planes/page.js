@@ -29,6 +29,7 @@ export default function PlanesPage() {
   const [expandido, setExpandido] = useState(null);
   const [historiales, setHistoriales] = useState({});
   const [mostrarPagoHistorico, setMostrarPagoHistorico] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
 
   async function recargar() {
     const data = await obtenerPlanesFinanciacion();
@@ -84,6 +85,12 @@ export default function PlanesPage() {
     }
   }
 
+  const planesFiltrados = planes.filter((p) => {
+    const termino = busqueda.trim().toLowerCase();
+    if (!termino) return true;
+    return p.paciente.toLowerCase().includes(termino) || p.numeroPlan.toLowerCase().includes(termino);
+  });
+
   async function borrarPagoHistorico(plan, entrada) {
     if (!window.confirm(`¿Borrar el pago histórico de $${Number(entrada.monto).toLocaleString("es-AR")}?`)) return;
     try {
@@ -107,7 +114,16 @@ export default function PlanesPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-4">
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por paciente o número de plan..."
+          className="w-full max-w-sm rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
@@ -131,14 +147,16 @@ export default function PlanesPage() {
                 </td>
               </tr>
             )}
-            {!cargando && planes.length === 0 && (
+            {!cargando && planesFiltrados.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
-                  Todavía no hay planes de financiación.
+                  {planes.length === 0
+                    ? "Todavía no hay planes de financiación."
+                    : "No se encontró ningún plan con esa búsqueda."}
                 </td>
               </tr>
             )}
-            {planes.map((p) => (
+            {planesFiltrados.map((p) => (
               <Fragment key={p.id}>
                 <tr className="border-t border-gray-100">
                   <td onClick={() => toggleExpandido(p)} className="cursor-pointer px-3 py-2 font-medium text-gray-900">

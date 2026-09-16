@@ -33,6 +33,7 @@ export default function PresupuestosPage() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [procesando, setProcesando] = useState(null);
   const [pendientesConPagos, setPendientesConPagos] = useState([]);
+  const [busqueda, setBusqueda] = useState("");
 
   async function recargar() {
     const [data, avisos] = await Promise.all([obtenerPresupuestos(), obtenerPresupuestosPendientesConPagos()]);
@@ -64,6 +65,12 @@ export default function PresupuestosPage() {
   }, []);
 
   const idsConAviso = new Set(pendientesConPagos.map((a) => a.id));
+
+  const presupuestosFiltrados = presupuestos.filter((p) => {
+    const termino = busqueda.trim().toLowerCase();
+    if (!termino) return true;
+    return p.paciente.toLowerCase().includes(termino) || p.numero.toLowerCase().includes(termino);
+  });
 
   async function handleCambiarEstado(presupuesto, nuevoEstado) {
     if (nuevoEstado === "Anulado" && !window.confirm("¿Anular este presupuesto? El plan de financiación asociado (si existe) se va a cancelar, pero conserva su historial.")) {
@@ -119,7 +126,16 @@ export default function PresupuestosPage() {
         </div>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-4">
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por paciente o número de presupuesto..."
+          className="w-full max-w-sm rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
@@ -141,14 +157,16 @@ export default function PresupuestosPage() {
                 </td>
               </tr>
             )}
-            {!cargando && presupuestos.length === 0 && (
+            {!cargando && presupuestosFiltrados.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
-                  Todavía no hay presupuestos cargados.
+                  {presupuestos.length === 0
+                    ? "Todavía no hay presupuestos cargados."
+                    : "No se encontró ningún presupuesto con esa búsqueda."}
                 </td>
               </tr>
             )}
-            {presupuestos.map((p) => (
+            {presupuestosFiltrados.map((p) => (
               <tr
                 key={p.id}
                 className={`border-t border-gray-100 hover:bg-gray-50 ${idsConAviso.has(p.id) ? "bg-amber-50" : ""}`}
