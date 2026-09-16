@@ -16,7 +16,7 @@ import {
 } from "@/lib/data/historialClinicoOrtodoncia";
 
 const TIPOS_BRACKETS = ["Metalicos", "Porcelana"];
-const ESTADOS_PACIENTE = ["Activo", "Inactivo", "Finalizado", "Abandonó"];
+const ESTADOS_PACIENTE = ["Consulta", "Activo", "Inactivo", "Finalizado", "Abandonó"];
 const FORMAS_PAGO = ["Contado", "2 Cuotas"];
 const ORIGENES_PACIENTE = ["Nuevo", "Continuación de otra clínica"];
 

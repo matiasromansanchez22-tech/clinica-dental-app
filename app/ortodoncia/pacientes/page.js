@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
 import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
-import { obtenerConfiguracionOrtodoncia, obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import {
+  marcarInicioTratamiento,
+  obtenerConfiguracionOrtodoncia,
+  obtenerPacientesOrtodoncia,
+} from "@/lib/data/pacientesOrtodoncia";
+import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
 function documentosDe(p) {
@@ -48,30 +53,52 @@ function PacientesOrtodonciaContenido() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
+  // Los que vinieron solo a una consulta (todavía no decidieron tratarse)
+  // quedan aparte: no tiene sentido pedirles brackets, cuota o aumento de
+  // algo que ni empezó, y ensuciaban esas estadísticas.
+  const pacientesEnTratamiento = useMemo(() => pacientes.filter((p) => p.estadoPaciente !== "Consulta"), [pacientes]);
+  const pacientesEnConsulta = useMemo(() => pacientes.filter((p) => p.estadoPaciente === "Consulta"), [pacientes]);
+
   const resumenAumento = useMemo(() => {
     const conteo = { "Al día": 0, "Próximo aumento": 0, Aumentar: 0, "Sin definir": 0 };
-    for (const p of pacientes) {
+    for (const p of pacientesEnTratamiento) {
       const { texto } = calcularEstadoAumento(p.proximoAumento);
       conteo[texto] = (conteo[texto] || 0) + 1;
     }
     return conteo;
-  }, [pacientes]);
+  }, [pacientesEnTratamiento]);
 
   const resumenDocumentacion = useMemo(() => {
     let completos = 0;
-    for (const p of pacientes) {
+    for (const p of pacientesEnTratamiento) {
       const documentos = documentosDe(p);
       if (documentos.filter(Boolean).length === documentos.length) completos++;
     }
-    return { completos, incompletos: pacientes.length - completos };
-  }, [pacientes]);
+    return { completos, incompletos: pacientesEnTratamiento.length - completos };
+  }, [pacientesEnTratamiento]);
 
   const pacientesMostrados = soloDocIncompleta
-    ? pacientes.filter((p) => {
+    ? pacientesEnTratamiento.filter((p) => {
         const documentos = documentosDe(p);
         return documentos.filter(Boolean).length < documentos.length;
       })
-    : pacientes;
+    : pacientesEnTratamiento;
+
+  const [promoviendo, setPromoviendo] = useState(null);
+
+  async function empezarTratamiento(p) {
+    if (!window.confirm(`¿"${p.nombre}" arranca el tratamiento? Pasa de Consulta a Activo.`)) return;
+    setPromoviendo(p.id);
+    try {
+      await marcarInicioTratamiento(p.id, fechaDeHoyISO());
+      await recargar();
+      setPacienteEnEdicion({ ...p, estadoPaciente: "Activo", fechaInstalacion: fechaDeHoyISO() });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setPromoviendo(null);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -79,7 +106,11 @@ function PacientesOrtodonciaContenido() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Pacientes de Ortodoncia</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {cargando ? "Cargando..." : `${pacientes.length} paciente${pacientes.length === 1 ? "" : "s"}${busqueda ? " (filtrado)" : ""}`}
+            {cargando
+              ? "Cargando..."
+              : `${pacientesEnTratamiento.length} en tratamiento${busqueda ? " (filtrado)" : ""}${
+                  pacientesEnConsulta.length > 0 ? ` · ${pacientesEnConsulta.length} en consulta` : ""
+                }`}
           </p>
         </div>
         <button
@@ -129,6 +160,42 @@ function PacientesOrtodonciaContenido() {
           Mostrar solo documentación incompleta
         </label>
       </div>
+
+      {!cargando && pacientesEnConsulta.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-lg border border-sky-200">
+          <div className="bg-sky-50 px-4 py-2">
+            <p className="font-heading text-sm font-semibold text-sky-800">
+              🔎 En consulta — todavía sin arrancar tratamiento ({pacientesEnConsulta.length})
+            </p>
+            <p className="text-xs text-sky-700">
+              Si arranca con un turno de "Instalación superior/inferior" pasa solo a la lista de abajo. O marcalo acá si
+              ya decidió.
+            </p>
+          </div>
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              {pacientesEnConsulta.map((p) => (
+                <tr key={p.id} className="border-t border-sky-100">
+                  <td className="cursor-pointer px-4 py-2 font-medium text-gray-900" onClick={() => setPacienteEnEdicion(p)}>
+                    {p.nombre}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">{p.whatsapp || "—"}</td>
+                  <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      onClick={() => empezarTratamiento(p)}
+                      disabled={promoviendo === p.id}
+                      className="rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-50"
+                    >
+                      {promoviendo === p.id ? "Guardando..." : "✅ Empezar tratamiento"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>

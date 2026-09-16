@@ -12,7 +12,7 @@ import {
 import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
 import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/profesionales";
 import { buscarProximosHorariosLibresOrtodoncia } from "@/lib/data/buscadorHorarioOrtodoncia";
-import { crearPacienteOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import { crearPacienteOrtodoncia, marcarInicioTratamiento } from "@/lib/data/pacientesOrtodoncia";
 import { crearTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 
 const CONSULTORIOS_ORTO = [2, 3];
@@ -199,12 +199,23 @@ export default function NuevoTurnoOrtodonciaModal({
     try {
       let pacienteId = pacienteExistente?.id;
       if (!pacienteId) {
+        // Si viene por una "Consulta de ortodoncia" (todavía no decidió
+        // tratarse), queda marcado como Consulta — no ensucia la lista de
+        // pacientes en tratamiento hasta que realmente arranque.
         const nuevoPaciente = await crearPacienteOrtodoncia({
           nombre: pacienteNombre.trim(),
           whatsapp,
           ortodoncistaId,
+          estadoPaciente: concepto === "Consulta de ortodoncia" ? "Consulta" : "Activo",
         });
         pacienteId = nuevoPaciente.id;
+      } else if (
+        pacienteExistente.estadoPaciente === "Consulta" &&
+        (concepto === "Instalación superior" || concepto === "Instalación inferior")
+      ) {
+        // Un paciente que estaba solo "en consulta" arranca el tratamiento
+        // de verdad — pasa solo a Activo, sin tener que cargarlo de nuevo.
+        await marcarInicioTratamiento(pacienteId, fechaLocal);
       }
 
       await crearTurnoOrtodoncia({
