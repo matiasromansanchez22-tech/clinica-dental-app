@@ -6,6 +6,7 @@ import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
 import {
   actualizarBanderasPaciente,
+  obtenerIdsPacientesSoloConsulta,
   obtenerObrasSocialesSugeridas,
   obtenerPacientePorId,
   obtenerPacientes,
@@ -24,19 +25,27 @@ function PacientesContenido() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [soloIncompletos, setSoloIncompletos] = useState(false);
   const [actualizando, setActualizando] = useState(null);
+  const [idsSoloConsulta, setIdsSoloConsulta] = useState(new Set());
 
   async function recargar() {
-    const data = await obtenerPacientes({ busqueda });
+    const [data, idsConsulta] = await Promise.all([obtenerPacientes({ busqueda }), obtenerIdsPacientesSoloConsulta()]);
     setPacientes(data);
+    setIdsSoloConsulta(idsConsulta);
   }
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerPacientes({ busqueda }), obtenerProfesionales(), obtenerObrasSocialesSugeridas()])
-      .then(([p, prof, obras]) => {
+    Promise.all([
+      obtenerPacientes({ busqueda }),
+      obtenerProfesionales(),
+      obtenerObrasSocialesSugeridas(),
+      obtenerIdsPacientesSoloConsulta(),
+    ])
+      .then(([p, prof, obras, idsConsulta]) => {
         setPacientes(p);
         setProfesionales(prof);
         setObrasSocialesSugeridas(obras);
+        setIdsSoloConsulta(idsConsulta);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -51,19 +60,31 @@ function PacientesContenido() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
+  // Los que todavía no tuvieron ningún presupuesto aceptado ni cobro en
+  // Caja quedan aparte — igual que en Ortodoncia, para no mezclarlos con
+  // los pacientes con tratamiento real.
+  const pacientesEnConsulta = useMemo(
+    () => pacientes.filter((p) => idsSoloConsulta.has(p.id)),
+    [pacientes, idsSoloConsulta]
+  );
+  const pacientesRegulares = useMemo(
+    () => pacientes.filter((p) => !idsSoloConsulta.has(p.id)),
+    [pacientes, idsSoloConsulta]
+  );
+
   const resumen = useMemo(() => {
-    const total = pacientes.length;
-    const conHistorial = pacientes.filter((p) => p.historiaClinicaCompleta).length;
-    const conConsentimiento = pacientes.filter((p) => p.consentimientosFirmados).length;
-    const completos = pacientes.filter(
+    const total = pacientesRegulares.length;
+    const conHistorial = pacientesRegulares.filter((p) => p.historiaClinicaCompleta).length;
+    const conConsentimiento = pacientesRegulares.filter((p) => p.consentimientosFirmados).length;
+    const completos = pacientesRegulares.filter(
       (p) => p.dni && p.celular && p.fechaNacimiento && p.historiaClinicaCompleta && p.consentimientosFirmados
     ).length;
     return { total, conHistorial, conConsentimiento, incompletos: total - completos };
-  }, [pacientes]);
+  }, [pacientesRegulares]);
 
   const pacientesMostrados = soloIncompletos
-    ? pacientes.filter((p) => !p.historiaClinicaCompleta || !p.consentimientosFirmados)
-    : pacientes;
+    ? pacientesRegulares.filter((p) => !p.historiaClinicaCompleta || !p.consentimientosFirmados)
+    : pacientesRegulares;
 
   async function alternarBandera(paciente, campo, e) {
     e.stopPropagation();
@@ -89,7 +110,11 @@ function PacientesContenido() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Alta de Pacientes</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {cargando ? "Cargando..." : `${resumen.total} paciente${resumen.total === 1 ? "" : "s"}${busqueda ? " (filtrado)" : ""}`}
+            {cargando
+              ? "Cargando..."
+              : `${resumen.total} paciente${resumen.total === 1 ? "" : "s"}${busqueda ? " (filtrado)" : ""}${
+                  pacientesEnConsulta.length > 0 ? ` · ${pacientesEnConsulta.length} en consulta` : ""
+                }`}
           </p>
         </div>
         <button
@@ -126,6 +151,35 @@ function PacientesContenido() {
           Mostrar solo incompletos
         </label>
       </div>
+
+      {!cargando && (
+        <div className="mt-4 overflow-hidden rounded-lg border border-sky-200">
+          <div className="bg-sky-50 px-4 py-2">
+            <p className="font-heading text-sm font-semibold text-sky-800">
+              🔎 En consulta — todavía sin tratamiento ({pacientesEnConsulta.length})
+            </p>
+            <p className="text-xs text-sky-700">
+              Nunca tuvieron un presupuesto aceptado ni un cobro en Caja. En cuanto acepten un presupuesto o se les
+              cargue un cobro, pasan solos a la lista de abajo.
+            </p>
+          </div>
+          {pacientesEnConsulta.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-gray-500">Por ahora no hay ningún paciente en consulta.</p>
+          ) : (
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                {pacientesEnConsulta.map((p) => (
+                  <tr key={p.id} className="cursor-pointer border-t border-sky-100" onClick={() => setPacienteEnEdicion(p)}>
+                    <td className="px-4 py-2 font-medium text-gray-900">{p.apellidoYNombre}</td>
+                    <td className="px-3 py-2 text-gray-600">{p.celular || "—"}</td>
+                    <td className="px-3 py-2 text-gray-600">{p.profesionalResponsable || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
