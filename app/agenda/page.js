@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
 import AgendaSemanalGrid from "@/components/AgendaSemanalGrid";
+import BuscarTurnoPacienteBox from "@/components/BuscarTurnoPacienteBox";
 import NuevoTurnoModal from "@/components/NuevoTurnoModal";
 import TurnoDetalleModal from "@/components/TurnoDetalleModal";
 import {
@@ -15,7 +16,11 @@ import {
 } from "@/lib/agenda";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { obtenerTurnosGeneralPorFecha, obtenerTurnosGeneralPorRango } from "@/lib/data/turnosGeneral";
+import {
+  obtenerTurnosGeneralPorFecha,
+  obtenerTurnosGeneralPorPaciente,
+  obtenerTurnosGeneralPorRango,
+} from "@/lib/data/turnosGeneral";
 import { supabase } from "@/lib/supabaseClient";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
@@ -86,6 +91,18 @@ export default function AgendaPage() {
         >
           {vista === "dia" ? "📅 Ver semana" : "📆 Ver día"}
         </button>
+      </div>
+
+      <div className="mt-3">
+        <BuscarTurnoPacienteBox
+          pacientes={pacientes}
+          nombreDe={(p) => p.apellido_y_nombre}
+          obtenerTurnos={obtenerTurnosGeneralPorPaciente}
+          onElegirFecha={(fecha, turno) => {
+            setFecha(fecha);
+            setTurnoElegido(turno);
+          }}
+        />
       </div>
 
       <div className="mt-2 flex items-center gap-2">

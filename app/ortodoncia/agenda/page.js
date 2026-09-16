@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
 import AgendaSemanalGrid from "@/components/AgendaSemanalGrid";
+import BuscarTurnoPacienteBox from "@/components/BuscarTurnoPacienteBox";
 import ConfiguracionDuracionOrtodonciaModal from "@/components/ConfiguracionDuracionOrtodonciaModal";
 import NuevoTurnoOrtodonciaModal from "@/components/NuevoTurnoOrtodonciaModal";
 import TurnoOrtodonciaDetalleModal from "@/components/TurnoOrtodonciaDetalleModal";
@@ -17,7 +18,11 @@ import {
 import { obtenerDuracionesOrtodoncia } from "@/lib/data/duracionOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { obtenerTurnosOrtodonciaPorFecha, obtenerTurnosOrtodonciaPorRango } from "@/lib/data/turnosOrtodoncia";
+import {
+  obtenerTurnosOrtodonciaPorFecha,
+  obtenerTurnosOrtodonciaPorPaciente,
+  obtenerTurnosOrtodonciaPorRango,
+} from "@/lib/data/turnosOrtodoncia";
 
 const CONSULTORIOS_ORTO = [2, 3];
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
@@ -96,6 +101,18 @@ export default function AgendaOrtodonciaPage() {
             ⚙ Configurar duración
           </button>
         </div>
+      </div>
+
+      <div className="mt-3">
+        <BuscarTurnoPacienteBox
+          pacientes={pacientes}
+          nombreDe={(p) => p.nombre}
+          obtenerTurnos={obtenerTurnosOrtodonciaPorPaciente}
+          onElegirFecha={(fecha, turno) => {
+            setFecha(fecha);
+            setTurnoElegido(turno);
+          }}
+        />
       </div>
 
       <div className="mt-2 flex items-center gap-2">
