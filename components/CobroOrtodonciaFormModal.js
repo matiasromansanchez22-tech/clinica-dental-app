@@ -16,6 +16,10 @@ const CONCEPTOS = [
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const BRACKETS = ["Metálico", "Porcelana"];
 
+function parteVacia(medio) {
+  return { medio, monto: "" };
+}
+
 export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncistas, onClose, onCreado }) {
   const [pacienteId, setPacienteId] = useState("");
   const [ortodoncistaAtencionId, setOrtodoncistaAtencionId] = useState("");
@@ -27,6 +31,8 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   const [precios, setPrecios] = useState({ precio_bracket_metalico: 0, precio_bracket_porcelana: 0 });
   const [importe, setImporte] = useState(0);
   const [medioPago, setMedioPago] = useState("Efectivo");
+  const [pagoMixto, setPagoMixto] = useState(false);
+  const [desglosePago, setDesglosePago] = useState([parteVacia("Efectivo"), parteVacia("Transferencia")]);
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -54,6 +60,31 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteId, concepto, cantidadControlesAbonados, seDespegoBracket, cantidadBrackets, bracketReposicion, precios]);
 
+  const totalDesglosado = desglosePago.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
+
+  // Con pago mixto, el importe a cobrar sigue siempre la suma del
+  // desglose — no tiene sentido que se puedan desincronizar. Se declara
+  // después del cálculo automático de arriba para que, si hay pago mixto,
+  // este sea el que gane.
+  useEffect(() => {
+    if (pagoMixto) setImporte(totalDesglosado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagoMixto, totalDesglosado]);
+
+  function actualizarParte(i, cambios) {
+    setDesglosePago((partes) => partes.map((p, idx) => (idx === i ? { ...p, ...cambios } : p)));
+  }
+
+  function agregarParte() {
+    const usados = new Set(desglosePago.map((p) => p.medio));
+    const disponible = MEDIOS_PAGO.find((m) => !usados.has(m)) || MEDIOS_PAGO[0];
+    setDesglosePago((partes) => [...partes, parteVacia(disponible)]);
+  }
+
+  function quitarParte(i) {
+    setDesglosePago((partes) => partes.filter((_, idx) => idx !== i));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -69,6 +100,17 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
     if (!importe || Number(importe) <= 0) {
       setError("El importe tiene que ser mayor a cero.");
       return;
+    }
+    if (pagoMixto) {
+      if (desglosePago.some((p) => !p.medio || !p.monto || Number(p.monto) <= 0)) {
+        setError("Completá el medio y el monto de cada parte del pago mixto.");
+        return;
+      }
+      const mediosRepetidos = new Set(desglosePago.map((p) => p.medio)).size !== desglosePago.length;
+      if (mediosRepetidos) {
+        setError("No repitas el mismo medio de pago dos veces — sumalo en una sola parte.");
+        return;
+      }
     }
 
     setGuardando(true);
@@ -90,6 +132,7 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
             : null,
         importe: Number(importe),
         medioPago,
+        desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
         observaciones,
       });
       onCreado();
@@ -258,31 +301,77 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              Importe
-              <input
-                type="number"
-                value={importe}
-                onChange={(e) => setImporte(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
-              Medio de pago
-              <select
-                value={medioPago}
-                onChange={(e) => setMedioPago(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              >
-                {MEDIOS_PAGO.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={pagoMixto} onChange={(e) => setPagoMixto(e.target.checked)} />
+            Pago mixto (más de un medio de pago)
+          </label>
+
+          {pagoMixto ? (
+            <div className="flex flex-col gap-2">
+              {desglosePago.map((p, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={p.medio}
+                    onChange={(e) => actualizarParte(i, { medio: e.target.value })}
+                    className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    {MEDIOS_PAGO.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={0}
+                    value={p.monto}
+                    onChange={(e) => actualizarParte(i, { monto: e.target.value })}
+                    placeholder="Monto"
+                    className="w-28 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                  />
+                  {desglosePago.length > 1 && (
+                    <button type="button" onClick={() => quitarParte(i)} className="text-gray-400 hover:text-red-600">
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              {desglosePago.length < MEDIOS_PAGO.length && (
+                <button type="button" onClick={agregarParte} className="w-fit text-xs text-blue-600 hover:underline">
+                  + Agregar otro medio
+                </button>
+              )}
+              <p className="text-right text-sm font-semibold text-gray-900">
+                Total pago mixto: ${totalDesglosado.toLocaleString("es-AR")}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Importe
+                <input
+                  type="number"
+                  value={importe}
+                  onChange={(e) => setImporte(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Medio de pago
+                <select
+                  value={medioPago}
+                  onChange={(e) => setMedioPago(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                >
+                  {MEDIOS_PAGO.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Observaciones

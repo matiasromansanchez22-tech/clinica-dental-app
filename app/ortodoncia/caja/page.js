@@ -7,7 +7,11 @@ import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
 import TransferenciaCajaModal from "@/components/TransferenciaCajaModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
-import { eliminarCobroOrtodoncia, obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
+import {
+  desglosarPagoOrtodoncia,
+  eliminarCobroOrtodoncia,
+  obtenerCobrosOrtodonciaPorFecha,
+} from "@/lib/data/cajaOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
@@ -106,7 +110,9 @@ export default function CajaOrtodonciaPage() {
   const transferenciasSalientes = transferencias.filter((t) => t.origen === "Ortodoncia");
 
   const totalesPorMedio = cobros.reduce((acc, c) => {
-    acc[c.medioPago] = (acc[c.medioPago] || 0) + Number(c.importe);
+    for (const parte of desglosarPagoOrtodoncia(c)) {
+      acc[parte.medio] = (acc[parte.medio] || 0) + Number(parte.monto);
+    }
     return acc;
   }, {});
   for (const t of transferenciasEntrantes) totalesPorMedio[t.medioPago] = (totalesPorMedio[t.medioPago] || 0) + t.monto;
@@ -396,7 +402,15 @@ export default function CajaOrtodonciaPage() {
                 <td className="px-3 py-2 text-gray-500">{c.ortodoncistaResponsable || "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{c.ortodoncista}</td>
                 <td className="px-3 py-2 text-right text-gray-600">${Number(c.importe).toLocaleString("es-AR")}</td>
-                <td className="px-3 py-2 text-gray-600">{c.medioPago}</td>
+                <td className="px-3 py-2 text-gray-600">
+                  {c.desglosePago?.length ? (
+                    <span title={c.desglosePago.map((p) => `${p.medio}: $${Number(p.monto).toLocaleString("es-AR")}`).join(" + ")}>
+                      Mixto ({c.desglosePago.map((p) => p.medio).join(" + ")})
+                    </span>
+                  ) : (
+                    c.medioPago
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right">
                   {esContador ? null : c.cerrado && !esDuena ? (
                     <span className="text-xs text-gray-400" title="El turno ya se cerró. Solo la Dueña puede reabrirlo.">
