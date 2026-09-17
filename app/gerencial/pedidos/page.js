@@ -263,7 +263,12 @@ function PedidosContenido() {
                     {expandido === p.id ? "▾" : "▸"} {p.fecha}
                   </td>
                   <td className="px-3 py-2 font-medium text-gray-900">{p.proveedor}</td>
-                  <td className="px-3 py-2 text-right text-gray-600">${p.total.toLocaleString("es-AR")}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">
+                    ${p.total.toLocaleString("es-AR")}
+                    {p.descuentoPorcentaje > 0 && (
+                      <span className="ml-1 text-xs font-medium text-emerald-600">(-{p.descuentoPorcentaje}%)</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-gray-600">{p.medioPago || "—"}</td>
                   <td className="px-3 py-2 text-gray-600">{p.estado}</td>
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
@@ -276,6 +281,12 @@ function PedidosContenido() {
                   <tr className="bg-gray-50">
                     <td colSpan={6} className="px-3 py-3">
                       <GrillaItemsPorSector items={p.items} />
+                      {p.descuentoPorcentaje > 0 && (
+                        <p className="mt-2 text-xs text-emerald-700">
+                          Subtotal ${p.subtotal.toLocaleString("es-AR")} − {p.descuentoPorcentaje}% de descuento = $
+                          {p.total.toLocaleString("es-AR")}
+                        </p>
+                      )}
                       {p.observaciones && <p className="mt-2 text-xs text-gray-400">{p.observaciones}</p>}
                     </td>
                   </tr>

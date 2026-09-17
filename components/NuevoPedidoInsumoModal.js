@@ -54,6 +54,7 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
   const [proveedorNuevo, setProveedorNuevo] = useState("");
   const [medioPago, setMedioPago] = useState("Transferencia");
   const [estado, setEstado] = useState("Recibido");
+  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState("");
   const [items, setItems] = useState([itemVacio()]);
   const [observaciones, setObservaciones] = useState("");
   const [insumosStock, setInsumosStock] = useState([]);
@@ -111,7 +112,9 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
     }
   }
 
-  const total = items.reduce((acc, i) => acc + (Number(i.cantidad) || 0) * (Number(i.precioUnitario) || 0), 0);
+  const subtotal = items.reduce((acc, i) => acc + (Number(i.cantidad) || 0) * (Number(i.precioUnitario) || 0), 0);
+  const descuentoNum = Number(descuentoPorcentaje) || 0;
+  const total = subtotal * (1 - descuentoNum / 100);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -149,6 +152,7 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
         medioPago,
         estado,
         observaciones,
+        descuentoPorcentaje: descuentoNum,
       });
       onGuardado();
     } catch (err) {
@@ -315,8 +319,37 @@ export default function NuevoPedidoInsumoModal({ proveedores, onClose, onGuardad
             </div>
           </div>
 
-          <div className="rounded-md bg-brand-tan/20 px-3 py-2 text-right text-sm font-semibold text-brand-brown">
-            Total: ${total.toLocaleString("es-AR")}
+          <label className="flex items-center justify-between gap-2 text-sm text-gray-700">
+            Descuento del proveedor
+            <span className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={descuentoPorcentaje}
+                onChange={(e) => setDescuentoPorcentaje(e.target.value)}
+                placeholder="0"
+                className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-right"
+              />
+              %
+            </span>
+          </label>
+
+          <div className="rounded-md bg-brand-tan/20 px-3 py-2 text-sm text-brand-brown">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>${subtotal.toLocaleString("es-AR")}</span>
+            </div>
+            {descuentoNum > 0 && (
+              <div className="flex justify-between text-emerald-700">
+                <span>Descuento ({descuentoNum}%)</span>
+                <span>-${(subtotal - total).toLocaleString("es-AR")}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-right font-semibold">
+              <span>Total</span>
+              <span>${total.toLocaleString("es-AR")}</span>
+            </div>
           </div>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
