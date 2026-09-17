@@ -90,6 +90,7 @@ const GRUPOS = [
       { href: "/gerencial/comparativa-mecanicos", label: "🔧 Comparativa de mecánicos" },
       { href: "/gerencial/cuentas-mecanicos", label: "🔧 Cuentas por mecánico" },
       { href: "/gerencial/rentabilidad-diaria", label: "📅 Rentabilidad diaria por profesional" },
+      { href: "/gerencial/registro-pacientes", label: "📋 Registro de pacientes por profesional" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)", badgeKey: "cierreDiario" },
       { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes", badgeKey: "cierreMes" },
