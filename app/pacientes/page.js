@@ -86,9 +86,16 @@ function PacientesContenido() {
     return { total, conHistorial, conConsentimiento, incompletos: total - completos };
   }, [pacientesRegulares]);
 
+  // Al buscar (por nombre, DNI o celular) tiene que aparecer cualquier
+  // paciente, esté o no "en consulta" — si no, alguien que busca a un
+  // paciente recién cargado (sin tratamiento todavía) no lo encuentra y
+  // termina cargándolo de nuevo, duplicado. La lista completa sin buscar
+  // sigue dejando "en consulta" solo en su sección aparte, para no
+  // ensuciar la tabla principal.
+  const pacientesBase = busqueda.trim() ? pacientes : pacientesRegulares;
   const pacientesMostrados = soloIncompletos
-    ? pacientesRegulares.filter((p) => !p.historiaClinicaCompleta || !p.consentimientosFirmados)
-    : pacientesRegulares;
+    ? pacientesBase.filter((p) => !p.historiaClinicaCompleta || !p.consentimientosFirmados)
+    : pacientesBase;
 
   async function alternarBandera(paciente, campo, e) {
     e.stopPropagation();
@@ -245,7 +252,17 @@ function PacientesContenido() {
                 onClick={() => setPacienteEnEdicion(p)}
                 className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
               >
-                <td className="px-3 py-2 font-medium text-gray-900">{p.apellidoYNombre}</td>
+                <td className="px-3 py-2 font-medium text-gray-900">
+                  {p.apellidoYNombre}
+                  {idsSoloConsulta.has(p.id) && (
+                    <span
+                      title="Todavía no tiene tratamiento ni cobro cargado"
+                      className="ml-1.5 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+                    >
+                      en consulta
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-gray-600">{calcularEdad(p.fechaNacimiento) ?? "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{p.dni || "—"}</td>
                 <td className="px-3 py-2 text-gray-600">

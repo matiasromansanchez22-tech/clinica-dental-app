@@ -81,12 +81,18 @@ function PacientesOrtodonciaContenido() {
     return { completos, incompletos: pacientesEnTratamiento.length - completos };
   }, [pacientesEnTratamiento]);
 
+  // Al buscar tiene que aparecer cualquier paciente, esté o no "en
+  // consulta" — si no, alguien que busca a un paciente recién cargado (sin
+  // tratamiento todavía) no lo encuentra y termina cargándolo de nuevo,
+  // duplicado. La lista completa sin buscar sigue dejando "en consulta"
+  // solo en su sección aparte.
+  const pacientesBase = busqueda.trim() ? pacientes : pacientesEnTratamiento;
   const pacientesMostrados = soloDocIncompleta
-    ? pacientesEnTratamiento.filter((p) => {
+    ? pacientesBase.filter((p) => {
         const documentos = documentosDe(p);
         return documentos.filter(Boolean).length < documentos.length;
       })
-    : pacientesEnTratamiento;
+    : pacientesBase;
 
   const [promoviendo, setPromoviendo] = useState(null);
 
@@ -266,7 +272,17 @@ function PacientesOrtodonciaContenido() {
                   onClick={() => setPacienteEnEdicion(p)}
                   className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
                 >
-                  <td className="px-3 py-2 font-medium text-gray-900">{p.nombre}</td>
+                  <td className="px-3 py-2 font-medium text-gray-900">
+                    {p.nombre}
+                    {p.estadoPaciente === "Consulta" && (
+                      <span
+                        title="Todavía no arrancó el tratamiento de ortodoncia"
+                        className="ml-1.5 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+                      >
+                        en consulta
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-gray-600">{calcularEdad(p.fechaNacimiento) ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-600">{p.tipoBrackets || "—"}</td>
                   <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
