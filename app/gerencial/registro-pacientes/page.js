@@ -339,9 +339,12 @@ function PaginaRegistroPacientes() {
 
       <p className="mt-4 text-xs text-gray-400">
         "Empezó tratamiento" se sigue actualizando con el tiempo: un paciente que consultó este mes puede sumarse acá
-        más adelante en cuanto acepte un presupuesto o arranque el tratamiento de ortodoncia, aunque siga apareciendo
-        en el mes de su primera consulta. "Cobrado" es la plata que ese paciente pagó en Caja hasta hoy (no solo ese
-        mes), para que el número no quede corto si el tratamiento se sigue pagando en cuotas más adelante.
+        más adelante en cuanto acepte un presupuesto o pague algo más que la consulta (en Ortodoncia, cuando arranca
+        el tratamiento), aunque siga apareciendo en el mes de su primera consulta. Si un paciente solo pagó la
+        consulta (nada más), NO cuenta como que empezó tratamiento — así no se mezcla con lo que ya se calcula aparte
+        en "Valor consultas". "Cobrado" es la plata que ese paciente pagó en Caja hasta hoy más allá de la consulta
+        (no solo ese mes), para que el número no quede corto si el tratamiento se sigue pagando en cuotas más
+        adelante.
       </p>
       <p className="mt-2 text-xs text-gray-400">
         "Primera consulta" cuenta pacientes NUEVOS de verdad, no cualquier turno: en Ortodoncia es el turno cargado

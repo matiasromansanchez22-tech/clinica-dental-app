@@ -449,8 +449,9 @@ function PaginaEstadisticas() {
         como "Consulta de ortodoncia"; en General es la fecha de alta de la ficha (se crea justo al agendarle el
         primer turno a un paciente nuevo). Así quedan afuera los pacientes viejos que ya estaban cargados de antes,
         aunque recién ahora se les cargue un turno de control. "Comenzaron tratamiento" cuenta, de esos mismos,
-        cuántos ya tuvieron algún cobro en Caja (General) o arrancaron el tratamiento de ortodoncia — sin importar si
-        eso pasó ese mismo mes o más adelante.
+        cuántos ya tuvieron algún cobro en Caja más allá de la consulta (General) o arrancaron el tratamiento de
+        ortodoncia — sin importar si eso pasó ese mismo mes o más adelante. Si un paciente solo pagó la consulta
+        (nada más), no cuenta todavía como que empezó tratamiento.
       </p>
       <p className="mt-2 text-xs text-gray-400">
         "Historiales marcados" y "consentimientos marcados" solo cuentan pacientes de Odontología General (son los
