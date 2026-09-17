@@ -6,6 +6,7 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerBalanceAcumuladoTotal } from "@/lib/data/balance";
 import { actualizarConfiguracionGeneral, obtenerConfiguracionGeneral } from "@/lib/data/configuracionGeneral";
 import { obtenerActividadDelDia, obtenerResumenMensual, obtenerTendenciaMensual } from "@/lib/data/estadisticas";
+import { obtenerIdsPacientesConActividad } from "@/lib/data/pacientes";
 
 const NOMBRES_MES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -148,15 +149,17 @@ function PaginaEstadisticas() {
     const anioActual = ahora.getFullYear();
     const mesActualNum = ahora.getMonth() + 1;
     const { anio: anioAnterior, mes: mesAnteriorNum } = mesAnterior(anioActual, mesActualNum);
-    Promise.all([
-      obtenerActividadDelDia(hoy),
-      obtenerResumenMensual(anioActual, mesActualNum),
-      obtenerResumenMensual(anioAnterior, mesAnteriorNum),
-      obtenerResumenMensual(anioActual - 1, mesActualNum),
-      obtenerTendenciaMensual(6),
-      obtenerBalanceAcumuladoTotal(),
-      obtenerConfiguracionGeneral(),
-    ])
+    obtenerIdsPacientesConActividad().then((idsConActividad) =>
+      Promise.all([
+        obtenerActividadDelDia(hoy),
+        obtenerResumenMensual(anioActual, mesActualNum, idsConActividad),
+        obtenerResumenMensual(anioAnterior, mesAnteriorNum, idsConActividad),
+        obtenerResumenMensual(anioActual - 1, mesActualNum, idsConActividad),
+        obtenerTendenciaMensual(6),
+        obtenerBalanceAcumuladoTotal(),
+        obtenerConfiguracionGeneral(),
+      ])
+    )
       .then(([act, mes, mesAnt, mesAnio, tend, bal, conf]) => {
         setActividadHoy(act);
         setResumenMes(mes);
@@ -186,11 +189,14 @@ function PaginaEstadisticas() {
     const [anio, mes] = mesElegido.split("-").map(Number);
     const { anio: anioAnt, mes: mesAnt } = mesAnterior(anio, mes);
     setCargandoMes(true);
-    Promise.all([
-      obtenerResumenMensual(anio, mes),
-      obtenerResumenMensual(anioAnt, mesAnt),
-      obtenerResumenMensual(anio - 1, mes),
-    ])
+    obtenerIdsPacientesConActividad()
+      .then((idsConActividad) =>
+        Promise.all([
+          obtenerResumenMensual(anio, mes, idsConActividad),
+          obtenerResumenMensual(anioAnt, mesAnt, idsConActividad),
+          obtenerResumenMensual(anio - 1, mes, idsConActividad),
+        ])
+      )
       .then(([actual, anterior, anioPasado]) => {
         setResumenMes(actual);
         setResumenMesAnterior(anterior);
@@ -296,12 +302,30 @@ function PaginaEstadisticas() {
           )}
         </div>
       </div>
-      <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 ${cargandoMes ? "opacity-50" : ""}`}>
+      <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${cargandoMes ? "opacity-50" : ""}`}>
         <Tarjeta
           etiqueta="Pacientes nuevos"
           valor={resumenMes.pacientesNuevosTotal}
+          sub={`General ${resumenMes.pacientesNuevosGeneral} · Orto ${resumenMes.pacientesNuevosOrtodoncia}`}
           cambioMesAnterior={calcularCambio(resumenMes.pacientesNuevosTotal, resumenMesAnterior?.pacientesNuevosTotal)}
           cambioAnioPasado={calcularCambio(resumenMes.pacientesNuevosTotal, resumenMesAnioPasado?.pacientesNuevosTotal)}
+        />
+        <Tarjeta
+          etiqueta="Comenzaron tratamiento"
+          valor={resumenMes.comenzaronTratamientoTotal}
+          sub={`General ${resumenMes.comenzaronTratamientoGeneral} · Orto ${resumenMes.comenzaronTratamientoOrtodoncia}${
+            resumenMes.pacientesNuevosTotal > 0
+              ? ` · ${Math.round((resumenMes.comenzaronTratamientoTotal / resumenMes.pacientesNuevosTotal) * 100)}%`
+              : ""
+          }`}
+          cambioMesAnterior={calcularCambio(
+            resumenMes.comenzaronTratamientoTotal,
+            resumenMesAnterior?.comenzaronTratamientoTotal
+          )}
+          cambioAnioPasado={calcularCambio(
+            resumenMes.comenzaronTratamientoTotal,
+            resumenMesAnioPasado?.comenzaronTratamientoTotal
+          )}
         />
         <Tarjeta etiqueta="Historiales marcados" valor={resumenMes.historialesMarcados} />
         <Tarjeta etiqueta="Consentimientos marcados" valor={resumenMes.consentimientosMarcados} />
@@ -330,6 +354,7 @@ function PaginaEstadisticas() {
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Mes</th>
               <th className="px-3 py-2 text-right font-semibold">Pacientes nuevos</th>
+              <th className="px-3 py-2 text-right font-semibold">Comenzaron tratamiento</th>
               <th className="px-3 py-2 text-right font-semibold">Historiales marcados</th>
               <th className="px-3 py-2 text-right font-semibold">Consentimientos marcados</th>
               <th className="px-3 py-2 text-right font-semibold">Ingresos</th>
@@ -343,6 +368,12 @@ function PaginaEstadisticas() {
                   {NOMBRES_MES[m.mes - 1]} {m.anio}
                 </td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.pacientesNuevosTotal}</td>
+                <td className="px-3 py-2 text-right text-gray-600">
+                  {m.comenzaronTratamientoTotal}
+                  {m.pacientesNuevosTotal > 0 && (
+                    <span className="text-gray-400"> ({Math.round((m.comenzaronTratamientoTotal / m.pacientesNuevosTotal) * 100)}%)</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.historialesMarcados}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.consentimientosMarcados}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(m.balance.ingresosTotal)}</td>
@@ -354,9 +385,14 @@ function PaginaEstadisticas() {
       </div>
 
       <p className="mt-4 text-xs text-gray-400">
-        Nota: por ahora "historiales marcados" y "consentimientos marcados" solo cuentan pacientes de Odontología
-        General (son los que tienen el tildado ✅ desde la lista). Ortodoncia se puede sumar más adelante si hace
-        falta.
+        Nota: "Comenzaron tratamiento" cuenta, de los pacientes dados de alta ese mes, cuántos ya aceptaron un
+        presupuesto o tuvieron un cobro en Caja (General) o arrancaron el tratamiento de ortodoncia — sin importar
+        si eso pasó ese mismo mes o más adelante. Por eso los meses más recientes van a mostrar un % más bajo (todavía
+        tuvieron poco tiempo para convertir) y ese número puede seguir subiendo con el tiempo.
+      </p>
+      <p className="mt-2 text-xs text-gray-400">
+        "Historiales marcados" y "consentimientos marcados" solo cuentan pacientes de Odontología General (son los
+        que tienen el tildado ✅ desde la lista). Ortodoncia se puede sumar más adelante si hace falta.
       </p>
     </main>
   );
