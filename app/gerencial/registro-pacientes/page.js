@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { obtenerRegistroPacientesDelMes } from "@/lib/data/registroPacientes";
+import { obtenerRegistroPacientesDelMes, obtenerValorConsultaGeneral } from "@/lib/data/registroPacientes";
 
 const NOMBRES_MES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -27,9 +27,15 @@ function PaginaRegistroPacientes() {
   const [especialidad, setEspecialidad] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [filas, setFilas] = useState([]);
+  const [valorConsulta, setValorConsulta] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
-  const [porcentajes, setPorcentajes] = useState({});
+  const [porcentajesConsulta, setPorcentajesConsulta] = useState({});
+  const [porcentajesTratamiento, setPorcentajesTratamiento] = useState({});
+
+  useEffect(() => {
+    obtenerValorConsultaGeneral().then(setValorConsulta);
+  }, []);
 
   useEffect(() => {
     const [anio, mes] = mesElegido.split("-").map(Number);
@@ -52,9 +58,11 @@ function PaginaRegistroPacientes() {
     return resultado;
   }, [filas, especialidad, busqueda]);
 
-  // Por profesional: cuántas consultas se llevó cada uno ese mes, cuántas
-  // ya se transformaron en tratamiento y cuánto se cobró de esos pacientes
-  // — la base para calcular el % que le corresponde a cada uno.
+  // Por profesional: cuántas consultas se llevó cada uno ese mes (y cuánto
+  // vale eso, a $ valorConsulta cada una — solo tiene sentido en General),
+  // cuántas ya se transformaron en tratamiento y cuánto se cobró de esos
+  // pacientes — la base para calcular el % que le corresponde a cada uno,
+  // por un lado de las consultas y por otro de los tratamientos.
   const resumenPorProfesional = useMemo(() => {
     const grupos = new Map();
     for (const f of filasFiltradas) {
@@ -74,21 +82,27 @@ function PaginaRegistroPacientes() {
       if (f.empezoTratamiento) g.empezaron++;
       g.montoCobrado += f.montoCobrado || 0;
     }
-    return [...grupos.values()].sort((a, b) => b.montoCobrado - a.montoCobrado);
-  }, [filasFiltradas]);
+    return [...grupos.values()]
+      .map((g) => ({ ...g, valorConsultas: g.especialidad === "General" ? g.consultas * valorConsulta : null }))
+      .sort((a, b) => b.montoCobrado - a.montoCobrado);
+  }, [filasFiltradas, valorConsulta]);
 
   const totales = useMemo(() => {
     return resumenPorProfesional.reduce(
       (acc, g) => {
+        const comisionConsulta = (g.valorConsultas || 0) * (Number(porcentajesConsulta[g.clave]) || 0) / 100;
+        const comisionTratamiento = g.montoCobrado * (Number(porcentajesTratamiento[g.clave]) || 0) / 100;
         acc.consultas += g.consultas;
+        acc.valorConsultas += g.valorConsultas || 0;
         acc.empezaron += g.empezaron;
         acc.montoCobrado += g.montoCobrado;
-        acc.comision += g.montoCobrado * (Number(porcentajes[g.clave]) || 0) / 100;
+        acc.comisionConsulta += comisionConsulta;
+        acc.comisionTratamiento += comisionTratamiento;
         return acc;
       },
-      { consultas: 0, empezaron: 0, montoCobrado: 0, comision: 0 }
+      { consultas: 0, valorConsultas: 0, empezaron: 0, montoCobrado: 0, comisionConsulta: 0, comisionTratamiento: 0 }
     );
-  }, [resumenPorProfesional, porcentajes]);
+  }, [resumenPorProfesional, porcentajesConsulta, porcentajesTratamiento]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -136,55 +150,96 @@ function PaginaRegistroPacientes() {
           <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
             Por profesional — {NOMBRES_MES[Number(mesElegido.split("-")[1]) - 1]} {mesElegido.split("-")[0]}
           </h2>
+          {valorConsulta > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              Consulta particular de General: {formatoPesos(valorConsulta)} c/u (del catálogo — si cambiás el precio
+              ahí, se actualiza acá solo).
+            </p>
+          )}
           <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-brand-brown text-white">
                   <th className="px-3 py-2 text-left font-semibold">Profesional</th>
-                  <th className="px-3 py-2 text-left font-semibold">Especialidad</th>
+                  <th className="px-3 py-2 text-left font-semibold">Espec.</th>
                   <th className="px-3 py-2 text-right font-semibold">Consultas</th>
-                  <th className="px-3 py-2 text-right font-semibold">Empezaron tratamiento</th>
-                  <th className="px-3 py-2 text-right font-semibold">% conversión</th>
-                  <th className="px-3 py-2 text-right font-semibold">Cobrado</th>
-                  <th className="px-3 py-2 text-center font-semibold">% a pagar</th>
-                  <th className="px-3 py-2 text-right font-semibold">Comisión</th>
+                  <th className="px-3 py-2 text-right font-semibold">Valor consultas</th>
+                  <th className="px-3 py-2 text-center font-semibold">% consulta</th>
+                  <th className="px-3 py-2 text-right font-semibold">Comisión consulta</th>
+                  <th className="px-3 py-2 text-right font-semibold">Empezaron trat.</th>
+                  <th className="px-3 py-2 text-right font-semibold">Cobrado trat.</th>
+                  <th className="px-3 py-2 text-center font-semibold">% tratamiento</th>
+                  <th className="px-3 py-2 text-right font-semibold">Comisión trat.</th>
+                  <th className="px-3 py-2 text-right font-semibold">Total a pagar</th>
                 </tr>
               </thead>
               <tbody>
                 {resumenPorProfesional.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-3 text-center text-gray-500">
+                    <td colSpan={11} className="px-3 py-3 text-center text-gray-500">
                       No hay consultas registradas para este filtro.
                     </td>
                   </tr>
                 ) : (
                   resumenPorProfesional.map((g) => {
-                    const pct = porcentajes[g.clave] ?? "";
-                    const comision = (g.montoCobrado * (Number(pct) || 0)) / 100;
+                    const pctConsulta = porcentajesConsulta[g.clave] ?? "";
+                    const pctTratamiento = porcentajesTratamiento[g.clave] ?? "";
+                    const comisionConsulta = ((g.valorConsultas || 0) * (Number(pctConsulta) || 0)) / 100;
+                    const comisionTratamiento = (g.montoCobrado * (Number(pctTratamiento) || 0)) / 100;
                     return (
                       <tr key={g.clave} className="border-t border-gray-100">
                         <td className="px-3 py-2 font-medium text-gray-900">{g.profesional}</td>
                         <td className="px-3 py-2 text-gray-600">{g.especialidad}</td>
                         <td className="px-3 py-2 text-right text-gray-600">{g.consultas}</td>
-                        <td className="px-3 py-2 text-right text-gray-600">{g.empezaron}</td>
-                        <td className="px-3 py-2 text-right font-medium text-gray-900">
-                          {g.consultas > 0 ? `${Math.round((g.empezaron / g.consultas) * 100)}%` : "—"}
+                        <td className="px-3 py-2 text-right text-gray-600">
+                          {g.valorConsultas !== null ? formatoPesos(g.valorConsultas) : "—"}
                         </td>
+                        <td className="px-3 py-2 text-center">
+                          {g.valorConsultas !== null ? (
+                            <>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={pctConsulta}
+                                onChange={(e) =>
+                                  setPorcentajesConsulta((p) => ({ ...p, [g.clave]: e.target.value }))
+                                }
+                                placeholder="0"
+                                className="w-14 rounded-md border border-gray-300 px-2 py-1 text-right text-sm"
+                              />
+                              %
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-emerald-700">
+                          {comisionConsulta > 0 ? formatoPesos(comisionConsulta) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.empezaron}</td>
                         <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(g.montoCobrado)}</td>
                         <td className="px-3 py-2 text-center">
                           <input
                             type="number"
                             min="0"
                             max="100"
-                            value={pct}
-                            onChange={(e) => setPorcentajes((p) => ({ ...p, [g.clave]: e.target.value }))}
+                            value={pctTratamiento}
+                            onChange={(e) =>
+                              setPorcentajesTratamiento((p) => ({ ...p, [g.clave]: e.target.value }))
+                            }
                             placeholder="0"
-                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-right text-sm"
+                            className="w-14 rounded-md border border-gray-300 px-2 py-1 text-right text-sm"
                           />
                           %
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold text-emerald-700">
-                          {comision > 0 ? formatoPesos(comision) : "—"}
+                        <td className="px-3 py-2 text-right font-medium text-emerald-700">
+                          {comisionTratamiento > 0 ? formatoPesos(comisionTratamiento) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-emerald-800">
+                          {comisionConsulta + comisionTratamiento > 0
+                            ? formatoPesos(comisionConsulta + comisionTratamiento)
+                            : "—"}
                         </td>
                       </tr>
                     );
@@ -198,14 +253,21 @@ function PaginaRegistroPacientes() {
                       Total
                     </td>
                     <td className="px-3 py-2 text-right">{totales.consultas}</td>
-                    <td className="px-3 py-2 text-right">{totales.empezaron}</td>
-                    <td className="px-3 py-2 text-right">
-                      {totales.consultas > 0 ? `${Math.round((totales.empezaron / totales.consultas) * 100)}%` : "—"}
+                    <td className="px-3 py-2 text-right">{formatoPesos(totales.valorConsultas)}</td>
+                    <td></td>
+                    <td className="px-3 py-2 text-right text-emerald-700">
+                      {totales.comisionConsulta > 0 ? formatoPesos(totales.comisionConsulta) : "—"}
                     </td>
+                    <td className="px-3 py-2 text-right">{totales.empezaron}</td>
                     <td className="px-3 py-2 text-right">{formatoPesos(totales.montoCobrado)}</td>
                     <td></td>
                     <td className="px-3 py-2 text-right text-emerald-700">
-                      {totales.comision > 0 ? formatoPesos(totales.comision) : "—"}
+                      {totales.comisionTratamiento > 0 ? formatoPesos(totales.comisionTratamiento) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-emerald-800">
+                      {totales.comisionConsulta + totales.comisionTratamiento > 0
+                        ? formatoPesos(totales.comisionConsulta + totales.comisionTratamiento)
+                        : "—"}
                     </td>
                   </tr>
                 </tfoot>
@@ -213,8 +275,9 @@ function PaginaRegistroPacientes() {
             </table>
           </div>
           <p className="mt-1 text-[11px] text-gray-400">
-            El "% a pagar" es solo para calcular en pantalla — escribilo, se recalcula solo, pero no se guarda. Si
-            recargás la página vuelve a quedar en blanco.
+            Los "%" son solo para calcular en pantalla — se recalculan solos, pero no se guardan. Si recargás la
+            página vuelven a quedar en blanco. "Valor consultas" solo aplica a General (a Ortodoncia no le
+            corresponde ese precio de consulta particular).
           </p>
 
           <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
