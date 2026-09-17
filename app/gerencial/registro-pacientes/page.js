@@ -16,6 +16,10 @@ function formatoFecha(fechaISO) {
   return `${dia}/${mes}/${anio}`;
 }
 
+function formatoPesos(n) {
+  return `$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
 function PaginaRegistroPacientes() {
   const hoy = fechaDeHoyISO();
   const mesActual = hoy.slice(0, 7);
@@ -25,6 +29,7 @@ function PaginaRegistroPacientes() {
   const [filas, setFilas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [porcentajes, setPorcentajes] = useState({});
 
   useEffect(() => {
     const [anio, mes] = mesElegido.split("-").map(Number);
@@ -47,28 +52,50 @@ function PaginaRegistroPacientes() {
     return resultado;
   }, [filas, especialidad, busqueda]);
 
-  // Por profesional: cuántas consultas se llevó cada uno ese mes y cuántas
-  // de esas ya se transformaron en tratamiento — la base para calcular el %.
+  // Por profesional: cuántas consultas se llevó cada uno ese mes, cuántas
+  // ya se transformaron en tratamiento y cuánto se cobró de esos pacientes
+  // — la base para calcular el % que le corresponde a cada uno.
   const resumenPorProfesional = useMemo(() => {
     const grupos = new Map();
     for (const f of filasFiltradas) {
       const clave = `${f.profesionalId ?? "sin-asignar"}__${f.especialidad}`;
       if (!grupos.has(clave)) {
-        grupos.set(clave, { profesional: f.profesional, especialidad: f.especialidad, consultas: 0, empezaron: 0 });
+        grupos.set(clave, {
+          clave,
+          profesional: f.profesional,
+          especialidad: f.especialidad,
+          consultas: 0,
+          empezaron: 0,
+          montoCobrado: 0,
+        });
       }
       const g = grupos.get(clave);
       g.consultas++;
       if (f.empezoTratamiento) g.empezaron++;
+      g.montoCobrado += f.montoCobrado || 0;
     }
-    return [...grupos.values()].sort((a, b) => b.consultas - a.consultas);
+    return [...grupos.values()].sort((a, b) => b.montoCobrado - a.montoCobrado);
   }, [filasFiltradas]);
+
+  const totales = useMemo(() => {
+    return resumenPorProfesional.reduce(
+      (acc, g) => {
+        acc.consultas += g.consultas;
+        acc.empezaron += g.empezaron;
+        acc.montoCobrado += g.montoCobrado;
+        acc.comision += g.montoCobrado * (Number(porcentajes[g.clave]) || 0) / 100;
+        return acc;
+      },
+      { consultas: 0, empezaron: 0, montoCobrado: 0, comision: 0 }
+    );
+  }, [resumenPorProfesional, porcentajes]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Registro de Pacientes por Profesional</h1>
       <p className="mt-0.5 text-sm text-gray-500">
-        Solo visible para Dueña. Quién atendió la primera consulta de cada paciente y si esa consulta se transformó
-        en tratamiento — para repartir el % de cada profesional.
+        Solo visible para Dueña. Quién atendió la primera consulta de cada paciente, si esa consulta se transformó en
+        tratamiento y cuánto se cobró — para calcular el % que le corresponde a cada profesional.
       </p>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
@@ -118,31 +145,77 @@ function PaginaRegistroPacientes() {
                   <th className="px-3 py-2 text-right font-semibold">Consultas</th>
                   <th className="px-3 py-2 text-right font-semibold">Empezaron tratamiento</th>
                   <th className="px-3 py-2 text-right font-semibold">% conversión</th>
+                  <th className="px-3 py-2 text-right font-semibold">Cobrado</th>
+                  <th className="px-3 py-2 text-center font-semibold">% a pagar</th>
+                  <th className="px-3 py-2 text-right font-semibold">Comisión</th>
                 </tr>
               </thead>
               <tbody>
                 {resumenPorProfesional.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-3 text-center text-gray-500">
+                    <td colSpan={8} className="px-3 py-3 text-center text-gray-500">
                       No hay consultas registradas para este filtro.
                     </td>
                   </tr>
                 ) : (
-                  resumenPorProfesional.map((g) => (
-                    <tr key={`${g.profesional}-${g.especialidad}`} className="border-t border-gray-100">
-                      <td className="px-3 py-2 font-medium text-gray-900">{g.profesional}</td>
-                      <td className="px-3 py-2 text-gray-600">{g.especialidad}</td>
-                      <td className="px-3 py-2 text-right text-gray-600">{g.consultas}</td>
-                      <td className="px-3 py-2 text-right text-gray-600">{g.empezaron}</td>
-                      <td className="px-3 py-2 text-right font-medium text-gray-900">
-                        {g.consultas > 0 ? `${Math.round((g.empezaron / g.consultas) * 100)}%` : "—"}
-                      </td>
-                    </tr>
-                  ))
+                  resumenPorProfesional.map((g) => {
+                    const pct = porcentajes[g.clave] ?? "";
+                    const comision = (g.montoCobrado * (Number(pct) || 0)) / 100;
+                    return (
+                      <tr key={g.clave} className="border-t border-gray-100">
+                        <td className="px-3 py-2 font-medium text-gray-900">{g.profesional}</td>
+                        <td className="px-3 py-2 text-gray-600">{g.especialidad}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.consultas}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.empezaron}</td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900">
+                          {g.consultas > 0 ? `${Math.round((g.empezaron / g.consultas) * 100)}%` : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(g.montoCobrado)}</td>
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={pct}
+                            onChange={(e) => setPorcentajes((p) => ({ ...p, [g.clave]: e.target.value }))}
+                            placeholder="0"
+                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-right text-sm"
+                          />
+                          %
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-emerald-700">
+                          {comision > 0 ? formatoPesos(comision) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
+              {resumenPorProfesional.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold text-gray-900">
+                    <td className="px-3 py-2" colSpan={2}>
+                      Total
+                    </td>
+                    <td className="px-3 py-2 text-right">{totales.consultas}</td>
+                    <td className="px-3 py-2 text-right">{totales.empezaron}</td>
+                    <td className="px-3 py-2 text-right">
+                      {totales.consultas > 0 ? `${Math.round((totales.empezaron / totales.consultas) * 100)}%` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right">{formatoPesos(totales.montoCobrado)}</td>
+                    <td></td>
+                    <td className="px-3 py-2 text-right text-emerald-700">
+                      {totales.comision > 0 ? formatoPesos(totales.comision) : "—"}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
+          <p className="mt-1 text-[11px] text-gray-400">
+            El "% a pagar" es solo para calcular en pantalla — escribilo, se recalcula solo, pero no se guarda. Si
+            recargás la página vuelve a quedar en blanco.
+          </p>
 
           <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
             Detalle ({filasFiltradas.length} paciente{filasFiltradas.length === 1 ? "" : "s"})
@@ -157,12 +230,13 @@ function PaginaRegistroPacientes() {
                   <th className="px-3 py-2 text-left font-semibold">Primera consulta</th>
                   <th className="px-3 py-2 text-left font-semibold">¿Empezó tratamiento?</th>
                   <th className="px-3 py-2 text-left font-semibold">Fecha que empezó</th>
+                  <th className="px-3 py-2 text-right font-semibold">Cobrado</th>
                 </tr>
               </thead>
               <tbody>
                 {filasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-3 text-center text-gray-500">
+                    <td colSpan={7} className="px-3 py-3 text-center text-gray-500">
                       No hay pacientes para este filtro.
                     </td>
                   </tr>
@@ -185,6 +259,9 @@ function PaginaRegistroPacientes() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-gray-600">{formatoFecha(f.fechaEmpezo)}</td>
+                      <td className="px-3 py-2 text-right text-gray-600">
+                        {f.montoCobrado > 0 ? formatoPesos(f.montoCobrado) : "—"}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -197,13 +274,14 @@ function PaginaRegistroPacientes() {
       <p className="mt-4 text-xs text-gray-400">
         "Empezó tratamiento" se sigue actualizando con el tiempo: un paciente que consultó este mes puede sumarse acá
         más adelante en cuanto acepte un presupuesto o arranque el tratamiento de ortodoncia, aunque siga apareciendo
-        en el mes de su primera consulta.
+        en el mes de su primera consulta. "Cobrado" es la plata que ese paciente pagó en Caja hasta hoy (no solo ese
+        mes), para que el número no quede corto si el tratamiento se sigue pagando en cuotas más adelante.
       </p>
       <p className="mt-2 text-xs text-gray-400">
         En Ortodoncia, "primera consulta" es el turno cargado específicamente como "Consulta de ortodoncia" (dato
         confiable). En General no hay un campo así de confiable, entonces se usa el primer turno del paciente en la
-        app — un paciente que ya venía en tratamiento de antes y recién ahora se le carga un turno de control puede
-        aparecer acá sin ser una consulta nueva de verdad. Se nota sobre todo en agosto y septiembre (mes de
+        app, salvo que ya tenga un plan con pagos históricos cargados (ahí se sabe que ya era paciente de antes). Aun
+        así puede colarse algún caso viejo sin plan cargado — se nota sobre todo en agosto y septiembre (mes de
         migración); de octubre en adelante el dato de General es mucho más confiable.
       </p>
     </main>
