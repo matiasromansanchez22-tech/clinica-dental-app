@@ -5,8 +5,12 @@ import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerBalanceAcumuladoTotal } from "@/lib/data/balance";
 import { actualizarConfiguracionGeneral, obtenerConfiguracionGeneral } from "@/lib/data/configuracionGeneral";
-import { obtenerActividadDelDia, obtenerResumenMensual, obtenerTendenciaMensual } from "@/lib/data/estadisticas";
-import { obtenerIdsPacientesConActividad } from "@/lib/data/pacientes";
+import {
+  obtenerActividadDelDia,
+  obtenerContextoConversion,
+  obtenerResumenMensual,
+  obtenerTendenciaMensual,
+} from "@/lib/data/estadisticas";
 
 const NOMBRES_MES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -149,12 +153,12 @@ function PaginaEstadisticas() {
     const anioActual = ahora.getFullYear();
     const mesActualNum = ahora.getMonth() + 1;
     const { anio: anioAnterior, mes: mesAnteriorNum } = mesAnterior(anioActual, mesActualNum);
-    obtenerIdsPacientesConActividad().then((idsConActividad) =>
+    obtenerContextoConversion().then((contexto) =>
       Promise.all([
         obtenerActividadDelDia(hoy),
-        obtenerResumenMensual(anioActual, mesActualNum, idsConActividad),
-        obtenerResumenMensual(anioAnterior, mesAnteriorNum, idsConActividad),
-        obtenerResumenMensual(anioActual - 1, mesActualNum, idsConActividad),
+        obtenerResumenMensual(anioActual, mesActualNum, contexto),
+        obtenerResumenMensual(anioAnterior, mesAnteriorNum, contexto),
+        obtenerResumenMensual(anioActual - 1, mesActualNum, contexto),
         obtenerTendenciaMensual(6),
         obtenerBalanceAcumuladoTotal(),
         obtenerConfiguracionGeneral(),
@@ -189,12 +193,12 @@ function PaginaEstadisticas() {
     const [anio, mes] = mesElegido.split("-").map(Number);
     const { anio: anioAnt, mes: mesAnt } = mesAnterior(anio, mes);
     setCargandoMes(true);
-    obtenerIdsPacientesConActividad()
-      .then((idsConActividad) =>
+    obtenerContextoConversion()
+      .then((contexto) =>
         Promise.all([
-          obtenerResumenMensual(anio, mes, idsConActividad),
-          obtenerResumenMensual(anioAnt, mesAnt, idsConActividad),
-          obtenerResumenMensual(anio - 1, mes, idsConActividad),
+          obtenerResumenMensual(anio, mes, contexto),
+          obtenerResumenMensual(anioAnt, mesAnt, contexto),
+          obtenerResumenMensual(anio - 1, mes, contexto),
         ])
       )
       .then(([actual, anterior, anioPasado]) => {
@@ -304,18 +308,18 @@ function PaginaEstadisticas() {
       </div>
       <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${cargandoMes ? "opacity-50" : ""}`}>
         <Tarjeta
-          etiqueta="Pacientes nuevos"
-          valor={resumenMes.pacientesNuevosTotal}
-          sub={`General ${resumenMes.pacientesNuevosGeneral} · Orto ${resumenMes.pacientesNuevosOrtodoncia}`}
-          cambioMesAnterior={calcularCambio(resumenMes.pacientesNuevosTotal, resumenMesAnterior?.pacientesNuevosTotal)}
-          cambioAnioPasado={calcularCambio(resumenMes.pacientesNuevosTotal, resumenMesAnioPasado?.pacientesNuevosTotal)}
+          etiqueta="Primera consulta"
+          valor={resumenMes.primeraConsultaTotal}
+          sub={`General ${resumenMes.primeraConsultaGeneral} · Orto ${resumenMes.primeraConsultaOrtodoncia}`}
+          cambioMesAnterior={calcularCambio(resumenMes.primeraConsultaTotal, resumenMesAnterior?.primeraConsultaTotal)}
+          cambioAnioPasado={calcularCambio(resumenMes.primeraConsultaTotal, resumenMesAnioPasado?.primeraConsultaTotal)}
         />
         <Tarjeta
           etiqueta="Comenzaron tratamiento"
           valor={resumenMes.comenzaronTratamientoTotal}
           sub={`General ${resumenMes.comenzaronTratamientoGeneral} · Orto ${resumenMes.comenzaronTratamientoOrtodoncia}${
-            resumenMes.pacientesNuevosTotal > 0
-              ? ` · ${Math.round((resumenMes.comenzaronTratamientoTotal / resumenMes.pacientesNuevosTotal) * 100)}%`
+            resumenMes.primeraConsultaTotal > 0
+              ? ` · ${Math.round((resumenMes.comenzaronTratamientoTotal / resumenMes.primeraConsultaTotal) * 100)}%`
               : ""
           }`}
           cambioMesAnterior={calcularCambio(
@@ -353,7 +357,7 @@ function PaginaEstadisticas() {
           <thead>
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Mes</th>
-              <th className="px-3 py-2 text-right font-semibold">Pacientes nuevos</th>
+              <th className="px-3 py-2 text-right font-semibold">Primera consulta</th>
               <th className="px-3 py-2 text-right font-semibold">Comenzaron tratamiento</th>
               <th className="px-3 py-2 text-right font-semibold">Historiales marcados</th>
               <th className="px-3 py-2 text-right font-semibold">Consentimientos marcados</th>
@@ -367,11 +371,11 @@ function PaginaEstadisticas() {
                 <td className="px-3 py-2 font-medium text-gray-900">
                   {NOMBRES_MES[m.mes - 1]} {m.anio}
                 </td>
-                <td className="px-3 py-2 text-right text-gray-600">{m.pacientesNuevosTotal}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{m.primeraConsultaTotal}</td>
                 <td className="px-3 py-2 text-right text-gray-600">
                   {m.comenzaronTratamientoTotal}
-                  {m.pacientesNuevosTotal > 0 && (
-                    <span className="text-gray-400"> ({Math.round((m.comenzaronTratamientoTotal / m.pacientesNuevosTotal) * 100)}%)</span>
+                  {m.primeraConsultaTotal > 0 && (
+                    <span className="text-gray-400"> ({Math.round((m.comenzaronTratamientoTotal / m.primeraConsultaTotal) * 100)}%)</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.historialesMarcados}</td>
@@ -385,10 +389,12 @@ function PaginaEstadisticas() {
       </div>
 
       <p className="mt-4 text-xs text-gray-400">
-        Nota: "Comenzaron tratamiento" cuenta, de los pacientes dados de alta ese mes, cuántos ya aceptaron un
-        presupuesto o tuvieron un cobro en Caja (General) o arrancaron el tratamiento de ortodoncia — sin importar
-        si eso pasó ese mismo mes o más adelante. Por eso los meses más recientes van a mostrar un % más bajo (todavía
-        tuvieron poco tiempo para convertir) y ese número puede seguir subiendo con el tiempo.
+        Nota: "Primera consulta" cuenta pacientes por la fecha de su primer turno (no la fecha de alta) — así no se
+        pierden los que ya estaban cargados en el sistema pero vinieron por primera vez recién ahora. "Comenzaron
+        tratamiento" cuenta, de esos mismos, cuántos ya tuvieron algún cobro en Caja (General) o arrancaron el
+        tratamiento de ortodoncia — sin importar si eso pasó ese mismo mes o más adelante. Por eso los meses más
+        recientes van a mostrar un % más bajo (todavía tuvieron poco tiempo para convertir) y ese número puede
+        seguir subiendo con el tiempo.
       </p>
       <p className="mt-2 text-xs text-gray-400">
         "Historiales marcados" y "consentimientos marcados" solo cuentan pacientes de Odontología General (son los
