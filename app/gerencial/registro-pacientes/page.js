@@ -246,7 +246,10 @@ function PaginaRegistroPacientes() {
                       <td className="px-3 py-2 font-medium text-gray-900">{f.paciente}</td>
                       <td className="px-3 py-2 text-gray-600">{f.profesional}</td>
                       <td className="px-3 py-2 text-gray-600">{f.especialidad}</td>
-                      <td className="px-3 py-2 text-gray-600">{formatoFecha(f.fechaConsulta)}</td>
+                      <td className="px-3 py-2 text-gray-600">
+                        {formatoFecha(f.fechaConsulta)}
+                        {f.fechaConsulta > hoy && <span className="ml-1 text-xs text-amber-600">(a futuro)</span>}
+                      </td>
                       <td className="px-3 py-2">
                         {f.empezoTratamiento ? (
                           <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
@@ -278,11 +281,10 @@ function PaginaRegistroPacientes() {
         mes), para que el número no quede corto si el tratamiento se sigue pagando en cuotas más adelante.
       </p>
       <p className="mt-2 text-xs text-gray-400">
-        En Ortodoncia, "primera consulta" es el turno cargado específicamente como "Consulta de ortodoncia" (dato
-        confiable). En General no hay un campo así de confiable, entonces se usa el primer turno del paciente en la
-        app, salvo que ya tenga un plan con pagos históricos cargados (ahí se sabe que ya era paciente de antes). Aun
-        así puede colarse algún caso viejo sin plan cargado — se nota sobre todo en agosto y septiembre (mes de
-        migración); de octubre en adelante el dato de General es mucho más confiable.
+        "Primera consulta" cuenta pacientes NUEVOS de verdad, no cualquier turno: en Ortodoncia es el turno cargado
+        específicamente como "Consulta de ortodoncia"; en General es la fecha en que se dio de alta la ficha del
+        paciente (que se crea justo al agendarle el primer turno). Así quedan afuera los pacientes viejos que ya
+        estaban cargados de antes, aunque recién ahora se les cargue un turno de control.
       </p>
     </main>
   );

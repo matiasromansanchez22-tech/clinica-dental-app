@@ -412,13 +412,12 @@ function PaginaEstadisticas() {
         personas distintas vinieron, sin repetir a la que volvió varias veces.
       </p>
       <p className="mt-2 text-xs text-gray-400">
-        "Primera consulta" en Ortodoncia cuenta el turno cargado como "Consulta de ortodoncia" (por eso es
-        confiable). En General, como el personal no carga ese dato de forma pareja, se usa el primer turno del
-        paciente en la app — así que un paciente que ya venía en tratamiento de antes y recién ahora se le carga un
-        turno de control puede aparecer como "primera consulta" sin serlo de verdad. Esto se nota sobre todo en
-        agosto y septiembre (mes de migración a la app); de octubre en adelante el número de General va a ser mucho
-        más preciso. "Comenzaron tratamiento" cuenta, de esos mismos, cuántos ya tuvieron algún cobro en Caja
-        (General) o arrancaron el tratamiento de ortodoncia — sin importar si eso pasó ese mismo mes o más adelante.
+        "Primera consulta" cuenta pacientes nuevos de verdad, no cualquier turno: en Ortodoncia es el turno cargado
+        como "Consulta de ortodoncia"; en General es la fecha de alta de la ficha (se crea justo al agendarle el
+        primer turno a un paciente nuevo). Así quedan afuera los pacientes viejos que ya estaban cargados de antes,
+        aunque recién ahora se les cargue un turno de control. "Comenzaron tratamiento" cuenta, de esos mismos,
+        cuántos ya tuvieron algún cobro en Caja (General) o arrancaron el tratamiento de ortodoncia — sin importar si
+        eso pasó ese mismo mes o más adelante.
       </p>
       <p className="mt-2 text-xs text-gray-400">
         "Historiales marcados" y "consentimientos marcados" solo cuentan pacientes de Odontología General (son los
