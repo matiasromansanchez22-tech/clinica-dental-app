@@ -199,6 +199,13 @@ function PaginaRegistroPacientes() {
         más adelante en cuanto acepte un presupuesto o arranque el tratamiento de ortodoncia, aunque siga apareciendo
         en el mes de su primera consulta.
       </p>
+      <p className="mt-2 text-xs text-gray-400">
+        En Ortodoncia, "primera consulta" es el turno cargado específicamente como "Consulta de ortodoncia" (dato
+        confiable). En General no hay un campo así de confiable, entonces se usa el primer turno del paciente en la
+        app — un paciente que ya venía en tratamiento de antes y recién ahora se le carga un turno de control puede
+        aparecer acá sin ser una consulta nueva de verdad. Se nota sobre todo en agosto y septiembre (mes de
+        migración); de octubre en adelante el dato de General es mucho más confiable.
+      </p>
     </main>
   );
 }
