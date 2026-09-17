@@ -306,6 +306,9 @@ function PaginaEstadisticas() {
           )}
         </div>
       </div>
+      <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        📋 Toda la actividad del mes (todos los pacientes, viejos y nuevos)
+      </h3>
       <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${cargandoMes ? "opacity-50" : ""}`}>
         <Tarjeta
           etiqueta="Turnos cerrados"
@@ -321,6 +324,26 @@ function PaginaEstadisticas() {
           cambioMesAnterior={calcularCambio(resumenMes.pacientesAtendidosTotal, resumenMesAnterior?.pacientesAtendidosTotal)}
           cambioAnioPasado={calcularCambio(resumenMes.pacientesAtendidosTotal, resumenMesAnioPasado?.pacientesAtendidosTotal)}
         />
+        <Tarjeta etiqueta="Historiales marcados" valor={resumenMes.historialesMarcados} />
+        <Tarjeta etiqueta="Consentimientos marcados" valor={resumenMes.consentimientosMarcados} />
+        <Tarjeta
+          etiqueta="Ingresos del mes"
+          valor={formatoPesos(resumenMes.balance.ingresosTotal)}
+          cambioMesAnterior={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnterior?.balance?.ingresosTotal)}
+          cambioAnioPasado={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnioPasado?.balance?.ingresosTotal)}
+        />
+        <Tarjeta
+          etiqueta="Balance del mes"
+          valor={formatoPesos(resumenMes.balance.balance)}
+          cambioMesAnterior={calcularCambio(resumenMes.balance.balance, resumenMesAnterior?.balance?.balance)}
+          cambioAnioPasado={calcularCambio(resumenMes.balance.balance, resumenMesAnioPasado?.balance?.balance)}
+        />
+      </div>
+
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        🆕 Pacientes nuevos y conversión (solo pacientes nuevos, sin mezclar con los fijos)
+      </h3>
+      <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-2 ${cargandoMes ? "opacity-50" : ""}`}>
         <Tarjeta
           etiqueta="Primera consulta"
           valor={resumenMes.primeraConsultaTotal}
@@ -345,27 +368,15 @@ function PaginaEstadisticas() {
             resumenMesAnioPasado?.comenzaronTratamientoTotal
           )}
         />
-        <Tarjeta etiqueta="Historiales marcados" valor={resumenMes.historialesMarcados} />
-        <Tarjeta etiqueta="Consentimientos marcados" valor={resumenMes.consentimientosMarcados} />
-        <Tarjeta
-          etiqueta="Ingresos del mes"
-          valor={formatoPesos(resumenMes.balance.ingresosTotal)}
-          cambioMesAnterior={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnterior?.balance?.ingresosTotal)}
-          cambioAnioPasado={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnioPasado?.balance?.ingresosTotal)}
-        />
-        <Tarjeta
-          etiqueta="Balance del mes"
-          valor={formatoPesos(resumenMes.balance.balance)}
-          cambioMesAnterior={calcularCambio(resumenMes.balance.balance, resumenMesAnterior?.balance?.balance)}
-          cambioAnioPasado={calcularCambio(resumenMes.balance.balance, resumenMesAnioPasado?.balance?.balance)}
-        />
       </div>
       <p className="mt-1 text-[11px] text-gray-400">
         Las comparaciones son contra el mes anterior y contra el mismo mes del año pasado, para ver si el cambio es
         una tendencia real o algo normal de la época del año.
       </p>
 
-      <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">Últimos 6 meses</h2>
+      <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
+        Últimos 6 meses — 📋 toda la actividad
+      </h2>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -373,8 +384,6 @@ function PaginaEstadisticas() {
               <th className="px-3 py-2 text-left font-semibold">Mes</th>
               <th className="px-3 py-2 text-right font-semibold">Turnos cerrados</th>
               <th className="px-3 py-2 text-right font-semibold">Pacientes atendidos</th>
-              <th className="px-3 py-2 text-right font-semibold">Primera consulta</th>
-              <th className="px-3 py-2 text-right font-semibold">Comenzaron tratamiento</th>
               <th className="px-3 py-2 text-right font-semibold">Historiales marcados</th>
               <th className="px-3 py-2 text-right font-semibold">Consentimientos marcados</th>
               <th className="px-3 py-2 text-right font-semibold">Ingresos</th>
@@ -389,6 +398,34 @@ function PaginaEstadisticas() {
                 </td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.turnosCerradosTotal}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.pacientesAtendidosTotal}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{m.historialesMarcados}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{m.consentimientosMarcados}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(m.balance.ingresosTotal)}</td>
+                <td className="px-3 py-2 text-right font-medium text-gray-900">{formatoPesos(m.balance.balance)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
+        Últimos 6 meses — 🆕 solo pacientes nuevos
+      </h2>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-brand-brown text-white">
+              <th className="px-3 py-2 text-left font-semibold">Mes</th>
+              <th className="px-3 py-2 text-right font-semibold">Primera consulta</th>
+              <th className="px-3 py-2 text-right font-semibold">Comenzaron tratamiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tendencia.map((m) => (
+              <tr key={`nuevos-${m.anio}-${m.mes}`} className="border-t border-gray-100">
+                <td className="px-3 py-2 font-medium text-gray-900">
+                  {NOMBRES_MES[m.mes - 1]} {m.anio}
+                </td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.primeraConsultaTotal}</td>
                 <td className="px-3 py-2 text-right text-gray-600">
                   {m.comenzaronTratamientoTotal}
@@ -396,10 +433,6 @@ function PaginaEstadisticas() {
                     <span className="text-gray-400"> ({Math.round((m.comenzaronTratamientoTotal / m.primeraConsultaTotal) * 100)}%)</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right text-gray-600">{m.historialesMarcados}</td>
-                <td className="px-3 py-2 text-right text-gray-600">{m.consentimientosMarcados}</td>
-                <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(m.balance.ingresosTotal)}</td>
-                <td className="px-3 py-2 text-right font-medium text-gray-900">{formatoPesos(m.balance.balance)}</td>
               </tr>
             ))}
           </tbody>
