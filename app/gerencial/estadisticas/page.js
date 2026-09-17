@@ -308,6 +308,20 @@ function PaginaEstadisticas() {
       </div>
       <div className={`mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 ${cargandoMes ? "opacity-50" : ""}`}>
         <Tarjeta
+          etiqueta="Turnos cerrados"
+          valor={resumenMes.turnosCerradosTotal}
+          sub={`General ${resumenMes.turnosCerradosGeneral} · Orto ${resumenMes.turnosCerradosOrtodoncia}`}
+          cambioMesAnterior={calcularCambio(resumenMes.turnosCerradosTotal, resumenMesAnterior?.turnosCerradosTotal)}
+          cambioAnioPasado={calcularCambio(resumenMes.turnosCerradosTotal, resumenMesAnioPasado?.turnosCerradosTotal)}
+        />
+        <Tarjeta
+          etiqueta="Pacientes atendidos"
+          valor={resumenMes.pacientesAtendidosTotal}
+          sub={`General ${resumenMes.pacientesAtendidosGeneral} · Orto ${resumenMes.pacientesAtendidosOrtodoncia} (sin repetir a quien vino más de una vez)`}
+          cambioMesAnterior={calcularCambio(resumenMes.pacientesAtendidosTotal, resumenMesAnterior?.pacientesAtendidosTotal)}
+          cambioAnioPasado={calcularCambio(resumenMes.pacientesAtendidosTotal, resumenMesAnioPasado?.pacientesAtendidosTotal)}
+        />
+        <Tarjeta
           etiqueta="Primera consulta"
           valor={resumenMes.primeraConsultaTotal}
           sub={`General ${resumenMes.primeraConsultaGeneral} · Orto ${resumenMes.primeraConsultaOrtodoncia}`}
@@ -357,6 +371,8 @@ function PaginaEstadisticas() {
           <thead>
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Mes</th>
+              <th className="px-3 py-2 text-right font-semibold">Turnos cerrados</th>
+              <th className="px-3 py-2 text-right font-semibold">Pacientes atendidos</th>
               <th className="px-3 py-2 text-right font-semibold">Primera consulta</th>
               <th className="px-3 py-2 text-right font-semibold">Comenzaron tratamiento</th>
               <th className="px-3 py-2 text-right font-semibold">Historiales marcados</th>
@@ -371,6 +387,8 @@ function PaginaEstadisticas() {
                 <td className="px-3 py-2 font-medium text-gray-900">
                   {NOMBRES_MES[m.mes - 1]} {m.anio}
                 </td>
+                <td className="px-3 py-2 text-right text-gray-600">{m.turnosCerradosTotal}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{m.pacientesAtendidosTotal}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.primeraConsultaTotal}</td>
                 <td className="px-3 py-2 text-right text-gray-600">
                   {m.comenzaronTratamientoTotal}
@@ -389,7 +407,12 @@ function PaginaEstadisticas() {
       </div>
 
       <p className="mt-4 text-xs text-gray-400">
-        Nota: "Primera consulta" cuenta pacientes por la fecha de su primer turno (no la fecha de alta) — así no se
+        Nota: "Turnos cerrados" cuenta todos los turnos ya realizados ese mes (agendados, sin contar cancelados ni
+        reprogramados) — si un paciente vino 3 veces, suma 3. "Pacientes atendidos" es el número limpio: cuántas
+        personas distintas vinieron, sin repetir a la que volvió varias veces.
+      </p>
+      <p className="mt-2 text-xs text-gray-400">
+        "Primera consulta" cuenta pacientes por la fecha de su primer turno (no la fecha de alta) — así no se
         pierden los que ya estaban cargados en el sistema pero vinieron por primera vez recién ahora. "Comenzaron
         tratamiento" cuenta, de esos mismos, cuántos ya tuvieron algún cobro en Caja (General) o arrancaron el
         tratamiento de ortodoncia — sin importar si eso pasó ese mismo mes o más adelante. Por eso los meses más
