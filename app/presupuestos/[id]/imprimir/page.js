@@ -53,6 +53,26 @@ export default function ImprimirPresupuestoPage() {
     return { totalLista: redondear(totalLista), totalEfectivo: redondear(totalEfectivo) };
   }, [presupuesto, catalogo]);
 
+  // Igual que comparacionPrecios, pero solo con las prestaciones marcadas
+  // como prioridad — la segunda opción más chica y accesible.
+  const comparacionPrioridad = useMemo(() => {
+    if (!presupuesto || catalogo.length === 0) return null;
+    const esObraSocial = presupuesto.prestaciones.some((p) => p.tipoPrecio === "Copago");
+    if (esObraSocial) return null;
+    let totalLista = 0;
+    let totalEfectivo = 0;
+    for (const p of presupuesto.prestaciones) {
+      if (!p.prioridad) continue;
+      const item = catalogo.find((c) => c.id === p.catalogoId);
+      if (!item) continue;
+      const cantidad = Number(p.cantidad) || 0;
+      totalLista += cantidad * (Number(item.valor_lista) || 0);
+      totalEfectivo += cantidad * (Number(item.valor_efectivo) || 0);
+    }
+    if (totalLista <= 0 && totalEfectivo <= 0) return null;
+    return { totalLista: redondear(totalLista), totalEfectivo: redondear(totalEfectivo) };
+  }, [presupuesto, catalogo]);
+
   if (cargando) return <p className="p-10 text-sm text-gray-500">Cargando...</p>;
   if (error) return <p className="p-10 text-sm text-red-700">{error}</p>;
   if (!presupuesto) return null;
@@ -71,7 +91,7 @@ export default function ImprimirPresupuestoPage() {
   async function descargarPdf() {
     setGenerandoPdf(true);
     try {
-      const doc = await generarPresupuestoPdf(presupuesto, vigenciaHasta, comparacionPrecios);
+      const doc = await generarPresupuestoPdf(presupuesto, vigenciaHasta, comparacionPrecios, comparacionPrioridad);
       doc.save(`Presupuesto ${presupuesto.numero} - ${presupuesto.paciente}.pdf`);
     } finally {
       setGenerandoPdf(false);
@@ -142,7 +162,10 @@ export default function ImprimirPresupuestoPage() {
           <tbody>
             {presupuesto.prestaciones.map((p, i) => (
               <tr key={i} className="border-b border-gray-200">
-                <td className="py-2 text-gray-900">{p.prestacion}</td>
+                <td className="py-2 text-gray-900">
+                  {p.prioridad && <span title="Prioridad">⭐ </span>}
+                  {p.prestacion}
+                </td>
                 <td className="py-2 text-center text-gray-600">{p.cantidad}</td>
                 <td className="py-2 text-center text-gray-600">{p.tipoPrecio}</td>
                 <td className="py-2 text-right text-gray-900">${Number(p.importe).toLocaleString("es-AR")}</td>
@@ -173,6 +196,28 @@ export default function ImprimirPresupuestoPage() {
               {comparacionPrecios.totalLista > comparacionPrecios.totalEfectivo && (
                 <span className="text-xs text-gray-500">
                   (ahorra ${(comparacionPrecios.totalLista - comparacionPrecios.totalEfectivo).toLocaleString("es-AR")} pagando en efectivo)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {comparacionPrioridad && (
+          <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+            <p className="mb-1 text-xs font-semibold uppercase text-amber-800">
+              ⭐ Opción más accesible — solo lo marcado como prioridad
+            </p>
+            <div className="flex flex-wrap items-center gap-6">
+              <span className="text-gray-700">
+                Valor de lista: <strong>${comparacionPrioridad.totalLista.toLocaleString("es-AR")}</strong>
+              </span>
+              <span className="text-gray-700">
+                Valor en efectivo:{" "}
+                <strong className="text-emerald-700">${comparacionPrioridad.totalEfectivo.toLocaleString("es-AR")}</strong>
+              </span>
+              {comparacionPrioridad.totalLista > comparacionPrioridad.totalEfectivo && (
+                <span className="text-xs text-gray-500">
+                  (ahorra ${(comparacionPrioridad.totalLista - comparacionPrioridad.totalEfectivo).toLocaleString("es-AR")} pagando en efectivo)
                 </span>
               )}
             </div>

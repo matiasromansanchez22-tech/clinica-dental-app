@@ -13,7 +13,7 @@ import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 const MAX_PRESTACIONES = 6;
 
 function filaVacia() {
-  return { catalogoId: "", cantidad: 1, tipoPrecio: "Lista", importe: 0 };
+  return { catalogoId: "", cantidad: 1, tipoPrecio: "Lista", importe: 0, prioridad: false };
 }
 
 export default function PresupuestoFormModal({
@@ -75,6 +75,26 @@ export default function PresupuestoFormModal({
     let totalEfectivo = 0;
     for (const p of prestaciones) {
       if (!p.catalogoId) continue;
+      const item = catalogo.find((c) => c.id === p.catalogoId);
+      if (!item) continue;
+      const cantidad = Number(p.cantidad) || 0;
+      totalLista += cantidad * (Number(item.valor_lista) || 0);
+      totalEfectivo += cantidad * (Number(item.valor_efectivo) || 0);
+    }
+    if (totalLista <= 0 && totalEfectivo <= 0) return null;
+    return { totalLista: redondear(totalLista), totalEfectivo: redondear(totalEfectivo) };
+  }, [prestaciones, catalogo, esObraSocial]);
+
+  // Igual que comparacionPrecios, pero solo con las prestaciones que el
+  // profesional marcó como prioridad — para ofrecerle al paciente una
+  // segunda opción más chica y accesible si no puede con el presupuesto
+  // completo.
+  const comparacionPrioridad = useMemo(() => {
+    if (esObraSocial) return null;
+    let totalLista = 0;
+    let totalEfectivo = 0;
+    for (const p of prestaciones) {
+      if (!p.catalogoId || !p.prioridad) continue;
       const item = catalogo.find((c) => c.id === p.catalogoId);
       if (!item) continue;
       const cantidad = Number(p.cantidad) || 0;
@@ -327,6 +347,19 @@ export default function PresupuestoFormModal({
                     title="Precio sugerido según catálogo/obra social — se puede corregir a mano"
                     className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
                   />
+                  {!esObraSocial && (
+                    <label
+                      title="Marcar como prioridad: aparece en una segunda opción más chica y accesible"
+                      className="flex items-center gap-1 text-xs text-gray-600"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(fila.prioridad)}
+                        onChange={(e) => actualizarFila(i, { prioridad: e.target.checked })}
+                      />
+                      ⭐
+                    </label>
+                  )}
                   <button
                     type="button"
                     onClick={() => quitarFila(i)}
@@ -359,6 +392,27 @@ export default function PresupuestoFormModal({
                 {comparacionPrecios.totalLista > comparacionPrecios.totalEfectivo && (
                   <span className="text-xs text-gray-500">
                     (ahorra ${(comparacionPrecios.totalLista - comparacionPrecios.totalEfectivo).toLocaleString("es-AR")} pagando en efectivo)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {comparacionPrioridad && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+              <p className="text-xs font-semibold uppercase text-amber-800">
+                ⭐ Opción más accesible — solo lo marcado como prioridad
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-4">
+                <span className="text-gray-700">
+                  Valor de lista: <strong>${comparacionPrioridad.totalLista.toLocaleString("es-AR")}</strong>
+                </span>
+                <span className="text-gray-700">
+                  Valor en efectivo: <strong className="text-emerald-700">${comparacionPrioridad.totalEfectivo.toLocaleString("es-AR")}</strong>
+                </span>
+                {comparacionPrioridad.totalLista > comparacionPrioridad.totalEfectivo && (
+                  <span className="text-xs text-gray-500">
+                    (ahorra ${(comparacionPrioridad.totalLista - comparacionPrioridad.totalEfectivo).toLocaleString("es-AR")} pagando en efectivo)
                   </span>
                 )}
               </div>
