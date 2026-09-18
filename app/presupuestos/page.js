@@ -8,6 +8,7 @@ import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import {
+  aceptarPresupuestoConPrioridad,
   cambiarEstadoPresupuesto,
   obtenerPresupuestos,
   obtenerPresupuestosPendientesConPagos,
@@ -80,6 +81,26 @@ export default function PresupuestosPage() {
     setError(null);
     try {
       await cambiarEstadoPresupuesto(presupuesto, nuevoEstado);
+      await recargar();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function handleAceptarPrioridad(presupuesto, totalPrioridad) {
+    if (
+      !window.confirm(
+        `¿El paciente aceptó solo lo prioritario (⭐), por $${totalPrioridad.toLocaleString("es-AR")} en vez del presupuesto completo de $${Number(presupuesto.total).toLocaleString("es-AR")}? El plan de financiación se arma con ese monto reducido.`
+      )
+    ) {
+      return;
+    }
+    setProcesando(presupuesto.id);
+    setError(null);
+    try {
+      await aceptarPresupuestoConPrioridad(presupuesto, config);
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -166,7 +187,14 @@ export default function PresupuestosPage() {
                 </td>
               </tr>
             )}
-            {presupuestosFiltrados.map((p) => (
+            {presupuestosFiltrados.map((p) => {
+              const prioritarias = p.prestaciones.filter((x) => x.prioridad);
+              const totalPrioridad = prioritarias.reduce((acc, x) => acc + (Number(x.importe) || 0), 0);
+              // Solo tiene sentido ofrecer "aceptar solo prioridad" si hay
+              // alguna marcada Y queda algo afuera (si está todo marcado,
+              // es lo mismo que el presupuesto completo).
+              const tieneOpcionPrioridad = prioritarias.length > 0 && prioritarias.length < p.prestaciones.length;
+              return (
               <tr
                 key={p.id}
                 className={`border-t border-gray-100 hover:bg-gray-50 ${idsConAviso.has(p.id) ? "bg-amber-50" : ""}`}
@@ -221,8 +249,18 @@ export default function PresupuestosPage() {
                           onClick={() => handleCambiarEstado(p, "Aceptado")}
                           className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
                         >
-                          Aceptar
+                          {tieneOpcionPrioridad ? "Aceptar completo" : "Aceptar"}
                         </button>
+                        {tieneOpcionPrioridad && (
+                          <button
+                            disabled={procesando === p.id}
+                            onClick={() => handleAceptarPrioridad(p, totalPrioridad)}
+                            title={`Solo las prestaciones marcadas ⭐, por $${totalPrioridad.toLocaleString("es-AR")}`}
+                            className="text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
+                          >
+                            Aceptar ⭐ (${totalPrioridad.toLocaleString("es-AR")})
+                          </button>
+                        )}
                       </>
                     )}
                     {p.estado !== "Anulado" && (
@@ -246,7 +284,8 @@ export default function PresupuestosPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
