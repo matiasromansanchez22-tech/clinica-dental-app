@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request) {
   try {
-    const { titulo, mensaje, url } = await request.json();
+    const { titulo, mensaje, url, roles } = await request.json();
 
     const clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const clavePrivada = process.env.VAPID_PRIVATE_KEY;
@@ -13,8 +13,16 @@ export async function POST(request) {
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:soporte@example.com", clavePublica, clavePrivada);
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const { data: suscripciones, error } = await supabase.from("push_subscriptions").select("*");
+    // Si viene "roles" (ej. ["Secretaria"]), el aviso solo se manda a los
+    // dispositivos de usuarios con ese rol — si no viene, se manda a todos
+    // los que lo tengan activado (comportamiento de siempre, para los
+    // avisos de error).
+    let query = supabase.from("push_subscriptions").select("*, usuario:perfiles(rol)");
+    const { data: suscripcionesCrudas, error } = await query;
     if (error) throw error;
+    const suscripciones = roles?.length
+      ? (suscripcionesCrudas || []).filter((s) => roles.includes(s.usuario?.rol))
+      : suscripcionesCrudas;
     if (!suscripciones || suscripciones.length === 0) {
       return Response.json({ ok: true, enviados: 0 });
     }
