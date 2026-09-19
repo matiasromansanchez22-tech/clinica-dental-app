@@ -5,6 +5,7 @@ import {
   calcularSugerenciaPago,
   crearCobro,
   obtenerPlanActivoPaciente,
+  obtenerPrestacionesDelPresupuesto,
   obtenerPrestacionesObraSocial,
   obtenerPrestacionesParticular,
 } from "@/lib/data/caja";
@@ -26,6 +27,8 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
   const [planActivo, setPlanActivo] = useState(null);
   const [cargandoPlan, setCargandoPlan] = useState(false);
   const [cobroIndependienteDelPlan, setCobroIndependienteDelPlan] = useState(false);
+  const [prestacionesDelPlan, setPrestacionesDelPlan] = useState([]);
+  const [prestacionesRealizadas, setPrestacionesRealizadas] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestaciones, setPrestaciones] = useState([filaVacia()]);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -50,6 +53,8 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
     }
     setProfesionalAtencionId("");
     setCobroIndependienteDelPlan(false);
+    setPrestacionesDelPlan([]);
+    setPrestacionesRealizadas([]);
     setCargandoPlan(true);
     obtenerPlanActivoPaciente(paciente.id)
       .then((plan) => {
@@ -58,6 +63,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
           const { pagoSugerido, numeroCuota: cuota } = calcularSugerenciaPago(plan);
           setPago(pagoSugerido);
           setNumeroCuota(String(cuota));
+          obtenerPrestacionesDelPresupuesto(plan.presupuesto_id).then(setPrestacionesDelPlan);
         }
       })
       .finally(() => setCargandoPlan(false));
@@ -167,6 +173,12 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
     setPrestaciones((f) => f.filter((_, i) => i !== indice));
   }
 
+  function alternarPrestacionRealizada(nombre) {
+    setPrestacionesRealizadas((actual) =>
+      actual.includes(nombre) ? actual.filter((p) => p !== nombre) : [...actual, nombre]
+    );
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -234,6 +246,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         tipoDocumento: usaPlan ? "Plan de financiación" : null,
         precioAnterior,
         observaciones,
+        prestacionesRealizadas: usaPlan ? prestacionesRealizadas : [],
       });
       onCreado();
     } catch (err) {
@@ -323,6 +336,26 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
                 />
                 Este pago es por otro tratamiento, no es una cuota del plan
               </label>
+            </div>
+          )}
+
+          {usaPlan && prestacionesDelPlan.length > 0 && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+              <p className="mb-1.5 text-xs font-semibold uppercase text-gray-400">
+                ¿Qué se hizo hoy? (opcional, solo para el registro)
+              </p>
+              <div className="flex flex-col gap-1">
+                {prestacionesDelPlan.map((nombre) => (
+                  <label key={nombre} className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={prestacionesRealizadas.includes(nombre)}
+                      onChange={() => alternarPrestacionRealizada(nombre)}
+                    />
+                    {nombre}
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

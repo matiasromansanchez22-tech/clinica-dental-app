@@ -235,6 +235,9 @@ export default function PlanesPage() {
                                   {h.origen === "Caja" ? "Cobrado en Caja" : "Pago histórico"}
                                 </span>
                                 {h.observaciones ? ` — ${h.observaciones}` : ""}
+                                {h.prestacionesRealizadas?.length > 0 && (
+                                  <span className="text-brand-brown"> — Se hizo: {h.prestacionesRealizadas.join(", ")}</span>
+                                )}
                               </span>
                               {h.origen === "Histórico" && (
                                 <button
