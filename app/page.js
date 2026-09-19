@@ -71,19 +71,26 @@ function TarjetaAcceso({ href, icon, label }) {
   return (
     <Link
       href={href}
-      className="group flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-5 text-center transition-all hover:-translate-y-0.5 hover:border-brand-brown hover:shadow-md"
+      className="group flex flex-col items-center gap-3 rounded-2xl border border-brand-tan/70 bg-white p-5 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-brand-brown hover:shadow-lg"
     >
-      <span className="text-3xl">{icon}</span>
-      <span className="text-sm font-medium text-brand-charcoal group-hover:text-brand-brown">{label}</span>
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-tan/40 text-2xl transition-colors group-hover:bg-brand-brown group-hover:text-white">
+        {icon}
+      </span>
+      <span className="text-sm font-semibold text-brand-charcoal group-hover:text-brand-brown">{label}</span>
     </Link>
   );
 }
 
-function TarjetaStat({ etiqueta, valor }) {
+function TarjetaStat({ etiqueta, valor, icon }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
-      <p className="text-xs font-medium uppercase text-gray-400">{etiqueta}</p>
-      <p className="mt-1 text-xl font-bold text-brand-brown">{valor}</p>
+    <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-mint/25 text-lg">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium leading-tight uppercase tracking-wide text-gray-400">{etiqueta}</p>
+        <p className="mt-0.5 font-heading text-xl font-bold text-brand-brown">{valor}</p>
+      </div>
     </div>
   );
 }
@@ -114,13 +121,16 @@ function ResumenDelDia() {
   if (!actividad) return null;
 
   return (
-    <div className="mt-8 w-full">
-      <h2 className="mb-3 text-left text-sm font-semibold uppercase tracking-wide text-gray-400">Hoy</h2>
+    <div className="mt-10 w-full">
+      <h2 className="mb-3 flex items-center gap-2 text-left font-heading text-sm font-bold uppercase tracking-wide text-brand-brown/70">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-mint" />
+        Hoy
+      </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <TarjetaStat etiqueta="Pacientes nuevos" valor={actividad.pacientesNuevosTotal} />
-        <TarjetaStat etiqueta="Turnos atendidos" valor={actividad.turnosAtendidosTotal} />
-        <TarjetaStat etiqueta="Cobrado hoy" valor={`$${Math.round(actividad.cobradoHoy).toLocaleString("es-AR")}`} />
-        <TarjetaStat etiqueta="Cobros" valor={actividad.cantidadCobrosHoy} />
+        <TarjetaStat etiqueta="Pacientes nuevos" valor={actividad.pacientesNuevosTotal} icon="🧑‍⚕️" />
+        <TarjetaStat etiqueta="Turnos atendidos" valor={actividad.turnosAtendidosTotal} icon="📅" />
+        <TarjetaStat etiqueta="Cobrado hoy" valor={`$${Math.round(actividad.cobradoHoy).toLocaleString("es-AR")}`} icon="💰" />
+        <TarjetaStat etiqueta="Cobros" valor={actividad.cantidadCobrosHoy} icon="🧾" />
       </div>
       {avisoCierre && (
         <Link
@@ -140,14 +150,18 @@ export default function Home() {
   const accesos = ACCESOS_POR_ROL[perfil?.rol] || ACCESOS_POR_ROL.Secretaria;
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col items-center gap-1 p-8 sm:p-10">
-      <Image src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" width={84} height={84} priority />
-      <p className="mt-2 text-sm text-gray-400">{formatoFechaLarga(fechaDeHoyISO())}</p>
-      <h1 className="font-heading text-2xl font-semibold text-brand-brown sm:text-3xl">
-        {nombre ? `Hola, ${nombre} 👋` : "Clínica Dental Marianela Ramírez"}
-      </h1>
+    <main className="mx-auto flex max-w-4xl flex-col items-center gap-1 px-4 pb-10 sm:px-6">
+      <div className="flex w-full flex-col items-center gap-1 rounded-b-3xl bg-gradient-to-b from-brand-tan/35 via-brand-tan/10 to-transparent px-6 pb-8 pt-9 text-center sm:pt-12">
+        <Image src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" width={84} height={84} priority />
+        <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-brand-brown/55">
+          {formatoFechaLarga(fechaDeHoyISO())}
+        </p>
+        <h1 className="mt-1 font-heading text-3xl font-bold text-brand-brown sm:text-4xl">
+          {nombre ? `Hola, ${nombre} 👋` : "Clínica Dental Marianela Ramírez"}
+        </h1>
+      </div>
 
-      <div className="mt-6 grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {accesos.map((a) => (
           <TarjetaAcceso key={a.href} {...a} />
         ))}
