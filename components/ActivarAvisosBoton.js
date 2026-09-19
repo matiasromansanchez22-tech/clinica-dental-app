@@ -19,10 +19,10 @@ export default function ActivarAvisosBoton() {
   const [activado, setActivado] = useState(false);
   const [procesando, setProcesando] = useState(false);
 
-  const esDuena = perfil?.rol === "Duena";
+  const puedeActivar = perfil?.rol === "Duena" || perfil?.rol === "Secretaria";
 
   useEffect(() => {
-    if (!esDuena) return;
+    if (!puedeActivar) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       setSoportado(false);
       return;
@@ -31,9 +31,9 @@ export default function ActivarAvisosBoton() {
       .then((registro) => registro.pushManager.getSubscription())
       .then((sub) => setActivado(!!sub))
       .catch(() => {});
-  }, [esDuena]);
+  }, [puedeActivar]);
 
-  if (!esDuena || !soportado) return null;
+  if (!puedeActivar || !soportado) return null;
 
   async function activar() {
     setProcesando(true);
@@ -79,7 +79,11 @@ export default function ActivarAvisosBoton() {
     <button
       onClick={activado ? desactivar : activar}
       disabled={procesando}
-      title={activado ? "Vas a recibir un aviso acá si algo falla en la app" : "Recibí un aviso en este dispositivo si algo falla en la app"}
+      title={
+        activado
+          ? "Vas a recibir un aviso acá (presupuestos nuevos, errores de la app, etc.)"
+          : "Recibí un aviso en este dispositivo (presupuestos nuevos, errores de la app, etc.)"
+      }
       className="rounded-md border border-brand-brown/40 px-2.5 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-50"
     >
       {activado ? "🔔 Avisos activados" : "🔕 Activar avisos"}

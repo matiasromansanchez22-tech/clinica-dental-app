@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import InstalarAppBoton from "@/components/InstalarAppBoton";
 import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
+import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
@@ -206,7 +207,9 @@ export default function NavBar() {
   const esDuena = perfil?.rol === "Duena";
 
   return (
-    <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
+    <>
+      <AvisoPresupuestoNuevo />
+      <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-6 py-3">
         <Link href="/" className="mr-4 flex items-center gap-2">
           <Image src="/icon.png" alt="" width={32} height={32} className="rounded-md" />
@@ -248,5 +251,6 @@ export default function NavBar() {
         </span>
       </div>
     </nav>
+    </>
   );
 }
