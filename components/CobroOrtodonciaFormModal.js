@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import { calcularEstadoAumento } from "@/lib/ortodoncia";
 
 const CONCEPTOS = [
   "Control",
@@ -42,6 +43,10 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   }, []);
 
   const paciente = useMemo(() => pacientes.find((p) => p.id === pacienteId), [pacienteId, pacientes]);
+  const estadoAumento = useMemo(
+    () => (paciente ? calcularEstadoAumento(paciente.proximoAumento) : null),
+    [paciente]
+  );
 
   useEffect(() => {
     setOrtodoncistaAtencionId("");
@@ -178,6 +183,12 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
             <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
               Ortodoncista habitual: <span className="font-medium">{paciente.ortodoncista}</span>
               {" · "}Cuota control: {paciente.valorControl ? `$${Number(paciente.valorControl).toLocaleString("es-AR")}` : "—"}
+            </div>
+          )}
+
+          {estadoAumento?.texto === "Aumentar" && (
+            <div className="rounded-md border-2 border-red-500 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              🔴 A este paciente le toca aumentar la cuota (venció el {paciente.proximoAumento?.split("-").reverse().join("/")}) — revisá el monto antes de cobrar.
             </div>
           )}
 
