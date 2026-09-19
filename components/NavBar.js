@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import InstalarAppBoton from "@/components/InstalarAppBoton";
 import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
+import CelebracionVenta from "@/components/CelebracionVenta";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
@@ -209,6 +210,7 @@ export default function NavBar() {
   return (
     <>
       <AvisoPresupuestoNuevo />
+      <CelebracionVenta />
       <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-6 py-3">
         <Link href="/" className="mr-4 flex items-center gap-2">
