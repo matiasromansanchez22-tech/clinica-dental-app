@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AlimentoCatalinaFormModal from "@/components/AlimentoCatalinaFormModal";
 import ItemStockCatalinaFormModal from "@/components/ItemStockCatalinaFormModal";
+import RegistrarCompraCatalinaModal from "@/components/RegistrarCompraCatalinaModal";
 import SoloDuena from "@/components/SoloDuena";
 import {
   CATEGORIAS_CATALINA,
@@ -300,6 +301,7 @@ function SeccionStock() {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [itemEditando, setItemEditando] = useState(null);
   const [categoriaParaNuevo, setCategoriaParaNuevo] = useState(null);
+  const [mostrarCompra, setMostrarCompra] = useState(false);
 
   async function recargar() {
     setCargando(true);
@@ -378,7 +380,13 @@ function SeccionStock() {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setMostrarCompra(true)}
+          className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+        >
+          🛒 Registrar compra
+        </button>
         <button
           onClick={() => abrirNuevo(null)}
           className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
@@ -500,6 +508,17 @@ function SeccionStock() {
           onGuardado={async () => {
             await recargar();
             setMostrarModal(false);
+          }}
+        />
+      )}
+
+      {mostrarCompra && (
+        <RegistrarCompraCatalinaModal
+          stockActual={stock}
+          onClose={() => setMostrarCompra(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarCompra(false);
           }}
         />
       )}
