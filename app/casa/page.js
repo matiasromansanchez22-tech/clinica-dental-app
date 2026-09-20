@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import CatalogoProductosCasaModal from "@/components/CatalogoProductosCasaModal";
 import ItemCasaFormModal from "@/components/ItemCasaFormModal";
 import ItemListaCompraCasaFormModal from "@/components/ItemListaCompraCasaFormModal";
 import RegistrarCompraCasaModal from "@/components/RegistrarCompraCasaModal";
@@ -384,6 +385,7 @@ function SeccionListaComprasCasa() {
   const [tildando, setTildando] = useState(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [itemEditando, setItemEditando] = useState(null);
+  const [mostrarCatalogo, setMostrarCatalogo] = useState(false);
 
   async function recargar() {
     setCargando(true);
@@ -439,7 +441,13 @@ function SeccionListaComprasCasa() {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setMostrarCatalogo(true)}
+          className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+        >
+          📋 Elegir del catálogo
+        </button>
         <button
           onClick={abrirNuevo}
           className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
@@ -499,6 +507,16 @@ function SeccionListaComprasCasa() {
           onGuardado={async () => {
             await recargar();
             setMostrarModal(false);
+          }}
+        />
+      )}
+
+      {mostrarCatalogo && (
+        <CatalogoProductosCasaModal
+          onClose={() => setMostrarCatalogo(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarCatalogo(false);
           }}
         />
       )}
