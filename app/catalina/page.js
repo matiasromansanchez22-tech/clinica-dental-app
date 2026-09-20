@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AlimentoCatalinaFormModal from "@/components/AlimentoCatalinaFormModal";
+import ItemListaCompraCatalinaFormModal from "@/components/ItemListaCompraCatalinaFormModal";
 import ItemStockCatalinaFormModal from "@/components/ItemStockCatalinaFormModal";
 import RegistrarCompraCatalinaModal from "@/components/RegistrarCompraCatalinaModal";
 import SoloDuena from "@/components/SoloDuena";
@@ -10,8 +11,11 @@ import {
   ESTADOS_ALIMENTO_CATALINA,
   actualizarCantidadStockCatalina,
   eliminarAlimentoCatalina,
+  eliminarItemListaCompraCatalina,
   eliminarItemStockCatalina,
+  marcarCompradoListaCatalina,
   obtenerAlimentosCatalina,
+  obtenerListaCompraCatalina,
   obtenerStockCatalina,
 } from "@/lib/data/catalina";
 
@@ -526,6 +530,148 @@ function SeccionStock() {
   );
 }
 
+function SeccionListaCompras() {
+  const [lista, setLista] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+  const [tildando, setTildando] = useState(null);
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [itemEditando, setItemEditando] = useState(null);
+  const [categoriaParaNuevo, setCategoriaParaNuevo] = useState(null);
+
+  async function recargar() {
+    setCargando(true);
+    try {
+      const l = await obtenerListaCompraCatalina();
+      setLista(l);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    recargar();
+  }, []);
+
+  function abrirNuevo(categoria) {
+    setItemEditando(null);
+    setCategoriaParaNuevo(categoria || null);
+    setMostrarModal(true);
+  }
+
+  function abrirEdicion(item) {
+    setItemEditando(item);
+    setCategoriaParaNuevo(null);
+    setMostrarModal(true);
+  }
+
+  async function tildarComprado(item) {
+    setError(null);
+    setTildando(item.id);
+    try {
+      await marcarCompradoListaCatalina(item);
+      setLista((l) => l.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setTildando(null);
+    }
+  }
+
+  async function quitarSinComprar(item) {
+    if (!window.confirm(`¿Sacar "${item.nombre}" de la lista sin sumarlo al stock?`)) return;
+    try {
+      await eliminarItemListaCompraCatalina(item.id);
+      setLista((l) => l.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  const secciones = useMemo(
+    () =>
+      CATEGORIAS_CATALINA.map((c) => ({ categoria: c, items: lista.filter((i) => i.categoria === c) })).filter(
+        (s) => s.items.length > 0
+      ),
+    [lista]
+  );
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <button
+          onClick={() => abrirNuevo(null)}
+          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+        >
+          + Agregar a la lista
+        </button>
+      </div>
+
+      <p className="mt-3 text-xs text-gray-500">
+        Tildá lo que vayas comprando — se suma solo a la cantidad que ya tenés en el Stock y sale de esta lista.
+      </p>
+
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
+
+      {cargando ? (
+        <p className="mt-6 text-sm text-gray-500">Cargando...</p>
+      ) : secciones.length === 0 ? (
+        <p className="mt-6 text-sm text-gray-500">La lista está vacía — agregá lo que haga falta comprarle.</p>
+      ) : (
+        secciones.map((s) => (
+          <div key={s.categoria} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+            <div className="bg-brand-tan/20 px-4 py-3">
+              <span className="font-heading text-sm font-semibold text-brand-brown">{s.categoria}</span>
+            </div>
+            <ul className="divide-y divide-gray-100">
+              {s.items.map((item) => (
+                <li key={item.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={false}
+                    disabled={tildando === item.id}
+                    onChange={() => tildarComprado(item)}
+                    className="h-4 w-4"
+                  />
+                  <span className="flex-1 text-sm text-gray-900">
+                    {item.nombre}{" "}
+                    <span className="text-gray-500">
+                      — {item.cantidad} {item.unidad || ""}
+                    </span>
+                    {item.notas && <span className="block text-xs text-gray-500">{item.notas}</span>}
+                  </span>
+                  <button onClick={() => abrirEdicion(item)} className="text-xs text-brand-brown hover:underline">
+                    Editar
+                  </button>
+                  <button onClick={() => quitarSinComprar(item)} className="text-xs text-red-600 hover:underline">
+                    Sacar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+
+      {mostrarModal && (
+        <ItemListaCompraCatalinaFormModal
+          item={itemEditando}
+          categoriaPredeterminada={categoriaParaNuevo}
+          onClose={() => setMostrarModal(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarModal(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function CatalinaContenido() {
   const [pestana, setPestana] = useState("alimentos");
 
@@ -555,9 +701,19 @@ function CatalinaContenido() {
         >
           📦 Stock
         </button>
+        <button
+          onClick={() => setPestana("lista")}
+          className={`px-3 py-2 text-sm font-medium ${
+            pestana === "lista" ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          🛒 Lista de súper
+        </button>
       </div>
 
-      {pestana === "alimentos" ? <SeccionAlimentos /> : <SeccionStock />}
+      {pestana === "alimentos" && <SeccionAlimentos />}
+      {pestana === "stock" && <SeccionStock />}
+      {pestana === "lista" && <SeccionListaCompras />}
     </main>
   );
 }
