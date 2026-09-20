@@ -2,14 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ItemCasaFormModal from "@/components/ItemCasaFormModal";
+import ItemListaCompraCasaFormModal from "@/components/ItemListaCompraCasaFormModal";
+import RegistrarCompraCasaModal from "@/components/RegistrarCompraCasaModal";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   CATEGORIAS_CASA,
   crearUbicacionCasa,
   eliminarItemCasa,
+  eliminarItemListaComprasCasa,
   eliminarUbicacionCasa,
+  marcarCompradoListaCasa,
   obtenerItemsCasa,
+  obtenerListaComprasCasa,
   obtenerUbicacionesCasa,
   renombrarUbicacionCasa,
 } from "@/lib/data/casa";
@@ -40,7 +45,7 @@ function EstadoVencimiento({ fechaVencimiento, hoy }) {
   return <span className="text-gray-600">{formatoFecha(fechaVencimiento)}</span>;
 }
 
-function CasaContenido() {
+function SeccionStockCasa() {
   const hoy = fechaDeHoyISO();
   const [ubicaciones, setUbicaciones] = useState([]);
   const [items, setItems] = useState([]);
@@ -55,6 +60,7 @@ function CasaContenido() {
   const [mostrarUbicaciones, setMostrarUbicaciones] = useState(false);
   const [nuevaUbicacion, setNuevaUbicacion] = useState("");
   const [guardandoUbicacion, setGuardandoUbicacion] = useState(false);
+  const [mostrarCompra, setMostrarCompra] = useState(false);
 
   async function recargar() {
     setCargando(true);
@@ -170,14 +176,14 @@ function CasaContenido() {
   }, [ubicaciones, itemsFiltrados, busqueda, categoriaFiltro]);
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">🏠 Casa</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Inventario privado de la casa — solo lo ven Matías y Marianela. No tiene nada que ver con la clínica.
-          </p>
-        </div>
+    <>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          onClick={() => setMostrarCompra(true)}
+          className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+        >
+          🛒 Registrar compra
+        </button>
         <button
           onClick={() => abrirNuevo(null)}
           className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
@@ -354,6 +360,183 @@ function CasaContenido() {
           }}
         />
       )}
+
+      {mostrarCompra && (
+        <RegistrarCompraCasaModal
+          itemsActuales={items}
+          ubicaciones={ubicaciones}
+          onClose={() => setMostrarCompra(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarCompra(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function SeccionListaComprasCasa() {
+  const [ubicaciones, setUbicaciones] = useState([]);
+  const [lista, setLista] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+  const [tildando, setTildando] = useState(null);
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [itemEditando, setItemEditando] = useState(null);
+
+  async function recargar() {
+    setCargando(true);
+    try {
+      const [u, l] = await Promise.all([obtenerUbicacionesCasa(), obtenerListaComprasCasa()]);
+      setUbicaciones(u);
+      setLista(l);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    recargar();
+  }, []);
+
+  function abrirNuevo() {
+    setItemEditando(null);
+    setMostrarModal(true);
+  }
+
+  function abrirEdicion(item) {
+    setItemEditando(item);
+    setMostrarModal(true);
+  }
+
+  async function tildarComprado(item) {
+    setError(null);
+    setTildando(item.id);
+    try {
+      await marcarCompradoListaCasa(item);
+      setLista((l) => l.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setTildando(null);
+    }
+  }
+
+  async function quitarSinComprar(item) {
+    if (!window.confirm(`¿Sacar "${item.nombre}" de la lista sin sumarlo al inventario?`)) return;
+    try {
+      await eliminarItemListaComprasCasa(item.id);
+      setLista((l) => l.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  const nombreUbicacion = (ubicacionId) => ubicaciones.find((u) => u.id === ubicacionId)?.nombre || "Sin ubicación";
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <button
+          onClick={abrirNuevo}
+          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+        >
+          + Agregar a la lista
+        </button>
+      </div>
+
+      <p className="mt-3 text-xs text-gray-500">
+        Tildá lo que vayas comprando — se suma solo a la cantidad que ya tenés en el inventario y sale de esta lista.
+      </p>
+
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
+
+      {cargando ? (
+        <p className="mt-6 text-sm text-gray-500">Cargando...</p>
+      ) : lista.length === 0 ? (
+        <p className="mt-6 text-sm text-gray-500">La lista está vacía — agregá lo que haga falta comprar.</p>
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+          <ul className="divide-y divide-gray-100">
+            {lista.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 px-4 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={false}
+                  disabled={tildando === item.id}
+                  onChange={() => tildarComprado(item)}
+                  className="h-4 w-4"
+                />
+                <span className="flex-1 text-sm text-gray-900">
+                  {item.nombre}{" "}
+                  <span className="text-gray-500">
+                    — {item.cantidad} {item.unidad || ""} · {nombreUbicacion(item.ubicacion_id)}
+                  </span>
+                  {item.notas && <span className="block text-xs text-gray-500">{item.notas}</span>}
+                </span>
+                <button onClick={() => abrirEdicion(item)} className="text-xs text-brand-brown hover:underline">
+                  Editar
+                </button>
+                <button onClick={() => quitarSinComprar(item)} className="text-xs text-red-600 hover:underline">
+                  Sacar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {mostrarModal && (
+        <ItemListaCompraCasaFormModal
+          item={itemEditando}
+          ubicaciones={ubicaciones}
+          onClose={() => setMostrarModal(false)}
+          onGuardado={async () => {
+            await recargar();
+            setMostrarModal(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function CasaContenido() {
+  const [pestana, setPestana] = useState("stock");
+
+  return (
+    <main className="mx-auto max-w-5xl p-6">
+      <h1 className="text-2xl font-bold text-gray-900">🏠 Casa</h1>
+      <p className="mt-1 text-sm text-gray-500">
+        Inventario privado de la casa — solo lo ven Matías y Marianela. No tiene nada que ver con la clínica.
+      </p>
+
+      <div className="mt-4 flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setPestana("stock")}
+          className={`px-3 py-2 text-sm font-medium ${
+            pestana === "stock" ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          📦 Stock
+        </button>
+        <button
+          onClick={() => setPestana("lista")}
+          className={`px-3 py-2 text-sm font-medium ${
+            pestana === "lista" ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          🛒 Lista de súper
+        </button>
+      </div>
+
+      {pestana === "stock" && <SeccionStockCasa />}
+      {pestana === "lista" && <SeccionListaComprasCasa />}
     </main>
   );
 }
