@@ -133,6 +133,18 @@ export default function PresupuestosPage() {
   const [pendientesConPagos, setPendientesConPagos] = useState([]);
   const [sinRespuesta, setSinRespuesta] = useState([]);
   const [busqueda, setBusqueda] = useState("");
+  // Pendiente arranca abierto (es lo que necesita atención); Aceptado y
+  // Anulado arrancan cerrados porque son listas largas e históricas.
+  const [seccionesCerradas, setSeccionesCerradas] = useState(() => new Set(["Aceptado", "Anulado"]));
+
+  function toggleSeccion(estado) {
+    setSeccionesCerradas((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(estado)) nuevo.delete(estado);
+      else nuevo.add(estado);
+      return nuevo;
+    });
+  }
 
   async function recargar() {
     const [data, avisos, seguimiento] = await Promise.all([
@@ -342,44 +354,56 @@ export default function PresupuestosPage() {
       )}
 
       {!cargando &&
-        gruposPorEstado.map((g) => (
-          <div key={g.estado} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-            <div className="bg-brand-tan/30 px-4 py-2">
-              <p className="font-heading text-sm font-semibold text-brand-brown">
-                {g.estado} · {g.items.length}
-              </p>
+        gruposPorEstado.map((g) => {
+          // Si hay una búsqueda activa, se muestran igual los resultados
+          // aunque la sección esté "cerrada" — si no, podrías buscar a
+          // alguien y no encontrarlo por estar en un grupo colapsado.
+          const abierta = busqueda.trim() ? true : !seccionesCerradas.has(g.estado);
+          return (
+            <div key={g.estado} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+              <button
+                type="button"
+                onClick={() => toggleSeccion(g.estado)}
+                className="flex w-full items-center justify-between bg-brand-tan/30 px-4 py-2 text-left hover:bg-brand-tan/40"
+              >
+                <span className="font-heading text-sm font-semibold text-brand-brown">
+                  {abierta ? "▾" : "▸"} {g.estado} · {g.items.length}
+                </span>
+              </button>
+              {abierta && (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-brand-brown text-white">
+                        <th className="px-3 py-2 text-left font-semibold">N.º</th>
+                        <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+                        <th className="px-3 py-2 text-left font-semibold">Paciente</th>
+                        <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+                        <th className="px-3 py-2 text-right font-semibold">Total</th>
+                        <th className="px-3 py-2 text-left font-semibold">Modalidad</th>
+                        <th className="px-3 py-2 text-left font-semibold">Estado</th>
+                        <th className="px-3 py-2 text-left font-semibold">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.items.map((p) => (
+                        <FilaPresupuesto
+                          key={p.id}
+                          p={p}
+                          tieneAviso={idsConAviso.has(p.id)}
+                          procesando={procesando}
+                          onEditar={setPresupuestoEnEdicion}
+                          onCambiarEstado={handleCambiarEstado}
+                          onAceptarPrioridad={handleAceptarPrioridad}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-brand-brown text-white">
-                    <th className="px-3 py-2 text-left font-semibold">N.º</th>
-                    <th className="px-3 py-2 text-left font-semibold">Fecha</th>
-                    <th className="px-3 py-2 text-left font-semibold">Paciente</th>
-                    <th className="px-3 py-2 text-left font-semibold">Profesional</th>
-                    <th className="px-3 py-2 text-right font-semibold">Total</th>
-                    <th className="px-3 py-2 text-left font-semibold">Modalidad</th>
-                    <th className="px-3 py-2 text-left font-semibold">Estado</th>
-                    <th className="px-3 py-2 text-left font-semibold">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.items.map((p) => (
-                    <FilaPresupuesto
-                      key={p.id}
-                      p={p}
-                      tieneAviso={idsConAviso.has(p.id)}
-                      procesando={procesando}
-                      onEditar={setPresupuestoEnEdicion}
-                      onCambiarEstado={handleCambiarEstado}
-                      onAceptarPrioridad={handleAceptarPrioridad}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
       {(mostrarNuevo || presupuestoEnEdicion) && (
         <PresupuestoFormModal
