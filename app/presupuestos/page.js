@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PresupuestoFormModal from "@/components/PresupuestoFormModal";
 import { obtenerConfiguracionGeneral } from "@/lib/data/configuracionGeneral";
@@ -23,6 +23,100 @@ const ESTADO_COLOR = {
   Aceptado: "bg-emerald-100 text-emerald-700",
   Anulado: "bg-red-100 text-red-600",
 };
+
+const ORDEN_ESTADOS = ["Pendiente", "Aceptado", "Anulado"];
+
+function FilaPresupuesto({ p, tieneAviso, procesando, onEditar, onCambiarEstado, onAceptarPrioridad }) {
+  const prioritarias = p.prestaciones.filter((x) => x.prioridad);
+  const totalPrioridad = prioritarias.reduce((acc, x) => acc + (Number(x.importe) || 0), 0);
+  // Solo tiene sentido ofrecer "aceptar solo prioridad" si hay alguna
+  // marcada Y queda algo afuera (si está todo marcado, es lo mismo que
+  // el presupuesto completo).
+  const tieneOpcionPrioridad = prioritarias.length > 0 && prioritarias.length < p.prestaciones.length;
+  return (
+    <tr className={`border-t border-gray-100 hover:bg-gray-50 ${tieneAviso ? "bg-amber-50" : ""}`}>
+      <td onClick={() => onEditar(p)} className="cursor-pointer px-3 py-2 font-medium text-gray-900">
+        {p.numero}
+      </td>
+      <td onClick={() => onEditar(p)} className="cursor-pointer px-3 py-2 text-gray-600">
+        {p.fecha}
+      </td>
+      <td onClick={() => onEditar(p)} className="cursor-pointer px-3 py-2 text-gray-600">
+        {p.paciente}
+      </td>
+      <td onClick={() => onEditar(p)} className="cursor-pointer px-3 py-2 text-gray-600">
+        {p.profesional}
+      </td>
+      <td onClick={() => onEditar(p)} className="cursor-pointer px-3 py-2 text-right text-gray-600">
+        ${Number(p.total).toLocaleString("es-AR")}
+      </td>
+      <td onClick={() => onEditar(p)} className="cursor-pointer px-3 py-2 text-gray-600">
+        {p.modalidadPago || "—"}
+      </td>
+      <td className="px-3 py-2">
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[p.estado]}`}>{p.estado}</span>
+        {tieneAviso && (
+          <span className="ml-1 text-amber-600" title="Ya tiene pagos cargados en Caja">
+            ⚠️
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/presupuestos/${p.id}/imprimir`}
+            target="_blank"
+            className="text-xs font-medium text-brand-brown hover:underline"
+          >
+            🖨 Imprimir
+          </Link>
+          {p.estado === "Pendiente" && (
+            <>
+              <button onClick={() => onEditar(p)} className="text-xs font-medium text-blue-600 hover:underline">
+                Modificar
+              </button>
+              <button
+                disabled={procesando === p.id}
+                onClick={() => onCambiarEstado(p, "Aceptado")}
+                className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+              >
+                {tieneOpcionPrioridad ? "Aceptar completo" : "Aceptar"}
+              </button>
+              {tieneOpcionPrioridad && (
+                <button
+                  disabled={procesando === p.id}
+                  onClick={() => onAceptarPrioridad(p, totalPrioridad)}
+                  title={`Solo las prestaciones marcadas ⭐, por $${totalPrioridad.toLocaleString("es-AR")}`}
+                  className="text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
+                >
+                  Aceptar ⭐ (${totalPrioridad.toLocaleString("es-AR")})
+                </button>
+              )}
+            </>
+          )}
+          {p.estado !== "Anulado" && (
+            <button
+              disabled={procesando === p.id}
+              onClick={() => onCambiarEstado(p, "Anulado")}
+              className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+            >
+              Anular
+            </button>
+          )}
+          {p.estado === "Anulado" && (
+            <button
+              disabled={procesando === p.id}
+              onClick={() => onCambiarEstado(p, "Pendiente")}
+              className="text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
+            >
+              Reabrir
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export default function PresupuestosPage() {
   const [presupuestos, setPresupuestos] = useState([]);
@@ -83,6 +177,13 @@ export default function PresupuestosPage() {
     if (!termino) return true;
     return p.paciente.toLowerCase().includes(termino) || p.numero.toLowerCase().includes(termino);
   });
+
+  const gruposPorEstado = useMemo(() => {
+    return ORDEN_ESTADOS.map((estado) => ({
+      estado,
+      items: presupuestosFiltrados.filter((p) => p.estado === estado),
+    })).filter((g) => g.items.length > 0);
+  }, [presupuestosFiltrados]);
 
   async function handleCambiarEstado(presupuesto, nuevoEstado) {
     if (nuevoEstado === "Anulado" && !window.confirm("¿Anular este presupuesto? El plan de financiación asociado (si existe) se va a cancelar, pero conserva su historial.")) {
@@ -230,139 +331,55 @@ export default function PresupuestosPage() {
         />
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-brand-brown text-white">
-              <th className="px-3 py-2 text-left font-semibold">N.º</th>
-              <th className="px-3 py-2 text-left font-semibold">Fecha</th>
-              <th className="px-3 py-2 text-left font-semibold">Paciente</th>
-              <th className="px-3 py-2 text-left font-semibold">Profesional</th>
-              <th className="px-3 py-2 text-right font-semibold">Total</th>
-              <th className="px-3 py-2 text-left font-semibold">Modalidad</th>
-              <th className="px-3 py-2 text-left font-semibold">Estado</th>
-              <th className="px-3 py-2 text-left font-semibold">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cargando && (
-              <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
-                  Cargando...
-                </td>
-              </tr>
-            )}
-            {!cargando && presupuestosFiltrados.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
-                  {presupuestos.length === 0
-                    ? "Todavía no hay presupuestos cargados."
-                    : "No se encontró ningún presupuesto con esa búsqueda."}
-                </td>
-              </tr>
-            )}
-            {presupuestosFiltrados.map((p) => {
-              const prioritarias = p.prestaciones.filter((x) => x.prioridad);
-              const totalPrioridad = prioritarias.reduce((acc, x) => acc + (Number(x.importe) || 0), 0);
-              // Solo tiene sentido ofrecer "aceptar solo prioridad" si hay
-              // alguna marcada Y queda algo afuera (si está todo marcado,
-              // es lo mismo que el presupuesto completo).
-              const tieneOpcionPrioridad = prioritarias.length > 0 && prioritarias.length < p.prestaciones.length;
-              return (
-              <tr
-                key={p.id}
-                className={`border-t border-gray-100 hover:bg-gray-50 ${idsConAviso.has(p.id) ? "bg-amber-50" : ""}`}
-              >
-                <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 font-medium text-gray-900">
-                  {p.numero}
-                </td>
-                <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 text-gray-600">
-                  {p.fecha}
-                </td>
-                <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 text-gray-600">
-                  {p.paciente}
-                </td>
-                <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 text-gray-600">
-                  {p.profesional}
-                </td>
-                <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 text-right text-gray-600">
-                  ${Number(p.total).toLocaleString("es-AR")}
-                </td>
-                <td onClick={() => setPresupuestoEnEdicion(p)} className="cursor-pointer px-3 py-2 text-gray-600">
-                  {p.modalidadPago || "—"}
-                </td>
-                <td className="px-3 py-2">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[p.estado]}`}>
-                    {p.estado}
-                  </span>
-                  {idsConAviso.has(p.id) && (
-                    <span className="ml-1 text-amber-600" title="Ya tiene pagos cargados en Caja">
-                      ⚠️
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      href={`/presupuestos/${p.id}/imprimir`}
-                      target="_blank"
-                      className="text-xs font-medium text-brand-brown hover:underline"
-                    >
-                      🖨 Imprimir
-                    </Link>
-                    {p.estado === "Pendiente" && (
-                      <>
-                        <button
-                          onClick={() => setPresupuestoEnEdicion(p)}
-                          className="text-xs font-medium text-blue-600 hover:underline"
-                        >
-                          Modificar
-                        </button>
-                        <button
-                          disabled={procesando === p.id}
-                          onClick={() => handleCambiarEstado(p, "Aceptado")}
-                          className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
-                        >
-                          {tieneOpcionPrioridad ? "Aceptar completo" : "Aceptar"}
-                        </button>
-                        {tieneOpcionPrioridad && (
-                          <button
-                            disabled={procesando === p.id}
-                            onClick={() => handleAceptarPrioridad(p, totalPrioridad)}
-                            title={`Solo las prestaciones marcadas ⭐, por $${totalPrioridad.toLocaleString("es-AR")}`}
-                            className="text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
-                          >
-                            Aceptar ⭐ (${totalPrioridad.toLocaleString("es-AR")})
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {p.estado !== "Anulado" && (
-                      <button
-                        disabled={procesando === p.id}
-                        onClick={() => handleCambiarEstado(p, "Anulado")}
-                        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
-                      >
-                        Anular
-                      </button>
-                    )}
-                    {p.estado === "Anulado" && (
-                      <button
-                        disabled={procesando === p.id}
-                        onClick={() => handleCambiarEstado(p, "Pendiente")}
-                        className="text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
-                      >
-                        Reabrir
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {cargando && <p className="mt-4 text-sm text-gray-500">Cargando...</p>}
+
+      {!cargando && presupuestosFiltrados.length === 0 && (
+        <p className="mt-4 text-sm text-gray-500">
+          {presupuestos.length === 0
+            ? "Todavía no hay presupuestos cargados."
+            : "No se encontró ningún presupuesto con esa búsqueda."}
+        </p>
+      )}
+
+      {!cargando &&
+        gruposPorEstado.map((g) => (
+          <div key={g.estado} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+            <div className="bg-brand-tan/30 px-4 py-2">
+              <p className="font-heading text-sm font-semibold text-brand-brown">
+                {g.estado} · {g.items.length}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-brand-brown text-white">
+                    <th className="px-3 py-2 text-left font-semibold">N.º</th>
+                    <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+                    <th className="px-3 py-2 text-left font-semibold">Paciente</th>
+                    <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+                    <th className="px-3 py-2 text-right font-semibold">Total</th>
+                    <th className="px-3 py-2 text-left font-semibold">Modalidad</th>
+                    <th className="px-3 py-2 text-left font-semibold">Estado</th>
+                    <th className="px-3 py-2 text-left font-semibold">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.items.map((p) => (
+                    <FilaPresupuesto
+                      key={p.id}
+                      p={p}
+                      tieneAviso={idsConAviso.has(p.id)}
+                      procesando={procesando}
+                      onEditar={setPresupuestoEnEdicion}
+                      onCambiarEstado={handleCambiarEstado}
+                      onAceptarPrioridad={handleAceptarPrioridad}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
 
       {(mostrarNuevo || presupuestoEnEdicion) && (
         <PresupuestoFormModal
