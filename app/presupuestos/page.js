@@ -165,8 +165,6 @@ export default function PresupuestosPage() {
                     {linkWhatsApp(p.pacienteCelular) && (
                       <a
                         href={linkWhatsApp(p.pacienteCelular, mensajeSeguimientoPresupuesto(p.paciente))}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="font-medium text-emerald-700 hover:underline"
                       >
                         💬 Escribir por WhatsApp
