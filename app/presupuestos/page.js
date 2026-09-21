@@ -12,6 +12,7 @@ import {
   cambiarEstadoPresupuesto,
   obtenerPresupuestos,
   obtenerPresupuestosPendientesConPagos,
+  obtenerPresupuestosSinRespuesta,
 } from "@/lib/data/presupuestos";
 import { obtenerObrasSociales } from "@/lib/data/nomenclador";
 
@@ -34,12 +35,18 @@ export default function PresupuestosPage() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [procesando, setProcesando] = useState(null);
   const [pendientesConPagos, setPendientesConPagos] = useState([]);
+  const [sinRespuesta, setSinRespuesta] = useState([]);
   const [busqueda, setBusqueda] = useState("");
 
   async function recargar() {
-    const [data, avisos] = await Promise.all([obtenerPresupuestos(), obtenerPresupuestosPendientesConPagos()]);
+    const [data, avisos, seguimiento] = await Promise.all([
+      obtenerPresupuestos(),
+      obtenerPresupuestosPendientesConPagos(),
+      obtenerPresupuestosSinRespuesta(),
+    ]);
     setPresupuestos(data);
     setPendientesConPagos(avisos);
+    setSinRespuesta(seguimiento);
   }
 
   useEffect(() => {
@@ -51,8 +58,9 @@ export default function PresupuestosPage() {
       obtenerConfiguracionGeneral(),
       obtenerObrasSociales(),
       obtenerPresupuestosPendientesConPagos(),
+      obtenerPresupuestosSinRespuesta(),
     ])
-      .then(([p, pac, prof, cat, conf, os, avisos]) => {
+      .then(([p, pac, prof, cat, conf, os, avisos, seguimiento]) => {
         setPresupuestos(p);
         setPacientes(pac);
         setProfesionales(prof);
@@ -60,6 +68,7 @@ export default function PresupuestosPage() {
         setConfig(conf);
         setObrasSociales(os);
         setPendientesConPagos(avisos);
+        setSinRespuesta(seguimiento);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -127,6 +136,35 @@ export default function PresupuestosPage() {
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
+
+      {sinRespuesta.length > 0 && (
+        <div className="mt-4 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          <p className="font-medium">
+            🔔 Seguimiento: {sinRespuesta.length} presupuesto{sinRespuesta.length === 1 ? "" : "s"} sin respuesta hace
+            5 días o más — antes de que se pierda la venta, llamalo.
+          </p>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {sinRespuesta.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center gap-2">
+                <span
+                  onClick={() => setPresupuestoEnEdicion(p)}
+                  className="cursor-pointer font-medium hover:underline"
+                >
+                  {p.numero} · {p.paciente}
+                </span>
+                <span>
+                  — {p.diasSinRespuesta} días sin respuesta · ${Number(p.total).toLocaleString("es-AR")}
+                </span>
+                {p.pacienteCelular && (
+                  <a href={`tel:${p.pacienteCelular}`} className="font-medium text-blue-700 hover:underline">
+                    📞 {p.pacienteCelular}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {pendientesConPagos.length > 0 && (

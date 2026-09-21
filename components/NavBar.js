@@ -12,7 +12,7 @@ import CelebracionVenta from "@/components/CelebracionVenta";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
-import { obtenerCantidadPresupuestosPendientesConPagos } from "@/lib/data/presupuestos";
+import { obtenerCantidadPresupuestosPendientesConPagos, obtenerCantidadPresupuestosSinRespuesta } from "@/lib/data/presupuestos";
 import { obtenerCantidadDeudoresOrtodoncia } from "@/lib/data/controlesOrtodoncia";
 import { obtenerCantidadTurnosSinCerrarHoy } from "@/lib/data/cierres";
 import { obtenerCantidadMesesPendientesAprobar } from "@/lib/data/cierresMes";
@@ -189,9 +189,17 @@ export default function NavBar() {
       obtenerCantidadCobrosConSaldoPendiente(),
       obtenerCantidadDeudoresOrtodoncia(),
       obtenerCantidadPresupuestosPendientesConPagos(),
+      obtenerCantidadPresupuestosSinRespuesta(),
     ])
-      .then(([general, ortodoncia, cobrarGeneral, cobrarOrtodoncia, presupuestosPendientesConPago]) =>
-        setBadges((b) => ({ ...b, general, ortodoncia, cobrarGeneral, cobrarOrtodoncia, presupuestosPendientesConPago }))
+      .then(([general, ortodoncia, cobrarGeneral, cobrarOrtodoncia, presupuestosPendientesConPago, presupuestosSinRespuesta]) =>
+        setBadges((b) => ({
+          ...b,
+          general,
+          ortodoncia,
+          cobrarGeneral,
+          cobrarOrtodoncia,
+          presupuestosPendientesConPago: presupuestosPendientesConPago + presupuestosSinRespuesta,
+        }))
       )
       .catch(() => {});
 

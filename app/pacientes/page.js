@@ -7,6 +7,7 @@ import PacienteFormModal from "@/components/PacienteFormModal";
 import { calcularEdad } from "@/lib/pacientes";
 import {
   actualizarBanderasPaciente,
+  obtenerEstadosVentaPacientes,
   obtenerIdsPacientesSoloConsulta,
   obtenerObrasSocialesSugeridas,
   obtenerPacientePorId,
@@ -14,6 +15,13 @@ import {
 } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { linkWhatsApp } from "@/lib/whatsapp";
+
+const ESTADO_VENTA_COLOR = {
+  "Presupuesto pendiente": "bg-amber-100 text-amber-700",
+  "En tratamiento": "bg-emerald-100 text-emerald-700",
+  "Tratamiento terminado": "bg-sky-100 text-sky-700",
+  "No aceptó presupuesto": "bg-red-100 text-red-700",
+};
 
 function PacientesContenido() {
   const { perfil } = useAuth();
@@ -30,11 +38,17 @@ function PacientesContenido() {
   const [actualizando, setActualizando] = useState(null);
   const [idsSoloConsulta, setIdsSoloConsulta] = useState(new Set());
   const [mostrarConsulta, setMostrarConsulta] = useState(false);
+  const [estadosVenta, setEstadosVenta] = useState({});
 
   async function recargar() {
-    const [data, idsConsulta] = await Promise.all([obtenerPacientes({ busqueda }), obtenerIdsPacientesSoloConsulta()]);
+    const [data, idsConsulta, estados] = await Promise.all([
+      obtenerPacientes({ busqueda }),
+      obtenerIdsPacientesSoloConsulta(),
+      obtenerEstadosVentaPacientes(),
+    ]);
     setPacientes(data);
     setIdsSoloConsulta(idsConsulta);
+    setEstadosVenta(estados);
   }
 
   useEffect(() => {
@@ -44,12 +58,14 @@ function PacientesContenido() {
       obtenerProfesionales(),
       obtenerObrasSocialesSugeridas(),
       obtenerIdsPacientesSoloConsulta(),
+      obtenerEstadosVentaPacientes(),
     ])
-      .then(([p, prof, obras, idsConsulta]) => {
+      .then(([p, prof, obras, idsConsulta, estados]) => {
         setPacientes(p);
         setProfesionales(prof);
         setObrasSocialesSugeridas(obras);
         setIdsSoloConsulta(idsConsulta);
+        setEstadosVenta(estados);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -201,6 +217,17 @@ function PacientesContenido() {
                       <td className="px-4 py-2 font-medium text-gray-900">{p.apellidoYNombre}</td>
                       <td className="px-3 py-2 text-gray-600">{p.celular || "—"}</td>
                       <td className="px-3 py-2 text-gray-600">{p.profesionalResponsable || "—"}</td>
+                      <td className="px-3 py-2">
+                        {estadosVenta[p.id] ? (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_VENTA_COLOR[estadosVenta[p.id]]}`}
+                          >
+                            {estadosVenta[p.id]}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-sky-600">Sin presupuesto</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -225,6 +252,7 @@ function PacientesContenido() {
               <th className="px-3 py-2 text-left font-semibold">Celular</th>
               <th className="px-3 py-2 text-left font-semibold">Cobertura</th>
               <th className="px-3 py-2 text-left font-semibold">Profesional habitual</th>
+              <th className="px-3 py-2 text-left font-semibold">Circuito de venta</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-2 py-2 text-center font-semibold">Historia clínica</th>
               <th className="px-2 py-2 text-center font-semibold">Consentimiento</th>
@@ -234,14 +262,14 @@ function PacientesContenido() {
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={11} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && pacientesMostrados.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={11} className="px-3 py-4 text-center text-gray-500">
                   No se encontraron pacientes.
                 </td>
               </tr>
@@ -284,6 +312,17 @@ function PacientesContenido() {
                   {p.tipoPaciente === "Particular" ? "Particular" : `${p.tipoPaciente} · ${p.obraSocial || ""}`}
                 </td>
                 <td className="px-3 py-2 text-gray-600">{p.profesionalResponsable || "—"}</td>
+                <td className="px-3 py-2">
+                  {estadosVenta[p.id] ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_VENTA_COLOR[estadosVenta[p.id]]}`}
+                    >
+                      {estadosVenta[p.id]}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
