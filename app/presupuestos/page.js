@@ -13,6 +13,7 @@ import {
   obtenerPresupuestos,
   obtenerPresupuestosPendientesConPagos,
   obtenerPresupuestosSinRespuesta,
+  registrarSeguimientoEnviado,
 } from "@/lib/data/presupuestos";
 import { obtenerObrasSociales } from "@/lib/data/nomenclador";
 import { linkWhatsApp, mensajeSeguimientoPresupuesto } from "@/lib/whatsapp";
@@ -99,6 +100,17 @@ export default function PresupuestosPage() {
     }
   }
 
+  async function handleEnviarSeguimiento(p) {
+    const url = linkWhatsApp(p.pacienteCelular, mensajeSeguimientoPresupuesto(p.paciente));
+    if (!url) return;
+    try {
+      await registrarSeguimientoEnviado(p.id);
+    } catch (e) {
+      // No bloquea el envío del mensaje aunque falle guardar el registro.
+    }
+    window.location.href = url;
+  }
+
   async function handleAceptarPrioridad(presupuesto, totalPrioridad) {
     if (
       !window.confirm(
@@ -163,14 +175,27 @@ export default function PresupuestosPage() {
                       📞 {p.pacienteCelular}
                     </a>
                     {linkWhatsApp(p.pacienteCelular) && (
-                      <a
-                        href={linkWhatsApp(p.pacienteCelular, mensajeSeguimientoPresupuesto(p.paciente))}
+                      <button
+                        type="button"
+                        onClick={() => handleEnviarSeguimiento(p)}
                         className="font-medium text-emerald-700 hover:underline"
                       >
-                        💬 Escribir por WhatsApp
-                      </a>
+                        💬 {p.ultimoSeguimientoEnviado ? "Volver a escribir" : "Escribir por WhatsApp"}
+                      </button>
                     )}
                   </>
+                )}
+                {p.ultimoSeguimientoEnviado && (
+                  <span className="text-xs text-gray-500">
+                    (último mensaje:{" "}
+                    {new Date(p.ultimoSeguimientoEnviado).toLocaleString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    )
+                  </span>
                 )}
               </li>
             ))}
