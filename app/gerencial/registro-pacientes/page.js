@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { guardarMetaConsultas, obtenerMetasConsultasMes } from "@/lib/data/metas";
 import { obtenerRegistroPacientesDelMes, obtenerValorConsultaGeneral } from "@/lib/data/registroPacientes";
 
 const NOMBRES_MES = [
@@ -32,6 +33,8 @@ function PaginaRegistroPacientes() {
   const [error, setError] = useState(null);
   const [porcentajesConsulta, setPorcentajesConsulta] = useState({});
   const [porcentajesTratamiento, setPorcentajesTratamiento] = useState({});
+  const [metasConsultas, setMetasConsultas] = useState({});
+  const [guardandoMeta, setGuardandoMeta] = useState(null);
 
   useEffect(() => {
     obtenerValorConsultaGeneral().then(setValorConsulta);
@@ -40,11 +43,28 @@ function PaginaRegistroPacientes() {
   useEffect(() => {
     const [anio, mes] = mesElegido.split("-").map(Number);
     setCargando(true);
-    obtenerRegistroPacientesDelMes(anio, mes)
-      .then(setFilas)
+    Promise.all([obtenerRegistroPacientesDelMes(anio, mes), obtenerMetasConsultasMes(anio, mes)])
+      .then(([f, m]) => {
+        setFilas(f);
+        setMetasConsultas(m);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [mesElegido]);
+
+  async function guardarMeta(profesionalId, valor) {
+    const [anio, mes] = mesElegido.split("-").map(Number);
+    setGuardandoMeta(profesionalId);
+    setError(null);
+    try {
+      await guardarMetaConsultas(profesionalId, anio, mes, valor);
+      setMetasConsultas((m) => ({ ...m, [profesionalId]: Number(valor) || 0 }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoMeta(null);
+    }
+  }
 
   const filasFiltradas = useMemo(() => {
     let resultado = filas;
@@ -70,6 +90,7 @@ function PaginaRegistroPacientes() {
       if (!grupos.has(clave)) {
         grupos.set(clave, {
           clave,
+          profesionalId: f.profesionalId ?? null,
           profesional: f.profesional,
           especialidad: f.especialidad,
           consultas: 0,
@@ -118,7 +139,6 @@ function PaginaRegistroPacientes() {
         <input
           type="month"
           value={mesElegido}
-          max={mesActual}
           onChange={(e) => setMesElegido(e.target.value)}
           className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
         />
@@ -148,6 +168,84 @@ function PaginaRegistroPacientes() {
       ) : (
         <>
           <h2 className="mt-6 text-sm font-semibold uppercase text-gray-500">
+            🎯 Meta de consultas y efectividad — {NOMBRES_MES[Number(mesElegido.split("-")[1]) - 1]}{" "}
+            {mesElegido.split("-")[0]}
+          </h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Cuántas consultas nuevas le asignaste a cada profesional este mes, y de esas cuántas terminaron en
+            tratamiento. Efectividad = vendidas ÷ meta asignada — usalo para decidir si el mes que viene le sumás más
+            consultas.
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-brand-brown text-white">
+                  <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+                  <th className="px-3 py-2 text-left font-semibold">Espec.</th>
+                  <th className="px-3 py-2 text-right font-semibold">Meta consultas</th>
+                  <th className="px-3 py-2 text-right font-semibold">Consultas reales</th>
+                  <th className="px-3 py-2 text-right font-semibold">Vendieron</th>
+                  <th className="px-3 py-2 text-right font-semibold">Efectividad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumenPorProfesional.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-3 text-center text-gray-500">
+                      No hay consultas registradas para este filtro.
+                    </td>
+                  </tr>
+                ) : (
+                  resumenPorProfesional.map((g) => {
+                    const meta = g.profesionalId ? metasConsultas[g.profesionalId] ?? 0 : 0;
+                    const efectividad = meta > 0 ? (g.empezaron / meta) * 100 : null;
+                    return (
+                      <tr key={g.clave} className="border-t border-gray-100">
+                        <td className="px-3 py-2 font-medium text-gray-900">{g.profesional}</td>
+                        <td className="px-3 py-2 text-gray-600">{g.especialidad}</td>
+                        <td className="px-3 py-2 text-right">
+                          {g.profesionalId ? (
+                            <input
+                              type="number"
+                              min="0"
+                              defaultValue={meta || ""}
+                              disabled={guardandoMeta === g.profesionalId}
+                              onBlur={(e) => guardarMeta(g.profesionalId, e.target.value)}
+                              placeholder="0"
+                              className="w-16 rounded-md border border-gray-300 px-2 py-1 text-right text-sm disabled:opacity-50"
+                            />
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.consultas}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.empezaron}</td>
+                        <td className="px-3 py-2 text-right">
+                          {efectividad === null ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                efectividad >= 90
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : efectividad >= 70
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {Math.round(efectividad)}%
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <h2 className="mt-8 text-sm font-semibold uppercase text-gray-500">
             Por profesional — {NOMBRES_MES[Number(mesElegido.split("-")[1]) - 1]} {mesElegido.split("-")[0]}
           </h2>
           {valorConsulta > 0 && (
