@@ -15,6 +15,7 @@ import {
   obtenerPresupuestosSinRespuesta,
 } from "@/lib/data/presupuestos";
 import { obtenerObrasSociales } from "@/lib/data/nomenclador";
+import { linkWhatsApp, mensajeSeguimientoPresupuesto } from "@/lib/whatsapp";
 
 const ESTADO_COLOR = {
   Pendiente: "bg-gray-100 text-gray-600",
@@ -157,9 +158,21 @@ export default function PresupuestosPage() {
                   — {p.diasSinRespuesta} días sin respuesta · ${Number(p.total).toLocaleString("es-AR")}
                 </span>
                 {p.pacienteCelular && (
-                  <a href={`tel:${p.pacienteCelular}`} className="font-medium text-blue-700 hover:underline">
-                    📞 {p.pacienteCelular}
-                  </a>
+                  <>
+                    <a href={`tel:${p.pacienteCelular}`} className="font-medium text-blue-700 hover:underline">
+                      📞 {p.pacienteCelular}
+                    </a>
+                    {linkWhatsApp(p.pacienteCelular) && (
+                      <a
+                        href={linkWhatsApp(p.pacienteCelular, mensajeSeguimientoPresupuesto(p.paciente))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-emerald-700 hover:underline"
+                      >
+                        💬 Escribir por WhatsApp
+                      </a>
+                    )}
+                  </>
                 )}
               </li>
             ))}
