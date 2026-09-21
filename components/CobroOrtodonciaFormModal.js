@@ -37,6 +37,7 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+  const [aumentoConfirmado, setAumentoConfirmado] = useState(false);
 
   useEffect(() => {
     obtenerConfiguracionOrtodoncia().then(setPrecios);
@@ -47,9 +48,15 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
     () => (paciente ? calcularEstadoAumento(paciente.proximoAumento) : null),
     [paciente]
   );
+  const porcentajeAumento = precios.aumento_porcentaje ?? 25;
+  const cuotaSugerida = paciente?.valorControl
+    ? Math.round((Number(paciente.valorControl) * (1 + porcentajeAumento / 100)) / 100) * 100
+    : 0;
+  const debeConfirmarAumento = estadoAumento?.texto === "Aumentar";
 
   useEffect(() => {
     setOrtodoncistaAtencionId("");
+    setAumentoConfirmado(false);
   }, [pacienteId]);
 
   const precioPorBracket =
@@ -58,12 +65,23 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   useEffect(() => {
     if (!paciente) return;
     if (concepto === "Control") {
-      const valorControles = Number(paciente.valorControl || 0) * Number(cantidadControlesAbonados || 1);
+      const valorControlUsado =
+        debeConfirmarAumento && aumentoConfirmado ? cuotaSugerida : Number(paciente.valorControl || 0);
+      const valorControles = valorControlUsado * Number(cantidadControlesAbonados || 1);
       const valorBrackets = seDespegoBracket ? Number(cantidadBrackets || 0) * precioPorBracket : 0;
       setImporte(valorControles + valorBrackets);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pacienteId, concepto, cantidadControlesAbonados, seDespegoBracket, cantidadBrackets, bracketReposicion, precios]);
+  }, [
+    pacienteId,
+    concepto,
+    cantidadControlesAbonados,
+    seDespegoBracket,
+    cantidadBrackets,
+    bracketReposicion,
+    precios,
+    aumentoConfirmado,
+  ]);
 
   const totalDesglosado = desglosePago.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
@@ -100,6 +118,10 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
     }
     if (!ortodoncistaAtencionId) {
       setError("Falta elegir el ortodoncista que atendió.");
+      return;
+    }
+    if (debeConfirmarAumento && !aumentoConfirmado) {
+      setError("Este paciente tiene la cuota vencida para aumentar — tildá la confirmación de arriba antes de cobrar.");
       return;
     }
     if (!importe || Number(importe) <= 0) {
@@ -186,9 +208,27 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
             </div>
           )}
 
-          {estadoAumento?.texto === "Aumentar" && (
-            <div className="rounded-md border-2 border-red-500 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              🔴 A este paciente le toca aumentar la cuota (venció el {paciente.proximoAumento?.split("-").reverse().join("/")}) — revisá el monto antes de cobrar.
+          {debeConfirmarAumento && (
+            <div className="rounded-md border-2 border-red-500 bg-red-50 px-3 py-3 text-sm">
+              <p className="font-medium text-red-700">
+                🔴 A este paciente le toca aumentar la cuota (venció el{" "}
+                {paciente.proximoAumento?.split("-").reverse().join("/")}).
+              </p>
+              <p className="mt-1 text-red-700">
+                Cuota actual: ${Number(paciente.valorControl || 0).toLocaleString("es-AR")} → Cuota sugerida:{" "}
+                <strong>${cuotaSugerida.toLocaleString("es-AR")}</strong> ({porcentajeAumento}% de aumento)
+              </p>
+              <label className="mt-2 flex items-center gap-2 font-medium text-red-800">
+                <input
+                  type="checkbox"
+                  checked={aumentoConfirmado}
+                  onChange={(e) => setAumentoConfirmado(e.target.checked)}
+                />
+                Confirmo que voy a cobrarle el monto actualizado
+              </label>
+              {!aumentoConfirmado && (
+                <p className="mt-1 text-xs text-red-600">No se puede registrar el cobro hasta confirmar esto.</p>
+              )}
             </div>
           )}
 
@@ -404,7 +444,7 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
             </button>
             <button
               type="submit"
-              disabled={guardando}
+              disabled={guardando || (debeConfirmarAumento && !aumentoConfirmado)}
               className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               {guardando ? "Guardando..." : "Registrar cobro"}
