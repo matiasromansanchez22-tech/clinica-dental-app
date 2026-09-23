@@ -31,6 +31,10 @@ export default function VerAgendaOrtodonciaPage() {
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
 
+  function recargarTurnos() {
+    obtenerTurnosOrtodonciaPorFecha(fecha).then(setTurnos);
+  }
+
   useEffect(() => {
     setCargando(true);
     obtenerTurnosOrtodonciaPorFecha(fecha)
@@ -102,7 +106,12 @@ export default function VerAgendaOrtodonciaPage() {
       </div>
 
       {turnoElegido && (
-        <TurnoOrtodonciaSoloLecturaModal turno={turnoElegido} fecha={fecha} onClose={() => setTurnoElegido(null)} />
+        <TurnoOrtodonciaSoloLecturaModal
+          turno={turnoElegido}
+          fecha={fecha}
+          onClose={() => setTurnoElegido(null)}
+          onCambiado={recargarTurnos}
+        />
       )}
     </main>
   );

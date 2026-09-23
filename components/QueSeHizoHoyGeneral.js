@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerPlanActivoPaciente } from "@/lib/data/caja";
+import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
 import {
   desmarcarPasoRealizado,
   marcarPasoPlanRealizado,
@@ -14,7 +15,11 @@ import {
 // Se usa tanto en la Agenda normal (secretaria) como en "Ver Agenda del
 // Día" (solo lectura) — es el mismo mecanismo en los dos lugares, para que
 // no importe por dónde entre el profesional a marcar qué hizo.
-export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catalogo }) {
+//
+// `onTurnoActualizado` es opcional: si el que lo usa quiere mantener su
+// propio estado del turno sincronizado (ej. para repintar la grilla), se le
+// avisa acá cada vez que el turno pasa a "Finalizado".
+export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catalogo, onTurnoActualizado }) {
   const [profesionalId, setProfesionalId] = useState(turno.profesionalDeTurnoId || "");
   const [planActivo, setPlanActivo] = useState(null);
   const [pasos, setPasos] = useState([]);
@@ -51,6 +56,17 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turno.pacienteId]);
 
+  // Marcar algo como hecho también cierra el turno (presencia:
+  // "Finalizado") — así queda a la vista en la grilla de la Agenda sin
+  // tener que ir a tildarlo aparte. No se toca al desmarcar: si se
+  // equivocaron y sacan una prestación, el turno se sigue viendo
+  // finalizado (se destilda a mano si hace falta).
+  async function marcarTurnoFinalizado() {
+    if (turno.presencia === "Finalizado") return;
+    const actualizado = await actualizarEstadoTurnoGeneral(turno.id, { presencia: "Finalizado" });
+    onTurnoActualizado?.(actualizado);
+  }
+
   async function togglePaso(paso) {
     setError(null);
     setGuardando(true);
@@ -66,6 +82,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           turnoGeneralId: turno.id,
           fecha,
         });
+        await marcarTurnoFinalizado();
       }
       await recargar();
     } catch (e) {
@@ -91,6 +108,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         turnoGeneralId: turno.id,
         fecha,
       });
+      await marcarTurnoFinalizado();
       setCatalogoIdElegido("");
       setCantidadElegida(1);
       await recargar();

@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import { CONCEPTOS_ORTODONCIA } from "@/lib/ortodoncia";
 import { marcarTurnoOrtodonciaRealizado, obtenerPendienteCobroOrtodoncia } from "@/lib/data/prestacionesRealizadas";
+import { actualizarEstadoTurnoOrtodoncia } from "@/lib/data/turnosOrtodoncia";
 
 // Se usa tanto en la Agenda normal (secretaria) como en "Ver Agenda del
 // Día" (solo lectura) de Ortodoncia.
-export default function QueSeHizoHoyOrtodoncia({ turno, fecha }) {
+//
+// `onTurnoActualizado` es opcional: si el que lo usa quiere mantener su
+// propio estado del turno sincronizado (ej. para repintar la grilla), se le
+// avisa acá cuando el turno pasa a "Finalizado".
+export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizado }) {
   const [concepto, setConcepto] = useState(
     CONCEPTOS_ORTODONCIA.includes(turno.concepto) ? turno.concepto : CONCEPTOS_ORTODONCIA[0]
   );
@@ -38,6 +43,10 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha }) {
         concepto,
         fecha,
       });
+      if (turno.presencia !== "Finalizado") {
+        const actualizado = await actualizarEstadoTurnoOrtodoncia(turno.id, { presencia: "Finalizado" });
+        onTurnoActualizado?.(actualizado);
+      }
       const pendienteNuevo = await obtenerPendienteCobroOrtodoncia(turno.pacienteId);
       setPendiente(pendienteNuevo);
     } catch (e) {

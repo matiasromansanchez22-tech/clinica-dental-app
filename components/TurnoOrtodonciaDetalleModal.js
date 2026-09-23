@@ -301,7 +301,14 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
           </div>
         </div>
 
-        <QueSeHizoHoyOrtodoncia turno={turnoActual} fecha={fecha} />
+        <QueSeHizoHoyOrtodoncia
+          turno={turnoActual}
+          fecha={fecha}
+          onTurnoActualizado={(actualizado) => {
+            setTurnoActual(actualizado);
+            onCambiado();
+          }}
+        />
       </div>
     </div>
   );

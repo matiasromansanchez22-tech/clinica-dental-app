@@ -34,6 +34,10 @@ export default function VerAgendaDelDiaPage() {
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
 
+  function recargarTurnos() {
+    obtenerTurnosGeneralPorFecha(fecha).then(setTurnos);
+  }
+
   useEffect(() => {
     setCargando(true);
     obtenerTurnosGeneralPorFecha(fecha)
@@ -110,6 +114,7 @@ export default function VerAgendaDelDiaPage() {
           profesionales={profesionales}
           catalogo={catalogo}
           onClose={() => setTurnoElegido(null)}
+          onCambiado={recargarTurnos}
         />
       )}
     </main>

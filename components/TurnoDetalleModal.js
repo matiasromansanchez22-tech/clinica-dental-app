@@ -558,7 +558,16 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
           </div>
         </div>
 
-        <QueSeHizoHoyGeneral turno={turnoActual} fecha={fecha} profesionales={profesionales} catalogo={catalogoParticular} />
+        <QueSeHizoHoyGeneral
+          turno={turnoActual}
+          fecha={fecha}
+          profesionales={profesionales}
+          catalogo={catalogoParticular}
+          onTurnoActualizado={(actualizado) => {
+            setTurnoActual(actualizado);
+            onCambiado();
+          }}
+        />
 
         <hr className="my-4 border-gray-200" />
 

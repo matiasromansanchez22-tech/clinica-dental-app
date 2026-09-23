@@ -1,35 +1,47 @@
 "use client";
 
+import { useState } from "react";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 
-export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, catalogo, onClose }) {
+export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, catalogo, onClose, onCambiado }) {
+  const [turnoActual, setTurnoActual] = useState(turno);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">{turno.paciente}</h2>
+          <h2 className="text-lg font-bold text-gray-900">{turnoActual.paciente}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
             ✕
           </button>
         </div>
         <p className="mb-4 text-sm text-gray-500">
-          {fecha} · {turno.horaInicio} · Consultorio {turno.consultorio}
+          {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio}
         </p>
 
         <div className="flex flex-col gap-1 text-sm text-gray-700">
-          <p><span className="text-gray-500">Tipo de atención:</span> {turno.tipoAtencion}</p>
-          <p><span className="text-gray-500">Profesional:</span> {turno.profesionalDeTurno}</p>
-          <p><span className="text-gray-500">Cobertura:</span> {turno.cobertura}</p>
-          <p><span className="text-gray-500">Estado:</span> {turno.estado}</p>
-          <p><span className="text-gray-500">Confirmación:</span> {turno.confirmacion}</p>
-          <p><span className="text-gray-500">Presencia:</span> {turno.presencia}</p>
-          <p><span className="text-gray-500">Asistencia:</span> {turno.asistencia}</p>
-          {turno.observaciones && (
-            <p><span className="text-gray-500">Observaciones:</span> {turno.observaciones}</p>
+          <p><span className="text-gray-500">Tipo de atención:</span> {turnoActual.tipoAtencion}</p>
+          <p><span className="text-gray-500">Profesional:</span> {turnoActual.profesionalDeTurno}</p>
+          <p><span className="text-gray-500">Cobertura:</span> {turnoActual.cobertura}</p>
+          <p><span className="text-gray-500">Estado:</span> {turnoActual.estado}</p>
+          <p><span className="text-gray-500">Confirmación:</span> {turnoActual.confirmacion}</p>
+          <p><span className="text-gray-500">Presencia:</span> {turnoActual.presencia}</p>
+          <p><span className="text-gray-500">Asistencia:</span> {turnoActual.asistencia}</p>
+          {turnoActual.observaciones && (
+            <p><span className="text-gray-500">Observaciones:</span> {turnoActual.observaciones}</p>
           )}
         </div>
 
-        <QueSeHizoHoyGeneral turno={turno} fecha={fecha} profesionales={profesionales} catalogo={catalogo} />
+        <QueSeHizoHoyGeneral
+          turno={turnoActual}
+          fecha={fecha}
+          profesionales={profesionales}
+          catalogo={catalogo}
+          onTurnoActualizado={(actualizado) => {
+            setTurnoActual(actualizado);
+            onCambiado?.();
+          }}
+        />
 
         <p className="mt-4 text-xs text-gray-400">
           Vista de solo lectura — para hacer cambios al turno en sí, usá la Agenda normal.
