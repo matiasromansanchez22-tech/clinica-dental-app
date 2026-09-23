@@ -149,6 +149,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
     }
   }
 
+  const pasosPendientes = pasos.filter((p) => !p.realizadoId && !p.cobrado).map((p) => p.nombre);
+
   if (!turno.pacienteId) return null;
 
   return (
@@ -206,7 +208,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                   </span>
                 ) : null}
                 {paso.notaProximoTurno && (
-                  <span className="text-xs text-gray-500">📌 Próximo turno: {paso.notaProximoTurno}</span>
+                  <span className="text-xs text-gray-500">📌 Sigue: {paso.notaProximoTurno}</span>
                 )}
               </label>
             ))}
@@ -315,16 +317,36 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
               </div>
             </div>
           )}
-          <label className="flex flex-col gap-1 text-xs text-gray-600">
-            Nota para el próximo turno (opcional)
-            <textarea
-              value={notaProximoTurno}
-              onChange={(e) => setNotaProximoTurno(e.target.value)}
-              rows={2}
-              placeholder="Ej: continuar con el conducto"
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            />
-          </label>
+          {planActivo ? (
+            pasosPendientes.length > 0 && (
+              <label className="flex flex-col gap-1 text-xs text-gray-600">
+                ¿Cuál sigue? (opcional)
+                <select
+                  value={notaProximoTurno}
+                  onChange={(e) => setNotaProximoTurno(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">(no indicar)</option>
+                  {pasosPendientes.map((nombre, i) => (
+                    <option key={`${nombre}-${i}`} value={nombre}>
+                      {nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          ) : (
+            <label className="flex flex-col gap-1 text-xs text-gray-600">
+              Nota para el próximo turno (opcional)
+              <textarea
+                value={notaProximoTurno}
+                onChange={(e) => setNotaProximoTurno(e.target.value)}
+                rows={2}
+                placeholder="Ej: continuar con el conducto"
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+            </label>
+          )}
         </div>
       )}
       <p className="mt-2 text-xs text-gray-400">Lo que marques acá le va a quedar pre-cargado al secretario cuando cobre.</p>
