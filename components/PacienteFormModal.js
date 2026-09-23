@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { calcularEdad, formatearDni } from "@/lib/pacientes";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
+import Odontograma from "@/components/Odontograma";
 import {
   actualizarPaciente,
   buscarPosiblesDuplicados,
@@ -49,6 +50,7 @@ export default function PacienteFormModal({
   onAbrirOtroPaciente,
 }) {
   const [form, setForm] = useState(paciente ? mapearAFormulario(paciente) : VACIO);
+  const [versionHistorial, setVersionHistorial] = useState(0);
   const [duplicados, setDuplicados] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -601,7 +603,16 @@ export default function PacienteFormModal({
           </div>
         </form>
 
-        {paciente && <HistorialClinicoGeneral pacienteId={paciente.id} profesionales={profesionales} />}
+        {paciente && (
+          <>
+            <Odontograma
+              pacienteId={paciente.id}
+              profesionales={profesionales}
+              onCambio={() => setVersionHistorial((v) => v + 1)}
+            />
+            <HistorialClinicoGeneral key={versionHistorial} pacienteId={paciente.id} profesionales={profesionales} />
+          </>
+        )}
       </div>
     </div>
   );
