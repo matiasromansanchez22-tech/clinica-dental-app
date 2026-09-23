@@ -54,6 +54,7 @@ export default function CobroFormModal({
   const [pago, setPago] = useState(0);
   const [numeroCuota, setNumeroCuota] = useState("");
   const [precioAnterior, setPrecioAnterior] = useState(false);
+  const [cargoExtraPlan, setCargoExtraPlan] = useState(null);
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -76,6 +77,7 @@ export default function CobroFormModal({
     setPrestacionesRealizadas([]);
     setPendientesIds([]);
     setPrestaciones([filaVacia()]);
+    setCargoExtraPlan(null);
     setCargandoPlan(true);
 
     // Lo que el profesional ya marcó como "hecho" en la Agenda para este
@@ -94,6 +96,23 @@ export default function CobroFormModal({
             if (pendientes.plan.length > 0) {
               setPrestacionesRealizadas(pendientes.plan.map((p) => p.nombre));
               setPendientesIds(pendientes.plan.map((p) => p.id));
+              // Algo aparte del plan que el profesional marcó al lado de un
+              // paso (ej. un estudio) — se suma a la cuota sugerida de arriba.
+              const conCargoExtra = pendientes.plan.find((p) => p.cargoExtraMonto);
+              if (conCargoExtra) {
+                setCargoExtraPlan({
+                  descripcion: conCargoExtra.cargoExtraDescripcion,
+                  monto: Number(conCargoExtra.cargoExtraMonto),
+                });
+                // Se suma sobre la cuota sugerida (no sobre "pago" actual) para
+                // que sea a prueba de que este efecto se dispare dos veces en
+                // desarrollo (React Strict Mode) sin duplicar el extra.
+                setPago(pagoSugerido + Number(conCargoExtra.cargoExtraMonto));
+              }
+              const conNota = pendientes.plan.find((p) => p.notaProximoTurno);
+              if (conNota) {
+                setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
+              }
             }
           });
         }
@@ -136,6 +155,10 @@ export default function CobroFormModal({
           if (filas.length > 0) {
             setPrestaciones(filas);
             setPendientesIds((actual) => [...actual, ...pendientes.adHoc.map((p) => p.id)]);
+            const conNota = pendientes.adHoc.find((p) => p.notaProximoTurno);
+            if (conNota) {
+              setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
+            }
           }
         });
       }
@@ -276,6 +299,12 @@ export default function CobroFormModal({
 
     setGuardando(true);
     try {
+      const observacionesFinal = [
+        observaciones || null,
+        cargoExtraPlan ? `Cargo extra: ${cargoExtraPlan.descripcion || "(sin descripción)"} ($${Number(cargoExtraPlan.monto).toLocaleString("es-AR")})` : null,
+      ]
+        .filter(Boolean)
+        .join(" | ");
       const caja = await crearCobro({
         fecha,
         tipo: esObraSocial ? "Obra Social" : "Particular",
@@ -312,7 +341,7 @@ export default function CobroFormModal({
         idDocumento: usaPlan ? planActivo.numero_plan : null,
         tipoDocumento: usaPlan ? "Plan de financiación" : null,
         precioAnterior,
-        observaciones,
+        observaciones: observacionesFinal || null,
         prestacionesRealizadas: usaPlan ? prestacionesRealizadas : [],
       });
       if (pendientesIds.length > 0) await marcarPendientesComoCobrados(pendientesIds, caja.id);
@@ -387,6 +416,13 @@ export default function CobroFormModal({
           {pendientesIds.length > 0 && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               ✓ Ya viene pre-cargado con lo que el profesional marcó en Agenda — revisá y confirmá.
+              {cargoExtraPlan && (
+                <>
+                  {" "}
+                  También cargó un extra: {cargoExtraPlan.descripcion || "cargo extra"} ($
+                  {Number(cargoExtraPlan.monto).toLocaleString("es-AR")}) — ya viene sumado al pago.
+                </>
+              )}
             </p>
           )}
 

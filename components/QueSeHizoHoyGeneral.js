@@ -28,6 +28,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const [catalogoIdElegido, setCatalogoIdElegido] = useState("");
   const [cantidadElegida, setCantidadElegida] = useState(1);
   const [precioElegido, setPrecioElegido] = useState("");
+  const [notaProximoTurno, setNotaProximoTurno] = useState("");
+  const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
+  const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -81,8 +84,17 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           pacienteId: turno.pacienteId,
           profesionalId: profesionalId || null,
           turnoGeneralId: turno.id,
+          notaProximoTurno: notaProximoTurno.trim() || null,
+          cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
+          cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
           fecha,
         });
+        // La nota y el cargo extra son por visita, no por paso — se limpian
+        // después de usarse una vez para no duplicarlos si se tildan varios
+        // pasos seguidos.
+        setNotaProximoTurno("");
+        setCargoExtraDescripcion("");
+        setCargoExtraMonto("");
         await marcarTurnoFinalizado();
       }
       await recargar();
@@ -108,12 +120,14 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         pacienteId: turno.pacienteId,
         profesionalId: profesionalId || null,
         turnoGeneralId: turno.id,
+        notaProximoTurno: notaProximoTurno.trim() || null,
         fecha,
       });
       await marcarTurnoFinalizado();
       setCatalogoIdElegido("");
       setCantidadElegida(1);
       setPrecioElegido("");
+      setNotaProximoTurno("");
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -186,6 +200,14 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 {!paso.cobrado && paso.realizadoId && (
                   <span className="text-xs text-amber-600">(pendiente de cobro)</span>
                 )}
+                {paso.cargoExtraMonto ? (
+                  <span className="text-xs text-gray-500">
+                    + {paso.cargoExtraDescripcion || "cargo extra"} (${Number(paso.cargoExtraMonto).toLocaleString("es-AR")})
+                  </span>
+                ) : null}
+                {paso.notaProximoTurno && (
+                  <span className="text-xs text-gray-500">📌 Próximo turno: {paso.notaProximoTurno}</span>
+                )}
               </label>
             ))}
           </div>
@@ -201,6 +223,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                     {p.cantidad > 1 ? ` x${p.cantidad}` : ""}
                     {p.precio_manual ? ` — $${Number(p.precio_manual).toLocaleString("es-AR")}` : ""}{" "}
                     <span className="text-xs text-amber-600">(pendiente de cobro)</span>
+                    {p.nota_proximo_turno && (
+                      <span className="block text-xs text-gray-500">📌 Próximo turno: {p.nota_proximo_turno}</span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -263,6 +288,43 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           ) : (
             <p className="text-xs text-gray-500">No hay catálogo de prestaciones para elegir.</p>
           )}
+        </div>
+      )}
+
+      {!cargando && turno.pacienteId && (
+        <div className="mt-2 flex flex-col gap-2">
+          {planActivo && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+              <p className="mb-1 text-xs text-gray-600">Cargo extra (opcional, algo aparte del plan)</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={cargoExtraDescripcion}
+                  onChange={(e) => setCargoExtraDescripcion(e.target.value)}
+                  placeholder="Ej: Estudio radiográfico"
+                  className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  value={cargoExtraMonto}
+                  onChange={(e) => setCargoExtraMonto(e.target.value)}
+                  placeholder="Monto"
+                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-xs"
+                />
+              </div>
+            </div>
+          )}
+          <label className="flex flex-col gap-1 text-xs text-gray-600">
+            Nota para el próximo turno (opcional)
+            <textarea
+              value={notaProximoTurno}
+              onChange={(e) => setNotaProximoTurno(e.target.value)}
+              rows={2}
+              placeholder="Ej: continuar con el conducto"
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            />
+          </label>
         </div>
       )}
       <p className="mt-2 text-xs text-gray-400">Lo que marques acá le va a quedar pre-cargado al secretario cuando cobre.</p>
