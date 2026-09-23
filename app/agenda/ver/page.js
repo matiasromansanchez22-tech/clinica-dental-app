@@ -5,6 +5,8 @@ import AgendaGrid from "@/components/AgendaGrid";
 import TurnoSoloLecturaModal from "@/components/TurnoSoloLecturaModal";
 import { diaSemanaDeFecha, fechaDeHoyISO, generarBloquesHorarios, NOMBRES_DIA_SEMANA, sumarDias } from "@/lib/agenda";
 import { obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+import { obtenerPrestacionesParticular } from "@/lib/data/caja";
+import { obtenerProfesionales } from "@/lib/data/profesionales";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 
@@ -27,6 +29,8 @@ export default function VerAgendaDelDiaPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [turnoElegido, setTurnoElegido] = useState(null);
+  const [profesionales, setProfesionales] = useState([]);
+  const [catalogo, setCatalogo] = useState([]);
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
 
@@ -37,6 +41,11 @@ export default function VerAgendaDelDiaPage() {
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [fecha]);
+
+  useEffect(() => {
+    obtenerProfesionales().then(setProfesionales);
+    obtenerPrestacionesParticular().then(setCatalogo);
+  }, []);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -95,7 +104,13 @@ export default function VerAgendaDelDiaPage() {
       </div>
 
       {turnoElegido && (
-        <TurnoSoloLecturaModal turno={turnoElegido} fecha={fecha} onClose={() => setTurnoElegido(null)} />
+        <TurnoSoloLecturaModal
+          turno={turnoElegido}
+          fecha={fecha}
+          profesionales={profesionales}
+          catalogo={catalogo}
+          onClose={() => setTurnoElegido(null)}
+        />
       )}
     </main>
   );

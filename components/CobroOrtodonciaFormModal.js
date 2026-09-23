@@ -3,17 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
-import { calcularEstadoAumento } from "@/lib/ortodoncia";
+import { CONCEPTOS_ORTODONCIA, calcularEstadoAumento } from "@/lib/ortodoncia";
+import {
+  marcarPendienteOrtodonciaComoCobrado,
+  obtenerPendienteCobroOrtodoncia,
+} from "@/lib/data/prestacionesRealizadas";
 
-const CONCEPTOS = [
-  "Control",
-  "Reposición de bracket",
-  "Instalación (contado)",
-  "Instalación (2 cuotas)",
-  "Desinstalación",
-  "Consulta de ortodoncia",
-  "Urgencia",
-];
+const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const BRACKETS = ["Metálico", "Porcelana"];
 
@@ -38,6 +34,7 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [aumentoConfirmado, setAumentoConfirmado] = useState(false);
+  const [pendienteRealizado, setPendienteRealizado] = useState(null);
 
   useEffect(() => {
     obtenerConfiguracionOrtodoncia().then(setPrecios);
@@ -57,6 +54,15 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   useEffect(() => {
     setOrtodoncistaAtencionId("");
     setAumentoConfirmado(false);
+    setPendienteRealizado(null);
+    if (!pacienteId) return;
+    // Lo que el ortodoncista ya marcó como "hecho" en la Agenda — viene
+    // pre-cargado acá en vez de arrancar siempre en "Control".
+    obtenerPendienteCobroOrtodoncia(pacienteId).then((pendiente) => {
+      if (!pendiente) return;
+      setPendienteRealizado(pendiente);
+      if (CONCEPTOS.includes(pendiente.prestacion)) setConcepto(pendiente.prestacion);
+    });
   }, [pacienteId]);
 
   const precioPorBracket =
@@ -142,7 +148,7 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
 
     setGuardando(true);
     try {
-      await crearCobroOrtodoncia({
+      const cobro = await crearCobroOrtodoncia({
         fecha,
         pacienteId,
         ortodoncistaId: ortodoncistaAtencionId,
@@ -162,6 +168,7 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
         desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
         observaciones,
       });
+      if (pendienteRealizado) await marcarPendienteOrtodonciaComoCobrado(pendienteRealizado.id, cobro.id);
       onCreado();
     } catch (err) {
       setError(err.message);
@@ -206,6 +213,12 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
               Ortodoncista habitual: <span className="font-medium">{paciente.ortodoncista}</span>
               {" · "}Cuota control: {paciente.valorControl ? `$${Number(paciente.valorControl).toLocaleString("es-AR")}` : "—"}
             </div>
+          )}
+
+          {pendienteRealizado && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ✓ El ortodoncista marcó "{pendienteRealizado.prestacion}" en Agenda — ya viene elegido abajo.
+            </p>
           )}
 
           {debeConfirmarAumento && (

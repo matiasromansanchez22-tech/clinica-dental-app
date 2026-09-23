@@ -9,6 +9,7 @@ import {
   obtenerPrestacionesObraSocial,
   obtenerPrestacionesParticular,
 } from "@/lib/data/caja";
+import { marcarPendientesComoCobrados, obtenerPendientesDeCobro } from "@/lib/data/prestacionesRealizadas";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const MAX_PRESTACIONES = 3;
@@ -29,6 +30,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
   const [cobroIndependienteDelPlan, setCobroIndependienteDelPlan] = useState(false);
   const [prestacionesDelPlan, setPrestacionesDelPlan] = useState([]);
   const [prestacionesRealizadas, setPrestacionesRealizadas] = useState([]);
+  const [pendientesIds, setPendientesIds] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestaciones, setPrestaciones] = useState([filaVacia()]);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -49,13 +51,21 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
     if (!paciente) {
       setPlanActivo(null);
       setPrestacionesDisponibles([]);
+      setPendientesIds([]);
       return;
     }
     setProfesionalAtencionId("");
     setCobroIndependienteDelPlan(false);
     setPrestacionesDelPlan([]);
     setPrestacionesRealizadas([]);
+    setPendientesIds([]);
+    setPrestaciones([filaVacia()]);
     setCargandoPlan(true);
+
+    // Lo que el profesional ya marcó como "hecho" en la Agenda para este
+    // paciente — viene pre-cargado acá en vez de arrancar de cero.
+    const promesaPendientes = obtenerPendientesDeCobro(paciente.id);
+
     obtenerPlanActivoPaciente(paciente.id)
       .then((plan) => {
         setPlanActivo(plan);
@@ -64,16 +74,51 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
           setPago(pagoSugerido);
           setNumeroCuota(String(cuota));
           obtenerPrestacionesDelPresupuesto(plan.presupuesto_id).then(setPrestacionesDelPlan);
+          promesaPendientes.then((pendientes) => {
+            if (pendientes.plan.length > 0) {
+              setPrestacionesRealizadas(pendientes.plan.map((p) => p.nombre));
+              setPendientesIds(pendientes.plan.map((p) => p.id));
+            }
+          });
         }
       })
       .finally(() => setCargandoPlan(false));
 
-    if (esObraSocial && paciente.obra_social) {
-      obtenerPrestacionesObraSocial(paciente.obra_social).then(setPrestacionesDisponibles);
-    } else {
-      obtenerPrestacionesParticular().then(setPrestacionesDisponibles);
-    }
-    setPrestaciones([filaVacia()]);
+    const promesaCatalogo =
+      esObraSocial && paciente.obra_social
+        ? obtenerPrestacionesObraSocial(paciente.obra_social)
+        : obtenerPrestacionesParticular();
+    promesaCatalogo.then((disponibles) => {
+      setPrestacionesDisponibles(disponibles);
+      // Las prestaciones sueltas marcadas en Agenda (sin plan) solo se
+      // pueden pre-completar para pacientes particulares, porque el
+      // catálogo que se usa ahí es el de particular, no el nomenclador.
+      if (!esObraSocial) {
+        promesaPendientes.then((pendientes) => {
+          if (pendientes.adHoc.length === 0) return;
+          const filas = pendientes.adHoc
+            .map((p) => {
+              const item = disponibles.find((d) => d.id === p.catalogoId);
+              if (!item) return null;
+              return {
+                itemId: item.id,
+                prestacion: item.prestacion,
+                codigo: item.codigo || "",
+                cantidad: p.cantidad || 1,
+                valor: item.valor_efectivo ?? item.valor_lista ?? 0,
+                valorOS: 0,
+                sinHonorarios: item.prestacion === "Estampilla",
+                especialidad: item.especialidad || null,
+              };
+            })
+            .filter(Boolean);
+          if (filas.length > 0) {
+            setPrestaciones(filas);
+            setPendientesIds((actual) => [...actual, ...pendientes.adHoc.map((p) => p.id)]);
+          }
+        });
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteId]);
 
@@ -209,7 +254,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
 
     setGuardando(true);
     try {
-      await crearCobro({
+      const caja = await crearCobro({
         fecha,
         tipo: esObraSocial ? "Obra Social" : "Particular",
         cobertura: esObraSocial ? paciente.obra_social : "Particular",
@@ -248,6 +293,7 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
         observaciones,
         prestacionesRealizadas: usaPlan ? prestacionesRealizadas : [],
       });
+      if (pendientesIds.length > 0) await marcarPendientesComoCobrados(pendientesIds, caja.id);
       onCreado();
     } catch (err) {
       setError(err.message);
@@ -315,6 +361,12 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, onClos
           )}
 
           {cargandoPlan && <p className="text-sm text-gray-500">Buscando plan de financiación activo...</p>}
+
+          {pendientesIds.length > 0 && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ✓ Ya viene pre-cargado con lo que el profesional marcó en Agenda — revisá y confirmá.
+            </p>
+          )}
 
           {planActivo && (
             <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 px-3 py-2 text-sm text-brand-green">
