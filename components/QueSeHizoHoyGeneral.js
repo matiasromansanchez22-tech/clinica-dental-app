@@ -280,7 +280,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                   disabled={!catalogoIdElegido || guardando}
                   className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
                 >
-                  + Agregar
+                  ✓ Marcar hecho
                 </button>
               </div>
               <p className="text-[11px] text-gray-400">
