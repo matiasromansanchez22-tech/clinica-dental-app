@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
-import { CONCEPTOS_ORTODONCIA, calcularEstadoAumento } from "@/lib/ortodoncia";
+import { CONCEPTOS_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA, calcularEstadoAumento } from "@/lib/ortodoncia";
 import {
   marcarPendienteOrtodonciaComoCobrado,
   obtenerPendienteCobroOrtodoncia,
@@ -11,7 +11,7 @@ import {
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
-const BRACKETS = ["Metálico", "Porcelana"];
+const BRACKETS = TIPOS_BRACKET_ORTODONCIA;
 
 function parteVacia(medio) {
   return { medio, monto: "" };
@@ -76,6 +76,11 @@ export default function CobroOrtodonciaFormModal({
       if (!pendiente) return;
       setPendienteRealizado(pendiente);
       if (CONCEPTOS.includes(pendiente.prestacion)) setConcepto(pendiente.prestacion);
+      if (pendiente.bracket_reposicion) {
+        setSeDespegoBracket(true);
+        setBracketReposicion(pendiente.bracket_reposicion);
+        setCantidadBrackets(pendiente.cantidad_brackets || 1);
+      }
     });
   }, [pacienteId]);
 
@@ -232,6 +237,14 @@ export default function CobroOrtodonciaFormModal({
           {pendienteRealizado && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               ✓ El ortodoncista marcó "{pendienteRealizado.prestacion}" en Agenda — ya viene elegido abajo.
+              {pendienteRealizado.bracket_reposicion && (
+                <>
+                  {" "}
+                  También marcó que se despegó {pendienteRealizado.cantidad_brackets || 1} bracket
+                  {(pendienteRealizado.cantidad_brackets || 1) > 1 ? "s" : ""} ({pendienteRealizado.bracket_reposicion}) —
+                  ya viene sumado al total.
+                </>
+              )}
             </p>
           )}
 
