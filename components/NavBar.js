@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import InstalarAppBoton from "@/components/InstalarAppBoton";
 import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
+import AvisoPrestacionRealizada from "@/components/AvisoPrestacionRealizada";
 import CelebracionVenta from "@/components/CelebracionVenta";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
@@ -16,6 +17,10 @@ import { obtenerCantidadPresupuestosPendientesConPagos, obtenerCantidadPresupues
 import { obtenerCantidadDeudoresOrtodoncia } from "@/lib/data/controlesOrtodoncia";
 import { obtenerCantidadTurnosSinCerrarHoy } from "@/lib/data/cierres";
 import { obtenerCantidadMesesPendientesAprobar } from "@/lib/data/cierresMes";
+import {
+  obtenerCantidadPacientesConPendientesDeCobro,
+  obtenerCantidadPacientesOrtodonciaConPendientesDeCobro,
+} from "@/lib/data/prestacionesRealizadas";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -38,7 +43,7 @@ const GRUPOS = [
       { href: "/presupuestos", label: "Presupuestos", badgeKey: "presupuestosPendientesConPago" },
       { href: "/planes", label: "Planes de Financiación" },
       { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarGeneral" },
-      { href: "/caja", label: "Caja" },
+      { href: "/caja", label: "Caja", badgeKey: "porCobrarAgendaGeneral" },
       { href: "/cierre-turno", label: "Cierre de Turno" },
     ],
   },
@@ -54,7 +59,7 @@ const GRUPOS = [
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/controles", label: "Controles" },
       { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia" },
-      { href: "/ortodoncia/caja", label: "Caja" },
+      { href: "/ortodoncia/caja", label: "Caja", badgeKey: "porCobrarAgendaOrtodoncia" },
       { href: "/ortodoncia/cierre-turno", label: "Cierre de Turno" },
     ],
   },
@@ -192,16 +197,30 @@ export default function NavBar() {
       obtenerCantidadDeudoresOrtodoncia(),
       obtenerCantidadPresupuestosPendientesConPagos(),
       obtenerCantidadPresupuestosSinRespuesta(),
+      obtenerCantidadPacientesConPendientesDeCobro(),
+      obtenerCantidadPacientesOrtodonciaConPendientesDeCobro(),
     ])
-      .then(([general, ortodoncia, cobrarGeneral, cobrarOrtodoncia, presupuestosPendientesConPago, presupuestosSinRespuesta]) =>
-        setBadges((b) => ({
-          ...b,
+      .then(
+        ([
           general,
           ortodoncia,
           cobrarGeneral,
           cobrarOrtodoncia,
-          presupuestosPendientesConPago: presupuestosPendientesConPago + presupuestosSinRespuesta,
-        }))
+          presupuestosPendientesConPago,
+          presupuestosSinRespuesta,
+          porCobrarAgendaGeneral,
+          porCobrarAgendaOrtodoncia,
+        ]) =>
+          setBadges((b) => ({
+            ...b,
+            general,
+            ortodoncia,
+            cobrarGeneral,
+            cobrarOrtodoncia,
+            presupuestosPendientesConPago: presupuestosPendientesConPago + presupuestosSinRespuesta,
+            porCobrarAgendaGeneral,
+            porCobrarAgendaOrtodoncia,
+          }))
       )
       .catch(() => {});
 
@@ -222,6 +241,7 @@ export default function NavBar() {
   return (
     <>
       <AvisoPresupuestoNuevo />
+      <AvisoPrestacionRealizada />
       <CelebracionVenta />
       <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-6 py-3">

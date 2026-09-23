@@ -17,8 +17,8 @@ function parteVacia(medio) {
   return { medio, monto: "" };
 }
 
-export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncistas, onClose, onCreado }) {
-  const [pacienteId, setPacienteId] = useState("");
+export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncistas, pacienteIdInicial, onClose, onCreado }) {
+  const [pacienteId, setPacienteId] = useState(pacienteIdInicial || "");
   const [ortodoncistaAtencionId, setOrtodoncistaAtencionId] = useState("");
   const [concepto, setConcepto] = useState("Control");
   const [cantidadControlesAbonados, setCantidadControlesAbonados] = useState(1);

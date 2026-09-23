@@ -15,12 +15,16 @@ import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 import { eliminarTransferenciaCaja, obtenerTransferenciasCajaPorFecha } from "@/lib/data/transferenciasCaja";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function CajaPage() {
   const { perfil } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const esDuena = perfil?.rol === "Duena";
   const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
+  const [pacienteParaCobrar, setPacienteParaCobrar] = useState(null);
   const [cobros, setCobros] = useState([]);
   const [gastos, setGastos] = useState([]);
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
@@ -99,6 +103,23 @@ export default function CajaPage() {
       .then(setLaboratoriosSugeridos)
       .catch(() => {});
   }, []);
+
+  // Entrada directa desde el aviso de "algo marcado en Agenda" — abre el
+  // cobro con ese paciente ya elegido, sin que el secretario tenga que
+  // buscarlo. Espera a que termine de cargar la lista de pacientes (si no,
+  // el modal se abre antes de tiempo y no llega a pre-completarse solo).
+  // Se limpia la URL después para que un F5 no lo vuelva a abrir.
+  useEffect(() => {
+    if (cargando) return;
+    const pacienteId = searchParams.get("pacienteId");
+    const abrir = searchParams.get("abrir");
+    if (pacienteId && abrir) {
+      setPacienteParaCobrar(pacienteId);
+      setMostrarNuevo(true);
+      router.replace("/caja");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargando]);
 
   // Una transferencia que ENTRA a esta caja suma como si fuera un cobro
   // más (es plata real que está disponible hoy); una que SALE resta como
@@ -444,10 +465,15 @@ export default function CajaPage() {
           fecha={fecha}
           pacientes={pacientes}
           profesionales={profesionales}
-          onClose={() => setMostrarNuevo(false)}
+          pacienteIdInicial={pacienteParaCobrar}
+          onClose={() => {
+            setMostrarNuevo(false);
+            setPacienteParaCobrar(null);
+          }}
           onCreado={async () => {
             await recargar();
             setMostrarNuevo(false);
+            setPacienteParaCobrar(null);
           }}
         />
       )}

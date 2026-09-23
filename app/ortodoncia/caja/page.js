@@ -18,12 +18,16 @@ import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/p
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 import { eliminarTransferenciaCaja, obtenerTransferenciasCajaPorFecha } from "@/lib/data/transferenciasCaja";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function CajaOrtodonciaPage() {
   const { perfil } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const esDuena = perfil?.rol === "Duena";
   const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
+  const [pacienteParaCobrar, setPacienteParaCobrar] = useState(null);
   const [cobros, setCobros] = useState([]);
   const [gastos, setGastos] = useState([]);
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
@@ -101,6 +105,22 @@ export default function CajaOrtodonciaPage() {
       .then(setLaboratoriosSugeridos)
       .catch(() => {});
   }, []);
+
+  // Entrada directa desde el aviso de "algo marcado en Agenda" — abre el
+  // cobro con ese paciente ya elegido. Espera a que termine de cargar la
+  // lista de pacientes para que el pre-completado no se pierda por una
+  // carrera. Se limpia la URL después para que un F5 no lo reabra.
+  useEffect(() => {
+    if (cargando) return;
+    const pacienteId = searchParams.get("pacienteId");
+    const abrir = searchParams.get("abrir");
+    if (pacienteId && abrir) {
+      setPacienteParaCobrar(pacienteId);
+      setMostrarNuevo(true);
+      router.replace("/ortodoncia/caja");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargando]);
 
   // Una transferencia que ENTRA a esta caja suma como si fuera un cobro
   // más (es plata real que está disponible hoy); una que SALE resta como
@@ -433,10 +453,15 @@ export default function CajaOrtodonciaPage() {
           fecha={fecha}
           pacientes={pacientes}
           ortodoncistas={ortodoncistas}
-          onClose={() => setMostrarNuevo(false)}
+          pacienteIdInicial={pacienteParaCobrar}
+          onClose={() => {
+            setMostrarNuevo(false);
+            setPacienteParaCobrar(null);
+          }}
           onCreado={async () => {
             await recargar();
             setMostrarNuevo(false);
+            setPacienteParaCobrar(null);
           }}
         />
       )}

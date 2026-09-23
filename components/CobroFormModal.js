@@ -22,8 +22,8 @@ function parteVacia(medio) {
   return { medio, monto: "" };
 }
 
-export default function CobroFormModal({ fecha, pacientes, profesionales, onClose, onCreado }) {
-  const [pacienteId, setPacienteId] = useState("");
+export default function CobroFormModal({ fecha, pacientes, profesionales, pacienteIdInicial, onClose, onCreado }) {
+  const [pacienteId, setPacienteId] = useState(pacienteIdInicial || "");
   const [profesionalAtencionId, setProfesionalAtencionId] = useState("");
   const [planActivo, setPlanActivo] = useState(null);
   const [cargandoPlan, setCargandoPlan] = useState(false);
