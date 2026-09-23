@@ -8,6 +8,7 @@ import {
   obtenerHistorialPagosPlan,
   obtenerPlanesFinanciacion,
 } from "@/lib/data/presupuestos";
+import { obtenerPasosDelPlan } from "@/lib/data/prestacionesRealizadas";
 
 function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
@@ -28,6 +29,7 @@ export default function PlanesPage() {
   const [error, setError] = useState(null);
   const [expandido, setExpandido] = useState(null);
   const [historiales, setHistoriales] = useState({});
+  const [pasosPorPlan, setPasosPorPlan] = useState({});
   const [mostrarPagoHistorico, setMostrarPagoHistorico] = useState(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -56,6 +58,14 @@ export default function PlanesPage() {
     if (!historiales[plan.id]) {
       try {
         await recargarHistorial(plan);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+    if (!pasosPorPlan[plan.id] && plan.presupuestoId) {
+      try {
+        const pasos = await obtenerPasosDelPlan(plan.presupuestoId);
+        setPasosPorPlan((p) => ({ ...p, [plan.id]: pasos }));
       } catch (e) {
         setError(e.message);
       }
@@ -220,6 +230,30 @@ export default function PlanesPage() {
                           {p.observaciones}
                         </div>
                       )}
+
+                      <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Pasos del tratamiento</p>
+                      {!pasosPorPlan[p.id] ? (
+                        <p className="mb-3 text-xs text-gray-500">Cargando...</p>
+                      ) : pasosPorPlan[p.id].length === 0 ? (
+                        <p className="mb-3 text-xs text-gray-500">Este plan no tiene pasos cargados.</p>
+                      ) : (
+                        <ul className="mb-3 flex flex-col gap-1 text-xs text-gray-700">
+                          {pasosPorPlan[p.id].map((paso, i) => (
+                            <li key={`${paso.nombre}-${i}`} className="flex items-center gap-2">
+                              <span>
+                                {paso.cobrado ? "✅" : paso.realizadoId ? "🟡" : "⬜"}
+                              </span>
+                              <span className={paso.cobrado ? "text-gray-500" : "text-gray-800"}>
+                                Paso {i + 1}: {paso.nombre}
+                              </span>
+                              <span className="text-gray-400">
+                                {paso.cobrado ? "— hecho y cobrado" : paso.realizadoId ? "— hecho, pendiente de cobro" : "— todavía no se hizo"}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
                       <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Historial de pagos</p>
                       {!historiales[p.id] || historiales[p.id].length === 0 ? (
                         <p className="text-xs text-gray-500">Todavía no se registró ningún pago.</p>
