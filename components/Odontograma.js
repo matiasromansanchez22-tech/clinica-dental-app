@@ -59,13 +59,13 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
           type="button"
           onClick={() => onClick(pieza, "general")}
           title={`Diente ${pieza} — ${general}`}
-          className={`flex h-9 w-9 items-center justify-center rounded-md border-2 text-[10px] font-semibold ${
+          className={`flex h-6 w-6 items-center justify-center rounded border-2 text-[8px] font-semibold ${
             ESTILO_GENERAL[general]
           } ${activo ? "ring-2 ring-brand-brown" : ""}`}
         >
           {ETIQUETA_GENERAL[general]}
         </button>
-        <span className="text-[9px] text-gray-500">{pieza}</span>
+        <span className="text-[8px] text-gray-500">{pieza}</span>
       </div>
     );
   }
@@ -94,7 +94,7 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
 
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <div className="grid h-9 w-9 grid-cols-3 grid-rows-3 gap-px rounded-md border border-gray-300 bg-gray-300 p-px">
+      <div className="grid h-6 w-6 grid-cols-3 grid-rows-3 gap-px rounded border border-gray-300 bg-gray-300 p-px">
         {celda(arriba, "col-start-2 row-start-1")}
         {celda("mesial", "col-start-1 row-start-2")}
         {celda("oclusal", "col-start-2 row-start-2")}
@@ -104,7 +104,7 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
       <button
         type="button"
         onClick={() => onClick(pieza, "general")}
-        className="text-[9px] text-gray-500 hover:text-brand-brown hover:underline"
+        className="text-[8px] text-gray-500 hover:text-brand-brown hover:underline"
       >
         {pieza}
       </button>
@@ -215,7 +215,7 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
         <p className="text-xs text-gray-500">Cargando odontograma...</p>
       ) : (
         <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-          <div className="flex justify-center gap-2.5 overflow-x-auto pb-2">
+          <div className="flex justify-center gap-1 overflow-x-auto pb-2">
             {PIEZAS_SUPERIOR.map((pieza) => (
               <Diente
                 key={pieza}
@@ -228,7 +228,7 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
             ))}
           </div>
           <hr className="my-2 border-gray-300" />
-          <div className="flex justify-center gap-2.5 overflow-x-auto pt-2">
+          <div className="flex justify-center gap-1 overflow-x-auto pt-2">
             {PIEZAS_INFERIOR.map((pieza) => (
               <Diente
                 key={pieza}
