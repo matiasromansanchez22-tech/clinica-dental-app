@@ -8,6 +8,7 @@ import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
 import { actualizarEstadoTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
+import Odontograma from "@/components/Odontograma";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 const MAX_PRESTACIONES_TURNO = 4;
@@ -41,6 +42,7 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
   const [mostrarProfesional, setMostrarProfesional] = useState(false);
   const [nuevoProfesionalId, setNuevoProfesionalId] = useState(turno.profesionalDeTurnoId || "");
   const [cambiandoProfesional, setCambiandoProfesional] = useState(false);
+  const [versionHistorial, setVersionHistorial] = useState(0);
 
   const [catalogoCompleto, setCatalogoCompleto] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
@@ -572,7 +574,16 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
 
         {turnoActual.pacienteId && (
           <div className="mt-4">
-            <HistorialClinicoGeneral pacienteId={turnoActual.pacienteId} profesionales={profesionales} />
+            <Odontograma
+              pacienteId={turnoActual.pacienteId}
+              profesionales={profesionales}
+              onCambio={() => setVersionHistorial((v) => v + 1)}
+            />
+            <HistorialClinicoGeneral
+              key={versionHistorial}
+              pacienteId={turnoActual.pacienteId}
+              profesionales={profesionales}
+            />
           </div>
         )}
 

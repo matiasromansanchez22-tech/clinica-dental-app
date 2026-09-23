@@ -3,9 +3,11 @@
 import { useState } from "react";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
+import Odontograma from "@/components/Odontograma";
 
 export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, catalogo, onClose, onCambiado }) {
   const [turnoActual, setTurnoActual] = useState(turno);
+  const [versionHistorial, setVersionHistorial] = useState(0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -46,7 +48,16 @@ export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, cat
 
         {turnoActual.pacienteId && (
           <div className="mt-4">
-            <HistorialClinicoGeneral pacienteId={turnoActual.pacienteId} profesionales={profesionales} />
+            <Odontograma
+              pacienteId={turnoActual.pacienteId}
+              profesionales={profesionales}
+              onCambio={() => setVersionHistorial((v) => v + 1)}
+            />
+            <HistorialClinicoGeneral
+              key={versionHistorial}
+              pacienteId={turnoActual.pacienteId}
+              profesionales={profesionales}
+            />
           </div>
         )}
 
