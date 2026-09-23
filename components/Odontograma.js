@@ -59,13 +59,13 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
           type="button"
           onClick={() => onClick(pieza, "general")}
           title={`Diente ${pieza} — ${general}`}
-          className={`flex h-6 w-6 items-center justify-center rounded border-2 text-[8px] font-semibold ${
+          className={`flex h-8 w-8 items-center justify-center rounded border-2 text-[9px] font-semibold ${
             ESTILO_GENERAL[general]
           } ${activo ? "ring-2 ring-brand-brown" : ""}`}
         >
           {ETIQUETA_GENERAL[general]}
         </button>
-        <span className="text-[8px] text-gray-500">{pieza}</span>
+        <span className="text-[9px] text-gray-500">{pieza}</span>
       </div>
     );
   }
@@ -94,7 +94,7 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
 
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <div className="grid h-6 w-6 grid-cols-3 grid-rows-3 gap-px rounded border border-gray-300 bg-gray-300 p-px">
+      <div className="grid h-8 w-8 grid-cols-3 grid-rows-3 gap-px rounded border border-gray-300 bg-gray-300 p-px">
         {celda(arriba, "col-start-2 row-start-1")}
         {celda("mesial", "col-start-1 row-start-2")}
         {celda("oclusal", "col-start-2 row-start-2")}
@@ -104,7 +104,7 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
       <button
         type="button"
         onClick={() => onClick(pieza, "general")}
-        className="text-[8px] text-gray-500 hover:text-brand-brown hover:underline"
+        className="text-[9px] text-gray-500 hover:text-brand-brown hover:underline"
       >
         {pieza}
       </button>
