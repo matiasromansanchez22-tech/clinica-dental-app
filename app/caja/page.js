@@ -25,6 +25,7 @@ export default function CajaPage() {
   const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [pacienteParaCobrar, setPacienteParaCobrar] = useState(null);
+  const [profesionalParaCobrar, setProfesionalParaCobrar] = useState(null);
   const [cobros, setCobros] = useState([]);
   const [gastos, setGastos] = useState([]);
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
@@ -112,9 +113,11 @@ export default function CajaPage() {
   useEffect(() => {
     if (cargando) return;
     const pacienteId = searchParams.get("pacienteId");
+    const profesionalId = searchParams.get("profesionalId");
     const abrir = searchParams.get("abrir");
     if (pacienteId && abrir) {
       setPacienteParaCobrar(pacienteId);
+      setProfesionalParaCobrar(profesionalId || null);
       setMostrarNuevo(true);
       router.replace("/caja");
     }
@@ -466,14 +469,17 @@ export default function CajaPage() {
           pacientes={pacientes}
           profesionales={profesionales}
           pacienteIdInicial={pacienteParaCobrar}
+          profesionalIdInicial={profesionalParaCobrar}
           onClose={() => {
             setMostrarNuevo(false);
             setPacienteParaCobrar(null);
+            setProfesionalParaCobrar(null);
           }}
           onCreado={async () => {
             await recargar();
             setMostrarNuevo(false);
             setPacienteParaCobrar(null);
+            setProfesionalParaCobrar(null);
           }}
         />
       )}

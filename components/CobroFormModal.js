@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   calcularSugerenciaPago,
   crearCobro,
@@ -22,9 +22,24 @@ function parteVacia(medio) {
   return { medio, monto: "" };
 }
 
-export default function CobroFormModal({ fecha, pacientes, profesionales, pacienteIdInicial, onClose, onCreado }) {
+export default function CobroFormModal({
+  fecha,
+  pacientes,
+  profesionales,
+  pacienteIdInicial,
+  profesionalIdInicial,
+  onClose,
+  onCreado,
+}) {
   const [pacienteId, setPacienteId] = useState(pacienteIdInicial || "");
-  const [profesionalAtencionId, setProfesionalAtencionId] = useState("");
+  const [profesionalAtencionId, setProfesionalAtencionId] = useState(profesionalIdInicial || "");
+  // No resetear el profesional mientras el paciente no cambió realmente —
+  // si vino elegido desde el aviso de Agenda (junto con el paciente), se
+  // respeta esa selección; recién cuando el secretario elige OTRO paciente
+  // a mano se vuelve a limpiar, como siempre. Comparar contra el paciente
+  // anterior (en vez de una bandera "primera vez") lo hace a prueba de que
+  // el efecto se dispare dos veces en desarrollo (React Strict Mode).
+  const pacienteIdAnterior = useRef(pacienteId);
   const [planActivo, setPlanActivo] = useState(null);
   const [cargandoPlan, setCargandoPlan] = useState(false);
   const [cobroIndependienteDelPlan, setCobroIndependienteDelPlan] = useState(false);
@@ -54,7 +69,8 @@ export default function CobroFormModal({ fecha, pacientes, profesionales, pacien
       setPendientesIds([]);
       return;
     }
-    setProfesionalAtencionId("");
+    if (pacienteIdAnterior.current !== pacienteId) setProfesionalAtencionId("");
+    pacienteIdAnterior.current = pacienteId;
     setCobroIndependienteDelPlan(false);
     setPrestacionesDelPlan([]);
     setPrestacionesRealizadas([]);

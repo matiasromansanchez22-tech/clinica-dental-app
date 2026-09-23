@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { CONCEPTOS_ORTODONCIA, calcularEstadoAumento } from "@/lib/ortodoncia";
@@ -17,9 +17,22 @@ function parteVacia(medio) {
   return { medio, monto: "" };
 }
 
-export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncistas, pacienteIdInicial, onClose, onCreado }) {
+export default function CobroOrtodonciaFormModal({
+  fecha,
+  pacientes,
+  ortodoncistas,
+  pacienteIdInicial,
+  profesionalIdInicial,
+  onClose,
+  onCreado,
+}) {
   const [pacienteId, setPacienteId] = useState(pacienteIdInicial || "");
-  const [ortodoncistaAtencionId, setOrtodoncistaAtencionId] = useState("");
+  const [ortodoncistaAtencionId, setOrtodoncistaAtencionId] = useState(profesionalIdInicial || "");
+  // No resetear el ortodoncista mientras el paciente no cambió realmente —
+  // comparar contra el paciente anterior (en vez de una bandera "primera
+  // vez") lo hace a prueba de que el efecto se dispare dos veces en
+  // desarrollo (React Strict Mode).
+  const pacienteIdAnterior = useRef(pacienteId);
   const [concepto, setConcepto] = useState("Control");
   const [cantidadControlesAbonados, setCantidadControlesAbonados] = useState(1);
   const [bracketReposicion, setBracketReposicion] = useState("Metálico");
@@ -52,7 +65,8 @@ export default function CobroOrtodonciaFormModal({ fecha, pacientes, ortodoncist
   const debeConfirmarAumento = estadoAumento?.texto === "Aumentar";
 
   useEffect(() => {
-    setOrtodoncistaAtencionId("");
+    if (pacienteIdAnterior.current !== pacienteId) setOrtodoncistaAtencionId("");
+    pacienteIdAnterior.current = pacienteId;
     setAumentoConfirmado(false);
     setPendienteRealizado(null);
     if (!pacienteId) return;

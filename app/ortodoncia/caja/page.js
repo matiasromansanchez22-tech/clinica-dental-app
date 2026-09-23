@@ -28,6 +28,7 @@ export default function CajaOrtodonciaPage() {
   const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [pacienteParaCobrar, setPacienteParaCobrar] = useState(null);
+  const [profesionalParaCobrar, setProfesionalParaCobrar] = useState(null);
   const [cobros, setCobros] = useState([]);
   const [gastos, setGastos] = useState([]);
   const [pagosProfesionales, setPagosProfesionales] = useState([]);
@@ -113,9 +114,11 @@ export default function CajaOrtodonciaPage() {
   useEffect(() => {
     if (cargando) return;
     const pacienteId = searchParams.get("pacienteId");
+    const profesionalId = searchParams.get("profesionalId");
     const abrir = searchParams.get("abrir");
     if (pacienteId && abrir) {
       setPacienteParaCobrar(pacienteId);
+      setProfesionalParaCobrar(profesionalId || null);
       setMostrarNuevo(true);
       router.replace("/ortodoncia/caja");
     }
@@ -454,14 +457,17 @@ export default function CajaOrtodonciaPage() {
           pacientes={pacientes}
           ortodoncistas={ortodoncistas}
           pacienteIdInicial={pacienteParaCobrar}
+          profesionalIdInicial={profesionalParaCobrar}
           onClose={() => {
             setMostrarNuevo(false);
             setPacienteParaCobrar(null);
+            setProfesionalParaCobrar(null);
           }}
           onCreado={async () => {
             await recargar();
             setMostrarNuevo(false);
             setPacienteParaCobrar(null);
+            setProfesionalParaCobrar(null);
           }}
         />
       )}
