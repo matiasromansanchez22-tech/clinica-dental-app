@@ -120,6 +120,21 @@ export default function PresupuestoFormModal({
   const saldo = redondear(total - (Number(anticipo) || 0));
   const valorCuota = modalidadPago === "Financiado" && cuotas > 0 ? redondear(saldo / cuotas) : 0;
 
+  // Mismo desglose de anticipo/saldo/cuota que el presupuesto completo, pero
+  // calculado solo sobre lo marcado como prioridad — para que el
+  // profesional pueda mostrarle al paciente en el momento cómo le quedaría
+  // financiar solo esa parte, sin tener que armar otro presupuesto aparte.
+  // El anticipo acá es siempre el sugerido (no se edita a mano como el del
+  // presupuesto completo): si el paciente elige esta opción, se arma un
+  // presupuesto nuevo con ese monto y ahí sí se puede ajustar.
+  const totalPrioridad = useMemo(
+    () => calcularTotalPrestaciones(prestaciones.filter((p) => p.prioridad)),
+    [prestaciones]
+  );
+  const anticipoPrioridad = modalidadPago ? calcularAnticipoSugerido(totalPrioridad, modalidadPago, config) : 0;
+  const saldoPrioridad = redondear(totalPrioridad - anticipoPrioridad);
+  const valorCuotaPrioridad = modalidadPago === "Financiado" && cuotas > 0 ? redondear(saldoPrioridad / cuotas) : 0;
+
   function actualizarFila(indice, cambios) {
     setPrestaciones((filas) => {
       const nuevas = [...filas];
@@ -481,6 +496,36 @@ export default function PresupuestoFormModal({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {modalidadPago && totalPrioridad > 0 && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+              <p className="mb-2 text-xs font-semibold uppercase text-amber-800">
+                ⭐ Si el paciente elige solo lo prioritario (${totalPrioridad.toLocaleString("es-AR")})
+              </p>
+              <div className={`grid gap-3 ${modalidadPago === "Financiado" ? "grid-cols-3" : "grid-cols-2"}`}>
+                <div className="flex flex-col gap-1 text-sm text-gray-700">
+                  Anticipo sugerido
+                  <div className="rounded-md border border-amber-200 bg-white px-2 py-1.5 text-gray-600">
+                    ${anticipoPrioridad.toLocaleString("es-AR")}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 text-sm text-gray-700">
+                  Saldo
+                  <div className="rounded-md border border-amber-200 bg-white px-2 py-1.5 text-gray-600">
+                    ${saldoPrioridad.toLocaleString("es-AR")}
+                  </div>
+                </div>
+                {modalidadPago === "Financiado" && (
+                  <div className="flex flex-col gap-1 text-sm text-gray-700">
+                    Valor de cada cuota
+                    <div className="rounded-md border border-amber-200 bg-white px-2 py-1.5 font-medium text-amber-800">
+                      ${valorCuotaPrioridad.toLocaleString("es-AR")}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
