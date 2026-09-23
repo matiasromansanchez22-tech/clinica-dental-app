@@ -38,6 +38,8 @@ export default function CobroOrtodonciaFormModal({
   const [bracketReposicion, setBracketReposicion] = useState("Metálico");
   const [cantidadBrackets, setCantidadBrackets] = useState(1);
   const [seDespegoBracket, setSeDespegoBracket] = useState(false);
+  const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
+  const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [precios, setPrecios] = useState({ precio_bracket_metalico: 0, precio_bracket_porcelana: 0 });
   const [importe, setImporte] = useState(0);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -69,6 +71,8 @@ export default function CobroOrtodonciaFormModal({
     pacienteIdAnterior.current = pacienteId;
     setAumentoConfirmado(false);
     setPendienteRealizado(null);
+    setCargoExtraDescripcion("");
+    setCargoExtraMonto("");
     if (!pacienteId) return;
     // Lo que el ortodoncista ya marcó como "hecho" en la Agenda — viene
     // pre-cargado acá en vez de arrancar siempre en "Control".
@@ -81,6 +85,13 @@ export default function CobroOrtodonciaFormModal({
         setBracketReposicion(pendiente.bracket_reposicion);
         setCantidadBrackets(pendiente.cantidad_brackets || 1);
       }
+      if (pendiente.cargo_extra_monto) {
+        setCargoExtraDescripcion(pendiente.cargo_extra_descripcion || "");
+        setCargoExtraMonto(pendiente.cargo_extra_monto);
+      }
+      if (pendiente.nota_proximo_turno) {
+        setObservaciones((actual) => actual || `Nota del profesional: ${pendiente.nota_proximo_turno}`);
+      }
     });
   }, [pacienteId]);
 
@@ -89,13 +100,15 @@ export default function CobroOrtodonciaFormModal({
 
   useEffect(() => {
     if (!paciente) return;
+    let base = 0;
     if (concepto === "Control") {
       const valorControlUsado =
         debeConfirmarAumento && aumentoConfirmado ? cuotaSugerida : Number(paciente.valorControl || 0);
       const valorControles = valorControlUsado * Number(cantidadControlesAbonados || 1);
       const valorBrackets = seDespegoBracket ? Number(cantidadBrackets || 0) * precioPorBracket : 0;
-      setImporte(valorControles + valorBrackets);
+      base = valorControles + valorBrackets;
     }
+    setImporte(base + Number(cargoExtraMonto || 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pacienteId,
@@ -106,6 +119,7 @@ export default function CobroOrtodonciaFormModal({
     bracketReposicion,
     precios,
     aumentoConfirmado,
+    cargoExtraMonto,
   ]);
 
   const totalDesglosado = desglosePago.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
@@ -167,6 +181,12 @@ export default function CobroOrtodonciaFormModal({
 
     setGuardando(true);
     try {
+      const observacionesFinal = [
+        observaciones || null,
+        cargoExtraMonto ? `Cargo extra: ${cargoExtraDescripcion || "(sin descripción)"} ($${Number(cargoExtraMonto).toLocaleString("es-AR")})` : null,
+      ]
+        .filter(Boolean)
+        .join(" | ");
       const cobro = await crearCobroOrtodoncia({
         fecha,
         pacienteId,
@@ -185,7 +205,7 @@ export default function CobroOrtodonciaFormModal({
         importe: Number(importe),
         medioPago,
         desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
-        observaciones,
+        observaciones: observacionesFinal || null,
       });
       if (pendienteRealizado) await marcarPendienteOrtodonciaComoCobrado(pendienteRealizado.id, cobro.id);
       onCreado();
@@ -243,6 +263,19 @@ export default function CobroOrtodonciaFormModal({
                   También marcó que se despegó {pendienteRealizado.cantidad_brackets || 1} bracket
                   {(pendienteRealizado.cantidad_brackets || 1) > 1 ? "s" : ""} ({pendienteRealizado.bracket_reposicion}) —
                   ya viene sumado al total.
+                </>
+              )}
+              {pendienteRealizado.cargo_extra_monto && (
+                <>
+                  {" "}
+                  También cargó un extra: {pendienteRealizado.cargo_extra_descripcion || "cargo extra"} ($
+                  {Number(pendienteRealizado.cargo_extra_monto).toLocaleString("es-AR")}) — ya viene sumado al total.
+                </>
+              )}
+              {pendienteRealizado.nota_proximo_turno && (
+                <>
+                  {" "}
+                  📌 Nota para el próximo turno: {pendienteRealizado.nota_proximo_turno}
                 </>
               )}
             </p>
@@ -391,6 +424,27 @@ export default function CobroOrtodonciaFormModal({
               </label>
             </div>
           )}
+
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+            <p className="mb-1 text-xs text-gray-600">Cargo extra (opcional, se suma al importe)</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={cargoExtraDescripcion}
+                onChange={(e) => setCargoExtraDescripcion(e.target.value)}
+                placeholder="Ej: Estudio radiográfico"
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+              <input
+                type="number"
+                min={0}
+                value={cargoExtraMonto}
+                onChange={(e) => setCargoExtraMonto(e.target.value)}
+                placeholder="Monto"
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+          </div>
 
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={pagoMixto} onChange={(e) => setPagoMixto(e.target.checked)} />

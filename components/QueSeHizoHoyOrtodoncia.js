@@ -18,6 +18,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [seDespegoBracket, setSeDespegoBracket] = useState(false);
   const [bracketReposicion, setBracketReposicion] = useState(TIPOS_BRACKET_ORTODONCIA[0]);
   const [cantidadBrackets, setCantidadBrackets] = useState(1);
+  const [notaProximoTurno, setNotaProximoTurno] = useState("");
+  const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
+  const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [pendiente, setPendiente] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -46,6 +49,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         concepto,
         bracketReposicion: concepto === "Control" && seDespegoBracket ? bracketReposicion : null,
         cantidadBrackets: concepto === "Control" && seDespegoBracket ? cantidadBrackets : null,
+        notaProximoTurno: notaProximoTurno.trim() || null,
+        cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
+        cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
         fecha,
       });
       if (turno.presencia !== "Finalizado") {
@@ -72,16 +78,28 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       {cargando ? (
         <p className="text-xs text-gray-500">Buscando...</p>
       ) : pendiente ? (
-        <p className="text-sm text-emerald-700">
-          ✓ Marcado como <strong>{pendiente.prestacion}</strong>
-          {pendiente.bracket_reposicion && (
-            <>
-              {" "}
-              + bracket {pendiente.bracket_reposicion} x{pendiente.cantidad_brackets || 1}
-            </>
-          )}{" "}
-          — pendiente de que lo cobren.
-        </p>
+        <div className="text-sm text-emerald-700">
+          <p>
+            ✓ Marcado como <strong>{pendiente.prestacion}</strong>
+            {pendiente.bracket_reposicion && (
+              <>
+                {" "}
+                + bracket {pendiente.bracket_reposicion} x{pendiente.cantidad_brackets || 1}
+              </>
+            )}
+            {pendiente.cargo_extra_monto ? (
+              <>
+                {" "}
+                + {pendiente.cargo_extra_descripcion || "cargo extra"} ($
+                {Number(pendiente.cargo_extra_monto).toLocaleString("es-AR")})
+              </>
+            ) : null}{" "}
+            — pendiente de que lo cobren.
+          </p>
+          {pendiente.nota_proximo_turno && (
+            <p className="mt-1 text-xs text-emerald-600">📌 Próximo turno: {pendiente.nota_proximo_turno}</p>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -141,6 +159,38 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
               )}
             </div>
           )}
+
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+            <p className="mb-1 text-xs text-gray-600">Cargo extra (opcional, se suma al total)</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={cargoExtraDescripcion}
+                onChange={(e) => setCargoExtraDescripcion(e.target.value)}
+                placeholder="Ej: Estudio radiográfico"
+                className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs"
+              />
+              <input
+                type="number"
+                min={0}
+                value={cargoExtraMonto}
+                onChange={(e) => setCargoExtraMonto(e.target.value)}
+                placeholder="Monto"
+                className="w-24 rounded-md border border-gray-300 px-2 py-1 text-xs"
+              />
+            </div>
+          </div>
+
+          <label className="flex flex-col gap-1 text-xs text-gray-600">
+            Nota para el próximo turno (opcional)
+            <textarea
+              value={notaProximoTurno}
+              onChange={(e) => setNotaProximoTurno(e.target.value)}
+              rows={2}
+              placeholder="Ej: cambiar arco"
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            />
+          </label>
         </div>
       )}
       <p className="mt-2 text-xs text-gray-400">Lo que marques acá le va a quedar pre-cargado al secretario cuando cobre.</p>
