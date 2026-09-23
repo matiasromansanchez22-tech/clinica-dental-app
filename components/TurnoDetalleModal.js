@@ -6,6 +6,7 @@ import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
 import { actualizarEstadoTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 const MAX_PRESTACIONES_TURNO = 4;
@@ -25,7 +26,7 @@ function BotonAccion({ activo, children, ...props }) {
   );
 }
 
-export default function TurnoDetalleModal({ turno, fecha, profesionales = [], onClose, onCambiado }) {
+export default function TurnoDetalleModal({ turno, fecha, profesionales = [], catalogoParticular = [], onClose, onCambiado }) {
   const [turnoActual, setTurnoActual] = useState(turno);
   const [guardando, setGuardando] = useState(null); // qué acción se está guardando
   const [error, setError] = useState(null);
@@ -556,6 +557,8 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], on
             </button>
           </div>
         </div>
+
+        <QueSeHizoHoyGeneral turno={turnoActual} fecha={fecha} profesionales={profesionales} catalogo={catalogoParticular} />
 
         <hr className="my-4 border-gray-200" />
 

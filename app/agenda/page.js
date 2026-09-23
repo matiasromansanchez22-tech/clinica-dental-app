@@ -15,6 +15,7 @@ import {
   sumarDias,
 } from "@/lib/agenda";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
+import { obtenerPrestacionesParticular } from "@/lib/data/caja";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import {
   obtenerTurnosGeneralPorFecha,
@@ -43,6 +44,7 @@ export default function AgendaPage() {
   const [vista, setVista] = useState("dia"); // "dia" | "semana"
   const [turnos, setTurnos] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
+  const [catalogoParticular, setCatalogoParticular] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -80,6 +82,10 @@ export default function AgendaPage() {
       .finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha, vista]);
+
+  useEffect(() => {
+    obtenerPrestacionesParticular().then(setCatalogoParticular);
+  }, []);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -183,6 +189,7 @@ export default function AgendaPage() {
           turno={turnoElegido}
           fecha={turnoElegido.fecha || fecha}
           profesionales={profesionales}
+          catalogoParticular={catalogoParticular}
           onClose={() => setTurnoElegido(null)}
           onCambiado={recargarTurnos}
         />

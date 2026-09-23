@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
 import { actualizarEstadoTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
+import QueSeHizoHoyOrtodoncia from "@/components/QueSeHizoHoyOrtodoncia";
 
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
 const CONSULTORIOS = [2, 3];
@@ -299,6 +300,8 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
             </button>
           </div>
         </div>
+
+        <QueSeHizoHoyOrtodoncia turno={turnoActual} fecha={fecha} />
       </div>
     </div>
   );
