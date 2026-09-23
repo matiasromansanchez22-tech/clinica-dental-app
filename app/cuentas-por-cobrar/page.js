@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { marcarSaldoCobrado, obtenerCobrosConSaldoPendiente } from "@/lib/data/caja";
+import PromesasDePago from "@/components/PromesasDePago";
 
 function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
@@ -63,6 +64,10 @@ export default function CuentasPorCobrarPage() {
           {filas.length} cobro{filas.length === 1 ? "" : "s"}
         </div>
       )}
+
+      <div className="mt-6">
+        <PromesasDePago esOrtodoncia={false} />
+      </div>
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>

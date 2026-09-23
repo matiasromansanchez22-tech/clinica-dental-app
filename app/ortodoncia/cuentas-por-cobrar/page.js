@@ -10,6 +10,7 @@ import {
   obtenerFechaInicioDeudaOrtodoncia,
 } from "@/lib/data/controlesOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import PromesasDePago from "@/components/PromesasDePago";
 
 const ANIOS = [2025, 2026, 2027];
 
@@ -120,6 +121,10 @@ export default function CuentasPorCobrarOrtodonciaPage() {
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
+
+      <div className="mt-6">
+        <PromesasDePago esOrtodoncia={true} />
+      </div>
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full border-collapse text-sm">
