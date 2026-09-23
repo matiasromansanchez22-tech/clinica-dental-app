@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { calcularEdad, formatearDni } from "@/lib/pacientes";
+import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import {
   actualizarPaciente,
   buscarPosiblesDuplicados,
@@ -599,6 +600,8 @@ export default function PacienteFormModal({
             </div>
           </div>
         </form>
+
+        {paciente && <HistorialClinicoGeneral pacienteId={paciente.id} profesionales={profesionales} />}
       </div>
     </div>
   );

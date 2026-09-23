@@ -52,7 +52,7 @@ export default function AvisoPrestacionRealizada() {
   if (!puedeCobrar || avisos.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex w-72 flex-col items-stretch gap-2">
+    <div className="fixed bottom-4 left-4 z-[100] flex w-72 flex-col items-stretch gap-2">
       {avisos.map((a) => (
         <div
           key={a.clave}

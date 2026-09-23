@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
+import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 
 export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, catalogo, onClose, onCambiado }) {
   const [turnoActual, setTurnoActual] = useState(turno);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">{turnoActual.paciente}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
@@ -42,6 +43,12 @@ export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, cat
             onCambiado?.();
           }}
         />
+
+        {turnoActual.pacienteId && (
+          <div className="mt-4">
+            <HistorialClinicoGeneral pacienteId={turnoActual.pacienteId} profesionales={profesionales} />
+          </div>
+        )}
 
         <p className="mt-4 text-xs text-gray-400">
           Vista de solo lectura — para hacer cambios al turno en sí, usá la Agenda normal.

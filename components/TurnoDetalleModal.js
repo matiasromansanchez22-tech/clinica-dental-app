@@ -7,6 +7,7 @@ import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
 import { actualizarEstadoTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
+import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 const MAX_PRESTACIONES_TURNO = 4;
@@ -568,6 +569,12 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
             onCambiado();
           }}
         />
+
+        {turnoActual.pacienteId && (
+          <div className="mt-4">
+            <HistorialClinicoGeneral pacienteId={turnoActual.pacienteId} profesionales={profesionales} />
+          </div>
+        )}
 
         <hr className="my-4 border-gray-200" />
 

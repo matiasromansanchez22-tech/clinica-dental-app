@@ -121,10 +121,15 @@ export default function CobroFormModal({
                 prestacion: item.prestacion,
                 codigo: item.codigo || "",
                 cantidad: p.cantidad || 1,
-                valor: item.valor_efectivo ?? item.valor_lista ?? 0,
+                // Si el profesional marcó un precio distinto en Agenda, se
+                // respeta ese en vez del de lista/efectivo del catálogo —
+                // "esManual" evita que el efecto de abajo (que recalcula al
+                // cambiar el medio de pago) se lo pise.
+                valor: p.precioManual ?? item.valor_efectivo ?? item.valor_lista ?? 0,
                 valorOS: 0,
                 sinHonorarios: item.prestacion === "Estampilla",
                 especialidad: item.especialidad || null,
+                esManual: Boolean(p.precioManual),
               };
             })
             .filter(Boolean);
@@ -179,12 +184,13 @@ export default function CobroFormModal({
   }
 
   // Si cambia el medio de pago (o se activa/desactiva el mixto), recalcular
-  // los valores de particulares (Lista/Efectivo)
+  // los valores de particulares (Lista/Efectivo) — salvo las filas con
+  // precio manual (marcado como distinto desde Agenda), esas no se tocan.
   useEffect(() => {
     if (esObraSocial) return;
     setPrestaciones((filas) =>
       filas.map((f) => {
-        if (!f.itemId) return f;
+        if (!f.itemId || f.esManual) return f;
         const item = prestacionesDisponibles.find((p) => p.id === f.itemId);
         const { valor } = calcularValor(item);
         return { ...f, valor };

@@ -27,6 +27,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const [cargando, setCargando] = useState(true);
   const [catalogoIdElegido, setCatalogoIdElegido] = useState("");
   const [cantidadElegida, setCantidadElegida] = useState(1);
+  const [precioElegido, setPrecioElegido] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -103,6 +104,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         catalogoId: item.id,
         prestacion: item.prestacion,
         cantidad: Number(cantidadElegida) || 1,
+        precioManual: precioElegido ? Number(precioElegido) : null,
         pacienteId: turno.pacienteId,
         profesionalId: profesionalId || null,
         turnoGeneralId: turno.id,
@@ -111,6 +113,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       await marcarTurnoFinalizado();
       setCatalogoIdElegido("");
       setCantidadElegida(1);
+      setPrecioElegido("");
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -195,7 +198,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 <div key={p.id} className="flex items-center justify-between gap-2 text-sm text-gray-700">
                   <span>
                     {p.prestacion}
-                    {p.cantidad > 1 ? ` x${p.cantidad}` : ""}{" "}
+                    {p.cantidad > 1 ? ` x${p.cantidad}` : ""}
+                    {p.precio_manual ? ` — $${Number(p.precio_manual).toLocaleString("es-AR")}` : ""}{" "}
                     <span className="text-xs text-amber-600">(pendiente de cobro)</span>
                   </span>
                   <button
@@ -211,34 +215,50 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
             </div>
           )}
           {catalogo?.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <select
-                value={catalogoIdElegido}
-                onChange={(e) => setCatalogoIdElegido(e.target.value)}
-                className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              >
-                <option value="">(elegir prestación)</option>
-                {catalogo.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.prestacion}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={1}
-                value={cantidadElegida}
-                onChange={(e) => setCantidadElegida(e.target.value)}
-                className="w-14 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              />
-              <button
-                type="button"
-                onClick={agregarAdHoc}
-                disabled={!catalogoIdElegido || guardando}
-                className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-              >
-                + Agregar
-              </button>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <select
+                  value={catalogoIdElegido}
+                  onChange={(e) => setCatalogoIdElegido(e.target.value)}
+                  className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">(elegir prestación)</option>
+                  {catalogo.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.prestacion}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  value={cantidadElegida}
+                  onChange={(e) => setCantidadElegida(e.target.value)}
+                  title="Cantidad"
+                  className="w-14 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={precioElegido}
+                  onChange={(e) => setPrecioElegido(e.target.value)}
+                  placeholder="Precio distinto por unidad (opcional)"
+                  className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={agregarAdHoc}
+                  disabled={!catalogoIdElegido || guardando}
+                  className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+                >
+                  + Agregar
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Dejalo vacío para usar el precio de lista/efectivo del catálogo.
+              </p>
             </div>
           ) : (
             <p className="text-xs text-gray-500">No hay catálogo de prestaciones para elegir.</p>
