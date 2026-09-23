@@ -192,6 +192,7 @@ export default function AgendaOrtodonciaPage() {
         <TurnoOrtodonciaDetalleModal
           turno={turnoElegido}
           fecha={turnoElegido.fecha || fecha}
+          ortodoncistas={ortodoncistas}
           onClose={() => setTurnoElegido(null)}
           onCambiado={recargarTurnos}
         />

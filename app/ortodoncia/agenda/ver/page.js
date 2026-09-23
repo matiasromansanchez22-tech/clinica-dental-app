@@ -5,6 +5,7 @@ import AgendaGrid from "@/components/AgendaGrid";
 import TurnoOrtodonciaSoloLecturaModal from "@/components/TurnoOrtodonciaSoloLecturaModal";
 import { diaSemanaDeFecha, fechaDeHoyISO, generarBloquesHorarios, NOMBRES_DIA_SEMANA, sumarDias } from "@/lib/agenda";
 import { obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
+import { obtenerProfesionales } from "@/lib/data/profesionales";
 
 const CONSULTORIOS_ORTO = [2, 3];
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
@@ -28,6 +29,7 @@ export default function VerAgendaOrtodonciaPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [turnoElegido, setTurnoElegido] = useState(null);
+  const [ortodoncistas, setOrtodoncistas] = useState([]);
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
 
@@ -42,6 +44,10 @@ export default function VerAgendaOrtodonciaPage() {
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [fecha]);
+
+  useEffect(() => {
+    obtenerProfesionales().then((prof) => setOrtodoncistas(prof.filter((p) => p.especialidad === "Ortodoncia")));
+  }, []);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -109,6 +115,7 @@ export default function VerAgendaOrtodonciaPage() {
         <TurnoOrtodonciaSoloLecturaModal
           turno={turnoElegido}
           fecha={fecha}
+          ortodoncistas={ortodoncistas}
           onClose={() => setTurnoElegido(null)}
           onCambiado={recargarTurnos}
         />

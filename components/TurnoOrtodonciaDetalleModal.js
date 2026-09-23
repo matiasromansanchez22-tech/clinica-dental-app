@@ -4,6 +4,7 @@ import { useState } from "react";
 import { generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
 import { actualizarEstadoTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import QueSeHizoHoyOrtodoncia from "@/components/QueSeHizoHoyOrtodoncia";
+import HistorialClinicoOrtodoncia from "@/components/HistorialClinicoOrtodoncia";
 
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
 const CONSULTORIOS = [2, 3];
@@ -21,7 +22,7 @@ function BotonAccion({ activo, children, ...props }) {
   );
 }
 
-export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onCambiado }) {
+export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncistas = [], onClose, onCambiado }) {
   const [turnoActual, setTurnoActual] = useState(turno);
   const [guardando, setGuardando] = useState(null);
   const [error, setError] = useState(null);
@@ -309,6 +310,12 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, onClose, onC
             onCambiado();
           }}
         />
+
+        {turnoActual.pacienteId && (
+          <div className="mt-4">
+            <HistorialClinicoOrtodoncia pacienteId={turnoActual.pacienteId} profesionales={ortodoncistas} />
+          </div>
+        )}
       </div>
     </div>
   );
