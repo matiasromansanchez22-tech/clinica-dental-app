@@ -52,15 +52,15 @@ export default function AvisoPrestacionRealizada() {
   if (!puedeCobrar || avisos.length === 0) return null;
 
   return (
-    <div className="fixed inset-x-0 top-0 z-[100] flex flex-col items-center gap-2 p-4">
+    <div className="fixed bottom-4 right-4 z-[100] flex w-72 flex-col items-stretch gap-2">
       {avisos.map((a) => (
         <div
           key={a.clave}
-          className="flex w-full max-w-lg items-center justify-between gap-3 rounded-lg border-2 border-brand-brown bg-white p-4 shadow-2xl"
+          className="flex flex-col gap-2 rounded-lg border-2 border-brand-brown bg-white p-3 shadow-2xl"
         >
           <div>
-            <p className="font-heading text-base font-bold text-brand-brown">✅ {a.nombre} — listo para cobrar</p>
-            <p className="mt-0.5 text-sm text-gray-700">{a.prestaciones.join(", ")}</p>
+            <p className="font-heading text-sm font-bold text-brand-brown">✅ {a.nombre} — listo para cobrar</p>
+            <p className="mt-0.5 text-xs text-gray-700">{a.prestaciones.join(", ")}</p>
           </div>
           <a
             href={
@@ -68,7 +68,7 @@ export default function AvisoPrestacionRealizada() {
                 ? `/ortodoncia/caja?pacienteId=${a.pacienteId}&profesionalId=${a.profesionalId || ""}&abrir=1`
                 : `/caja?pacienteId=${a.pacienteId}&profesionalId=${a.profesionalId || ""}&abrir=1`
             }
-            className="shrink-0 rounded-md bg-brand-brown px-3 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+            className="rounded-md bg-brand-brown px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-brand-brown-dark"
           >
             💰 Cobrar
           </a>
