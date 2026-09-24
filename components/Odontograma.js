@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { marcarEstadoDiente, obtenerOdontograma } from "@/lib/data/odontograma";
+import { marcarEstadoDiente, marcarProtesis, obtenerOdontograma } from "@/lib/data/odontograma";
 
 // Numeración FDI (2 dígitos), dentición permanente — de momento no incluye
 // dientes de leche. El orden de cada fila es el de un odontograma
@@ -11,32 +11,52 @@ import { marcarEstadoDiente, obtenerOdontograma } from "@/lib/data/odontograma";
 const PIEZAS_SUPERIOR = ["18", "17", "16", "15", "14", "13", "12", "11", "21", "22", "23", "24", "25", "26", "27", "28"];
 const PIEZAS_INFERIOR = ["48", "47", "46", "45", "44", "43", "42", "41", "31", "32", "33", "34", "35", "36", "37", "38"];
 
-// Caries/Obturado/etc. son por cara del diente. Ausente/Corona/Conducto/
-// Implante/A extraer son del diente completo — no tiene sentido marcarlos
-// por cara, así que usan su propia "cara" especial: "general".
-const ESTADOS_CARA = ["Sano", "Caries", "Obturado", "Sellante", "Fracturado"];
-const ESTADOS_GENERAL = ["Sano", "Ausente", "A extraer", "Corona", "Conducto", "Implante"];
+// Convención de colores: azul = falta hacerlo, rojo = ya está hecho. Sano
+// es la excepción (verde) — no es un "a realizar/hecho", es una
+// confirmación de que se revisó y no tiene nada.
+//
+// Caries/Obturado/Sellante/Fracturado son por cara del diente. El resto es
+// del diente completo (o, para la prótesis, de varios dientes seguidos).
+const ESTADOS_CARA = ["(sin marcar)", "Sano", "Caries", "Obturado", "Sellante", "Fracturado"];
+const ESTADOS_GENERAL = [
+  "(sin marcar)",
+  "Ausente",
+  "A extraer",
+  "Corona a realizar",
+  "Corona realizada",
+  "Conducto a realizar",
+  "Conducto realizado",
+  "Implante",
+];
+const ESTADOS_PROTESIS = ["(sin marcar)", "A realizar", "Realizada"];
 
 const COLOR_CARA = {
-  Caries: "bg-red-500",
-  Obturado: "bg-blue-500",
-  Sellante: "bg-emerald-400",
+  Sano: "bg-green-500",
+  Caries: "bg-blue-500",
+  Obturado: "bg-red-500",
+  Sellante: "bg-cyan-400",
   Fracturado: "bg-amber-500",
 };
 
+// Ausente/A extraer y Corona son un ícono con borde; Conducto pinta todo el
+// diente (como pidió Matías: "todo pintado").
 const ESTILO_GENERAL = {
-  Ausente: "border-gray-400 bg-gray-200 text-gray-500",
-  "A extraer": "border-red-500 bg-red-50 text-red-600",
-  Corona: "border-amber-500 bg-amber-50 text-amber-700",
-  Conducto: "border-violet-500 bg-violet-50 text-violet-700",
+  Ausente: "border-red-500 bg-white text-red-600",
+  "A extraer": "border-blue-500 bg-white text-blue-600",
+  "Corona a realizar": "border-blue-500 bg-white text-blue-600",
+  "Corona realizada": "border-red-500 bg-white text-red-600",
+  "Conducto a realizar": "border-blue-500 bg-blue-500 text-white",
+  "Conducto realizado": "border-red-500 bg-red-500 text-white",
   Implante: "border-teal-500 bg-teal-50 text-teal-700",
 };
 
 const ETIQUETA_GENERAL = {
   Ausente: "✕",
-  "A extraer": "Ext",
-  Corona: "Cor",
-  Conducto: "TC",
+  "A extraer": "✕",
+  "Corona a realizar": "○",
+  "Corona realizada": "○",
+  "Conducto a realizar": "TC",
+  "Conducto realizado": "TC",
   Implante: "Imp",
 };
 
@@ -50,6 +70,38 @@ const ETIQUETA_CARA = {
 };
 
 const CARAS_FORM = ["vestibular", "mesial", "distal", "oclusal", "palatino", "general"];
+
+// Barra fina arriba de las piezas que forman parte de un puente — junta en
+// un solo "corchete" las corridas de dientes seguidos con el mismo estado
+// (a realizar / realizada), calculado a partir de qué piezas tienen la
+// cara especial "protesis" marcada.
+function FilaProtesis({ piezas, estadoPorPieza }) {
+  const segmentos = [];
+  let actual = null;
+  piezas.forEach((pieza, i) => {
+    const estado = estadoPorPieza[pieza]?.protesis;
+    if (estado && actual && actual.estado === estado && actual.fin === i - 1) {
+      actual.fin = i;
+    } else {
+      if (actual) segmentos.push(actual);
+      actual = estado ? { inicio: i, fin: i, estado } : null;
+    }
+  });
+  if (actual) segmentos.push(actual);
+
+  return (
+    <div className="mb-1 grid h-2" style={{ gridTemplateColumns: `repeat(${piezas.length}, 2rem)`, gap: "0.25rem" }}>
+      {segmentos.map((s, i) => (
+        <div
+          key={i}
+          title={`Prótesis ${s.estado === "Realizada" ? "realizada" : "a realizar"}`}
+          className={`h-2 rounded-full ${s.estado === "Realizada" ? "bg-red-500" : "bg-blue-500"}`}
+          style={{ gridColumn: `${s.inicio + 1} / ${s.fin + 2}` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
   const general = estados.general;
@@ -81,13 +133,13 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
   const abajo = esInferior ? "vestibular" : "palatino";
 
   function celda(cara, posicion) {
-    const estado = estados[cara] || "Sano";
+    const estado = estados[cara] || "";
     const activo = seleccion?.pieza === pieza && seleccion?.cara === cara;
     return (
       <button
         type="button"
         onClick={() => onClick(pieza, cara)}
-        title={`Diente ${pieza} — ${ETIQUETA_CARA[cara]}: ${estado}`}
+        title={`Diente ${pieza} — ${ETIQUETA_CARA[cara]}: ${estado || "sin revisar"}`}
         className={`h-full w-full ${posicion} ${COLOR_CARA[estado] || "bg-white"} ${
           activo ? "ring-2 ring-inset ring-brand-brown" : ""
         }`}
@@ -115,11 +167,12 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
   );
 }
 
-// Odontograma de Sistema General. Vive en la ficha del paciente. Cada click
-// en una cara (o en el número, para el diente completo) abre una paleta
-// abajo para elegir el estado — se guarda solo, sin botón de "Guardar"
-// aparte, y a la vez deja una entrada en el historial clínico (más abajo en
-// esta misma ficha) para que quede registrado con fecha y profesional.
+// Odontograma de Sistema General. Vive en la ficha del paciente y en la
+// Agenda. Se carga desde el formulario de abajo (pieza/cara/qué se va a
+// hacer, o prótesis con "desde"/"hasta"), o tocando directo el diagrama —
+// las dos formas cargan lo mismo en el formulario para poder ajustarlo
+// antes de guardar. Cada cambio deja una entrada en el historial clínico
+// de más abajo en esta misma ficha, con fecha y profesional.
 export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   const [estadoPorPieza, setEstadoPorPieza] = useState({});
   const [cargando, setCargando] = useState(true);
@@ -127,9 +180,13 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   const [profesionalId, setProfesionalId] = useState("");
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [guardando, setGuardando] = useState(false);
+  const [modoForm, setModoForm] = useState("diente");
   const [piezaForm, setPiezaForm] = useState("");
   const [caraForm, setCaraForm] = useState("");
   const [estadoForm, setEstadoForm] = useState("");
+  const [piezaDesdeForm, setPiezaDesdeForm] = useState("");
+  const [piezaHastaForm, setPiezaHastaForm] = useState("");
+  const [estadoProtesisForm, setEstadoProtesisForm] = useState("");
 
   async function cargar() {
     setCargando(true);
@@ -157,9 +214,10 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   // formulario de abajo — con el estado actual ya elegido, para poder
   // cambiarlo rápido sin tener que adivinar qué tenía.
   function elegir(pieza, cara) {
+    setModoForm("diente");
     setPiezaForm(pieza);
     setCaraForm(cara);
-    setEstadoForm((estadoPorPieza[pieza]?.[cara]) || "Sano");
+    setEstadoForm(estadoPorPieza[pieza]?.[cara] || "(sin marcar)");
   }
 
   async function guardarDesdeFormulario() {
@@ -184,19 +242,42 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
     }
   }
 
+  async function guardarProtesis() {
+    if (!piezaDesdeForm || !piezaHastaForm || !estadoProtesisForm) return;
+    setGuardando(true);
+    setError(null);
+    try {
+      await marcarProtesis({
+        pacienteId,
+        piezaDesde: piezaDesdeForm,
+        piezaHasta: piezaHastaForm,
+        estado: estadoProtesisForm,
+        profesionalId: profesionalId || null,
+        fecha,
+      });
+      await cargar();
+      onCambio?.();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   const opcionesEstado = caraForm === "general" ? ESTADOS_GENERAL : ESTADOS_CARA;
 
   function cambiarPieza(nuevaPieza) {
     setPiezaForm(nuevaPieza);
-    if (caraForm) setEstadoForm(estadoPorPieza[nuevaPieza]?.[caraForm] || "Sano");
+    if (caraForm) setEstadoForm(estadoPorPieza[nuevaPieza]?.[caraForm] || "(sin marcar)");
   }
 
   function cambiarCara(nuevaCara) {
     setCaraForm(nuevaCara);
-    if (piezaForm) setEstadoForm(estadoPorPieza[piezaForm]?.[nuevaCara] || "Sano");
+    if (piezaForm) setEstadoForm(estadoPorPieza[piezaForm]?.[nuevaCara] || "(sin marcar)");
   }
 
   const seleccion = piezaForm && caraForm ? { pieza: piezaForm, cara: caraForm } : null;
+  const todasLasPiezas = [...PIEZAS_SUPERIOR, ...PIEZAS_INFERIOR];
 
   return (
     <div>
@@ -236,6 +317,7 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
         <p className="text-xs text-gray-500">Cargando odontograma...</p>
       ) : (
         <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+          <FilaProtesis piezas={PIEZAS_SUPERIOR} estadoPorPieza={estadoPorPieza} />
           <div className="flex justify-center gap-1 overflow-x-auto pb-2">
             {PIEZAS_SUPERIOR.map((pieza) => (
               <Diente
@@ -261,102 +343,211 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
               />
             ))}
           </div>
+          <FilaProtesis piezas={PIEZAS_INFERIOR} estadoPorPieza={estadoPorPieza} />
         </div>
       )}
 
       <div className="mt-3 rounded-md border border-brand-brown/40 bg-brand-tan/20 p-3">
-        <p className="mb-2 text-xs font-medium text-brand-brown">Elegir pieza, cara y qué se va a hacer</p>
-        <div className="grid grid-cols-3 gap-2">
-          <label className="flex flex-col gap-1 text-xs text-gray-700">
-            Pieza
-            <select
-              value={piezaForm}
-              onChange={(e) => cambiarPieza(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              <option value="">Elegir...</option>
-              {[...PIEZAS_SUPERIOR, ...PIEZAS_INFERIOR].map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-gray-700">
-            Cara
-            <select
-              value={caraForm}
-              onChange={(e) => cambiarCara(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              <option value="">Elegir...</option>
-              {CARAS_FORM.map((c) => (
-                <option key={c} value={c}>
-                  {ETIQUETA_CARA[c]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-gray-700">
-            Qué se va a hacer
-            <select
-              value={estadoForm}
-              onChange={(e) => setEstadoForm(e.target.value)}
-              disabled={!caraForm}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-100"
-            >
-              <option value="">Elegir...</option>
-              {opcionesEstado.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="mb-2 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setModoForm("diente")}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+              modoForm === "diente" ? "bg-brand-brown text-white" : "border border-gray-300 bg-white text-gray-700"
+            }`}
+          >
+            Diente / cara
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoForm("protesis")}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+              modoForm === "protesis" ? "bg-brand-brown text-white" : "border border-gray-300 bg-white text-gray-700"
+            }`}
+          >
+            Prótesis (puente)
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={guardarDesdeFormulario}
-          disabled={!piezaForm || !caraForm || !estadoForm || guardando}
-          className="mt-2 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-        >
-          {guardando ? "Guardando..." : "Guardar en el odontograma"}
-        </button>
+
+        {modoForm === "diente" ? (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Pieza
+                <select
+                  value={piezaForm}
+                  onChange={(e) => cambiarPieza(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">Elegir...</option>
+                  {todasLasPiezas.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Cara
+                <select
+                  value={caraForm}
+                  onChange={(e) => cambiarCara(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">Elegir...</option>
+                  {CARAS_FORM.map((c) => (
+                    <option key={c} value={c}>
+                      {ETIQUETA_CARA[c]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Qué se va a hacer
+                <select
+                  value={estadoForm}
+                  onChange={(e) => setEstadoForm(e.target.value)}
+                  disabled={!caraForm}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-100"
+                >
+                  <option value="">Elegir...</option>
+                  {opcionesEstado.map((estado) => (
+                    <option key={estado} value={estado}>
+                      {estado}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={guardarDesdeFormulario}
+              disabled={!piezaForm || !caraForm || !estadoForm || guardando}
+              className="mt-2 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+            >
+              {guardando ? "Guardando..." : "Guardar en el odontograma"}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="mb-2 text-[11px] text-gray-500">
+              Elegí el primer y el último diente que cubre el puente (de la misma arcada) — se pinta un corchete
+              arriba de todos los que quedan en el medio.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Desde
+                <select
+                  value={piezaDesdeForm}
+                  onChange={(e) => setPiezaDesdeForm(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">Elegir...</option>
+                  {todasLasPiezas.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Hasta
+                <select
+                  value={piezaHastaForm}
+                  onChange={(e) => setPiezaHastaForm(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">Elegir...</option>
+                  {todasLasPiezas.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-gray-700">
+                Estado
+                <select
+                  value={estadoProtesisForm}
+                  onChange={(e) => setEstadoProtesisForm(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">Elegir...</option>
+                  {ESTADOS_PROTESIS.map((estado) => (
+                    <option key={estado} value={estado}>
+                      {estado}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={guardarProtesis}
+              disabled={!piezaDesdeForm || !piezaHastaForm || !estadoProtesisForm || guardando}
+              className="mt-2 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+            >
+              {guardando ? "Guardando..." : "Guardar en el odontograma"}
+            </button>
+          </>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm bg-red-500" /> Caries
+          <span className="h-2.5 w-2.5 rounded-sm bg-green-500" /> Sano
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" /> Obturado
+          <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" /> Caries
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" /> Sellante
+          <span className="h-2.5 w-2.5 rounded-sm bg-red-500" /> Obturado
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm bg-cyan-400" /> Sellante
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" /> Fracturado
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm border-2 border-gray-400 bg-gray-200" /> Ausente
+          <span className="flex h-2.5 w-2.5 items-center justify-center rounded-sm border-2 border-red-500 text-[7px] text-red-600">
+            ✕
+          </span>{" "}
+          Ausente
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm border-2 border-red-500 bg-red-50" /> A extraer
+          <span className="flex h-2.5 w-2.5 items-center justify-center rounded-sm border-2 border-blue-500 text-[7px] text-blue-600">
+            ✕
+          </span>{" "}
+          A extraer
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm border-2 border-amber-500 bg-amber-50" /> Corona
+          <span className="h-2.5 w-2.5 rounded-full border-2 border-blue-500" /> Corona a realizar
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm border-2 border-violet-500 bg-violet-50" /> Conducto (TC)
+          <span className="h-2.5 w-2.5 rounded-full border-2 border-red-500" /> Corona realizada
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" /> Conducto (TC) a realizar
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm bg-red-500" /> Conducto (TC) realizado
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2.5 w-2.5 rounded-sm border-2 border-teal-500 bg-teal-50" /> Implante
         </span>
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-3.5 rounded-full bg-blue-500" /> Prótesis a realizar
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-3.5 rounded-full bg-red-500" /> Prótesis realizada
+        </span>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        Elegí pieza, cara y qué se va a hacer en el formulario de arriba, o tocá directo una cara del diagrama (o el
-        número, para el diente completo) — las dos formas cargan lo mismo y podés ajustarlo antes de guardar. Cada
-        cambio queda anotado solo, con fecha y profesional, en el historial clínico de abajo.
+        Azul = falta hacerlo, rojo = ya está hecho (sano es la excepción: verde). Un diente en blanco todavía no se
+        revisó. Elegí pieza, cara y qué se va a hacer en el formulario de arriba (o "Prótesis" para un puente), o
+        tocá directo el diagrama — las dos formas cargan lo mismo y podés ajustarlo antes de guardar. Cada cambio
+        queda anotado solo, con fecha y profesional, en el historial clínico de abajo.
       </p>
     </div>
   );
