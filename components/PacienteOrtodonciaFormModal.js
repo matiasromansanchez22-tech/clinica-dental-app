@@ -97,6 +97,30 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
 
   const edad = calcularEdad(form.fechaNacimiento);
 
+  // Catálogo de precios de instalación (cargado en "configuracion_ortodoncia").
+  // Solo se sugiere en pacientes nuevos y solo si el campo todavía está
+  // vacío — no se pisa un valor que ya esté cargado (ni al editar un
+  // paciente existente, para no tocar precios históricos ya acordados).
+  const tipoParaClave = form.tipoBrackets === "Metalicos" ? "metalica" : "porcelana";
+  const formaParaClave = form.formaPagoInstalacion === "Contado" ? "contado" : "2_cuotas";
+  const cuotaInicialSugerida =
+    form.tipoBrackets && form.formaPagoInstalacion
+      ? config[`precio_instalacion_${tipoParaClave}_${formaParaClave}`] || null
+      : null;
+  const valorControlSugerido = form.tipoBrackets
+    ? config[form.tipoBrackets === "Metalicos" ? "cuota_control_metalico" : "cuota_control_porcelana"] || null
+    : null;
+
+  useEffect(() => {
+    if (paciente || !form.tipoBrackets || !form.formaPagoInstalacion) return;
+    setForm((f) => ({
+      ...f,
+      cuotaInicial: f.cuotaInicial === "" && cuotaInicialSugerida ? String(cuotaInicialSugerida) : f.cuotaInicial,
+      valorControl: f.valorControl === "" && valorControlSugerido ? String(valorControlSugerido) : f.valorControl,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.tipoBrackets, form.formaPagoInstalacion]);
+
   useEffect(() => {
     const nombre = form.nombre.trim();
     if (nombre.length < 3) {
@@ -371,6 +395,13 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 onChange={(e) => set("cuotaInicial", e.target.value)}
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
+              {cuotaInicialSugerida && (
+                <span className="text-xs text-gray-400">
+                  Según el catálogo ({form.tipoBrackets} · {form.formaPagoInstalacion}): $
+                  {cuotaInicialSugerida.toLocaleString("es-AR")}
+                  {form.formaPagoInstalacion === "2 Cuotas" ? " por cuota" : ""}.
+                </span>
+              )}
             </label>
 
             <label className="flex flex-col gap-1 text-sm text-gray-700">
@@ -381,6 +412,11 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 onChange={(e) => set("valorControl", e.target.value)}
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
+              {valorControlSugerido && (
+                <span className="text-xs text-gray-400">
+                  Según el catálogo ({form.tipoBrackets}): ${valorControlSugerido.toLocaleString("es-AR")}.
+                </span>
+              )}
             </label>
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Estado de instalación
