@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { marcarEstadoDiente, marcarProtesis, obtenerOdontograma } from "@/lib/data/odontograma";
+import { obtenerHistorialOdontograma } from "@/lib/data/historialClinicoGeneral";
 
 // Numeración FDI (2 dígitos), dentición permanente — de momento no incluye
 // dientes de leche. El orden de cada fila es el de un odontograma
@@ -171,8 +172,10 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
 // Agenda. Se carga desde el formulario de abajo (pieza/cara/qué se va a
 // hacer, o prótesis con "desde"/"hasta"), o tocando directo el diagrama —
 // las dos formas cargan lo mismo en el formulario para poder ajustarlo
-// antes de guardar. Cada cambio deja una entrada en el historial clínico
-// de más abajo en esta misma ficha, con fecha y profesional.
+// antes de guardar. Cada cambio queda anotado con fecha y profesional en
+// su propio historial (más abajo, desplegable) — separado del historial
+// clínico de la ficha, que queda libre para anotar cómo viene el plan de
+// tratamiento sin mezclarse con el detalle diente por diente.
 export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   const [estadoPorPieza, setEstadoPorPieza] = useState({});
   const [cargando, setCargando] = useState(true);
@@ -187,17 +190,23 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   const [piezaDesdeForm, setPiezaDesdeForm] = useState("");
   const [piezaHastaForm, setPiezaHastaForm] = useState("");
   const [estadoProtesisForm, setEstadoProtesisForm] = useState("");
+  const [historialOdonto, setHistorialOdonto] = useState([]);
+  const [mostrarHistorial, setMostrarHistorial] = useState(false);
 
   async function cargar() {
     setCargando(true);
     try {
-      const filas = await obtenerOdontograma(pacienteId);
+      const [filas, historial] = await Promise.all([
+        obtenerOdontograma(pacienteId),
+        obtenerHistorialOdontograma(pacienteId),
+      ]);
       const mapa = {};
       for (const f of filas) {
         if (!mapa[f.pieza]) mapa[f.pieza] = {};
         mapa[f.pieza][f.cara] = f.estado;
       }
       setEstadoPorPieza(mapa);
+      setHistorialOdonto(historial);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -546,9 +555,32 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
       <p className="mt-2 text-[11px] text-gray-400">
         Azul = falta hacerlo, rojo = ya está hecho (sano es la excepción: verde). Un diente en blanco todavía no se
         revisó. Elegí pieza, cara y qué se va a hacer en el formulario de arriba (o "Prótesis" para un puente), o
-        tocá directo el diagrama — las dos formas cargan lo mismo y podés ajustarlo antes de guardar. Cada cambio
-        queda anotado solo, con fecha y profesional, en el historial clínico de abajo.
+        tocá directo el diagrama — las dos formas cargan lo mismo y podés ajustarlo antes de guardar.
       </p>
+
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setMostrarHistorial((v) => !v)}
+          className="text-[11px] font-medium text-brand-brown hover:underline"
+        >
+          {mostrarHistorial ? "▾" : "▸"} Historial de cambios del odontograma ({historialOdonto.length})
+        </button>
+        {mostrarHistorial && (
+          <ul className="mt-1.5 flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-gray-200 bg-white p-2">
+            {historialOdonto.length === 0 ? (
+              <li className="text-[11px] text-gray-400">Todavía no hay cambios cargados.</li>
+            ) : (
+              historialOdonto.map((h) => (
+                <li key={h.id} className="text-[11px] text-gray-600">
+                  <span className="font-medium text-gray-700">{h.fecha}</span>
+                  {h.profesional ? ` — ${h.profesional}` : ""} — {h.nota}
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
