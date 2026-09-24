@@ -259,20 +259,10 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
             ✕
           </button>
         </div>
-        <p className="mb-1 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-gray-500">
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.tipoAtencion} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
-        {turnoActual.pacienteId && (
-          <a
-            href={`/panoramicas?tipoPaciente=General&pacienteId=${turnoActual.pacienteId}&pacienteNombre=${encodeURIComponent(turnoActual.paciente)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-2 inline-block text-xs text-brand-brown hover:underline"
-          >
-            📁 Ver carpeta (fotos y panorámica)
-          </a>
-        )}
 
         {!mostrarProfesional ? (
           <button
@@ -584,6 +574,14 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
 
         {turnoActual.pacienteId && (
           <div className="mt-4">
+            <a
+              href={`/panoramicas?tipoPaciente=General&pacienteId=${turnoActual.pacienteId}&pacienteNombre=${encodeURIComponent(turnoActual.paciente)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-2 inline-block text-xs text-brand-brown hover:underline"
+            >
+              📁 Ver carpeta (fotos y panorámica)
+            </a>
             <Odontograma
               pacienteId={turnoActual.pacienteId}
               profesionales={profesionales}

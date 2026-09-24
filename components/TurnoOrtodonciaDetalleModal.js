@@ -109,20 +109,10 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
             ✕
           </button>
         </div>
-        <p className="mb-1 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-gray-500">
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.concepto} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
-        {turnoActual.pacienteId && (
-          <a
-            href={`/panoramicas?tipoPaciente=Ortodoncia&pacienteId=${turnoActual.pacienteId}&pacienteNombre=${encodeURIComponent(turnoActual.paciente)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-3 inline-block text-xs text-brand-brown hover:underline"
-          >
-            📁 Ver carpeta (fotos y panorámica)
-          </a>
-        )}
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
@@ -323,6 +313,14 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
 
         {turnoActual.pacienteId && (
           <div className="mt-4">
+            <a
+              href={`/panoramicas?tipoPaciente=Ortodoncia&pacienteId=${turnoActual.pacienteId}&pacienteNombre=${encodeURIComponent(turnoActual.paciente)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-2 inline-block text-xs text-brand-brown hover:underline"
+            >
+              📁 Ver carpeta (fotos y panorámica)
+            </a>
             <HistorialClinicoOrtodoncia pacienteId={turnoActual.pacienteId} profesionales={ortodoncistas} />
           </div>
         )}
