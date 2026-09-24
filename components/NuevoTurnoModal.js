@@ -17,6 +17,7 @@ import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { crearPaciente } from "@/lib/data/pacientes";
 import { calcularEdad } from "@/lib/pacientes";
 import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+import { marcarProximaPrestacionUsada, obtenerProximaPrestacionPendiente } from "@/lib/data/prestacionesRealizadas";
 
 const TIPOS_ATENCION = [
   "Primera consulta",
@@ -52,6 +53,7 @@ export default function NuevoTurnoModal({
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [proximaPrestacionPendiente, setProximaPrestacionPendiente] = useState(null);
 
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [preferenciaBusqueda, setPreferenciaBusqueda] = useState("");
@@ -65,6 +67,12 @@ export default function NuevoTurnoModal({
   const [catalogoCompleto, setCatalogoCompleto] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestacionesTurno, setPrestacionesTurno] = useState([]);
+
+  const pacienteExistente = useMemo(() => {
+    const nombreNormalizado = pacienteNombre.trim().toLowerCase();
+    if (!nombreNormalizado) return null;
+    return pacientes.find((p) => p.apellido_y_nombre.trim().toLowerCase() === nombreNormalizado) ?? null;
+  }, [pacienteNombre, pacientes]);
 
   useEffect(() => {
     obtenerCatalogo().then(setCatalogoCompleto);
@@ -87,9 +95,7 @@ export default function NuevoTurnoModal({
           .filter((c) => c.estado === "Activo" && c.particular)
           .map((c) => ({ itemId: c.id, prestacion: c.prestacion, tiempoEstimadoMin: c.tiempo_estimado_min || 0 }))
       );
-      return;
-    }
-    if (tipoPaciente === "Obra Social" && obraSocial) {
+    } else if (tipoPaciente === "Obra Social" && obraSocial) {
       obtenerPrestacionesObraSocial(obraSocial).then((filas) => {
         setPrestacionesDisponibles(
           filas.map((f) => ({
@@ -103,8 +109,35 @@ export default function NuevoTurnoModal({
     } else {
       setPrestacionesDisponibles([]);
     }
+
+    // El profesional dejó anotado, al marcar un turno anterior como
+    // hecho, qué prestación va en el próximo — se pre-carga sola en "a
+    // qué viene". Se busca recién acá (después del reset de arriba, no
+    // antes) para que no se pierda mientras el catálogo/nomenclador
+    // todavía está terminando de cargar.
+    if (pacienteExistente) {
+      obtenerProximaPrestacionPendiente(pacienteExistente.id, false)
+        .then((pendiente) => {
+          if (!pendiente?.proxima_prestacion_nombre) return;
+          setProximaPrestacionPendiente(pendiente);
+          setPrestacionesTurno([
+            {
+              itemId: pendiente.proxima_prestacion_catalogo_id || "",
+              prestacion: pendiente.proxima_prestacion_nombre,
+              tiempoEstimadoMin: pendiente.proxima_prestacion_tiempo_min || 0,
+            },
+          ]);
+        })
+        .catch(() => {});
+    }
+    // pacienteExistente?.id va en las dependencias a propósito (aunque no
+    // se use arriba salvo en el bloque de la próxima prestación): si el
+    // paciente coincide pero ya tenía tipoPaciente/obraSocial en el mismo
+    // valor por defecto (el caso más común, particular sin obra social),
+    // React no dispara este efecto de nuevo solo porque esos dos no
+    // cambiaron — y la sugerencia nunca se llegaba a buscar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoPaciente, obraSocial, catalogoCompleto]);
+  }, [tipoPaciente, obraSocial, catalogoCompleto, pacienteExistente?.id]);
 
   function agregarPrestacionTurno() {
     if (prestacionesTurno.length >= MAX_PRESTACIONES_TURNO) return;
@@ -194,16 +227,11 @@ export default function NuevoTurnoModal({
     setConsultorio(opcion.consultorio);
   }
 
-  const pacienteExistente = useMemo(() => {
-    const nombreNormalizado = pacienteNombre.trim().toLowerCase();
-    if (!nombreNormalizado) return null;
-    return pacientes.find((p) => p.apellido_y_nombre.trim().toLowerCase() === nombreNormalizado) ?? null;
-  }, [pacienteNombre, pacientes]);
-
   // Al encontrar un paciente ya cargado, completar solo lo que ya sabemos de
   // su ficha (celular, cobertura, profesional habitual), para no volver a
   // preguntarle a la secretaria datos que ya están en Alta de Pacientes.
   useEffect(() => {
+    setProximaPrestacionPendiente(null);
     if (!pacienteExistente) return;
     setCelular(pacienteExistente.celular || "");
     if (pacienteExistente.tipo_paciente === "Obra Social") {
@@ -278,6 +306,7 @@ export default function NuevoTurnoModal({
         observaciones,
       });
 
+      if (proximaPrestacionPendiente) await marcarProximaPrestacionUsada(proximaPrestacionPendiente.id);
       onCreado();
     } catch (err) {
       setErrorMsg(err.message);
@@ -463,6 +492,14 @@ export default function NuevoTurnoModal({
             )}
           </label>
 
+          {proximaPrestacionPendiente?.proxima_prestacion_nombre && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ✓ El profesional dejó anotado que la próxima vez viene para:{" "}
+              <strong>{proximaPrestacionPendiente.proxima_prestacion_nombre}</strong> — ya viene elegido abajo en "A
+              qué viene".
+            </p>
+          )}
+
           {pacienteExistente && (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
               <p className="mb-1 text-xs font-semibold uppercase text-emerald-700">Ficha del paciente</p>
@@ -563,6 +600,9 @@ export default function NuevoTurnoModal({
                     className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   >
                     <option value="">(elegir prestación)</option>
+                    {fila.itemId && !prestacionesDisponibles.some((p) => p.itemId === fila.itemId) && (
+                      <option value={fila.itemId}>{fila.prestacion}</option>
+                    )}
                     {prestacionesDisponibles.map((p) => (
                       <option key={p.itemId} value={p.itemId}>
                         {p.prestacion}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CONCEPTOS_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA } from "@/lib/ortodoncia";
+import { CONCEPTOS_ORTODONCIA, CONCEPTOS_TURNO_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA } from "@/lib/ortodoncia";
 import { marcarTurnoOrtodonciaRealizado, obtenerPendienteCobroOrtodoncia } from "@/lib/data/prestacionesRealizadas";
 import { actualizarEstadoTurnoOrtodoncia } from "@/lib/data/turnosOrtodoncia";
 
@@ -21,6 +21,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [notaProximoTurno, setNotaProximoTurno] = useState("");
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
+  const [proximaPrestacion, setProximaPrestacion] = useState("");
   const [pendiente, setPendiente] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -52,12 +53,17 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         notaProximoTurno: notaProximoTurno.trim() || null,
         cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
         cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
+        proximaPrestacionNombre: proximaPrestacion || null,
         fecha,
       });
       if (turno.presencia !== "Finalizado") {
         const actualizado = await actualizarEstadoTurnoOrtodoncia(turno.id, { presencia: "Finalizado" });
         onTurnoActualizado?.(actualizado);
       }
+      setNotaProximoTurno("");
+      setCargoExtraDescripcion("");
+      setCargoExtraMonto("");
+      setProximaPrestacion("");
       const pendienteNuevo = await obtenerPendienteCobroOrtodoncia(turno.pacienteId);
       setPendiente(pendienteNuevo);
     } catch (e) {
@@ -98,6 +104,11 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
           </p>
           {pendiente.nota_proximo_turno && (
             <p className="mt-1 text-xs text-emerald-600">📌 Próximo turno: {pendiente.nota_proximo_turno}</p>
+          )}
+          {pendiente.proxima_prestacion_nombre && (
+            <p className="mt-1 text-xs text-emerald-600">
+              📅 La próxima vez viene para: {pendiente.proxima_prestacion_nombre}
+            </p>
           )}
         </div>
       ) : (
@@ -190,6 +201,25 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
               placeholder="Ej: cambiar arco"
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
             />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs text-gray-600">
+            Prestación para el próximo turno (opcional)
+            <select
+              value={proximaPrestacion}
+              onChange={(e) => setProximaPrestacion(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">(no indicar)</option>
+              {CONCEPTOS_TURNO_ORTODONCIA.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] text-gray-400">
+              Cuando le den el próximo turno a este paciente, va a venir pre-cargado con esto.
+            </span>
           </label>
         </div>
       )}

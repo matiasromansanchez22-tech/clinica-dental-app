@@ -9,22 +9,15 @@ import {
   NOMBRES_DIA_SEMANA,
   seMuestraEnGrilla,
 } from "@/lib/agenda";
-import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
+import { calcularEdad, calcularEstadoAumento, CONCEPTOS_TURNO_ORTODONCIA } from "@/lib/ortodoncia";
 import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/profesionales";
 import { buscarProximosHorariosLibresOrtodoncia } from "@/lib/data/buscadorHorarioOrtodoncia";
 import { crearPacienteOrtodoncia, marcarInicioTratamiento } from "@/lib/data/pacientesOrtodoncia";
 import { crearTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
+import { marcarProximaPrestacionUsada, obtenerProximaPrestacionPendiente } from "@/lib/data/prestacionesRealizadas";
 
 const CONSULTORIOS_ORTO = [2, 3];
-const CONCEPTOS = [
-  "Consulta de ortodoncia",
-  "Control",
-  "Instalación superior",
-  "Instalación inferior",
-  "Reposición",
-  "Retiro",
-  "Urgencia",
-];
+const CONCEPTOS = CONCEPTOS_TURNO_ORTODONCIA;
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
 
 export default function NuevoTurnoOrtodonciaModal({
@@ -50,6 +43,7 @@ export default function NuevoTurnoOrtodonciaModal({
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [proximaPrestacionPendiente, setProximaPrestacionPendiente] = useState(null);
 
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [preferenciaBusqueda, setPreferenciaBusqueda] = useState("");
@@ -133,10 +127,24 @@ export default function NuevoTurnoOrtodonciaModal({
   }, [pacienteNombre, pacientes]);
 
   useEffect(() => {
+    setProximaPrestacionPendiente(null);
     if (!pacienteExistente) return;
     setWhatsapp(pacienteExistente.whatsapp || "");
     if (pacienteExistente.ortodoncistaId) setOrtodoncistaId(pacienteExistente.ortodoncistaId);
     if (concepto === "Control" && pacienteExistente.valorControl) setValor(pacienteExistente.valorControl);
+
+    // El ortodoncista dejó anotado, al marcar un turno anterior como
+    // hecho, para qué viene la próxima vez — si el valor coincide con
+    // alguno de los conceptos de este modal, se pre-carga solo.
+    obtenerProximaPrestacionPendiente(pacienteExistente.id, true)
+      .then((pendiente) => {
+        if (!pendiente?.proxima_prestacion_nombre) return;
+        setProximaPrestacionPendiente(pendiente);
+        if (CONCEPTOS.includes(pendiente.proxima_prestacion_nombre)) {
+          setConcepto(pendiente.proxima_prestacion_nombre);
+        }
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteExistente?.id]);
 
@@ -231,6 +239,7 @@ export default function NuevoTurnoOrtodonciaModal({
         observaciones,
       });
 
+      if (proximaPrestacionPendiente) await marcarProximaPrestacionUsada(proximaPrestacionPendiente.id);
       onCreado();
     } catch (err) {
       setErrorMsg(err.message);
@@ -367,6 +376,16 @@ export default function NuevoTurnoOrtodonciaModal({
               )
             )}
           </label>
+
+          {proximaPrestacionPendiente?.proxima_prestacion_nombre && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ✓ El ortodoncista dejó anotado que la próxima vez viene para:{" "}
+              <strong>{proximaPrestacionPendiente.proxima_prestacion_nombre}</strong>
+              {CONCEPTOS.includes(proximaPrestacionPendiente.proxima_prestacion_nombre)
+                ? " — ya viene elegido abajo."
+                : " (elegilo abajo a mano, no coincide con ningún concepto de la lista)."}
+            </p>
+          )}
 
           {pacienteExistente && (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">

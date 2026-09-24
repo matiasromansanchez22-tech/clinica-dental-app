@@ -31,6 +31,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const [notaProximoTurno, setNotaProximoTurno] = useState("");
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
+  const [proximaPrestacionCatalogoId, setProximaPrestacionCatalogoId] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -78,6 +79,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       if (paso.realizadoId) {
         await desmarcarPasoRealizado(paso.realizadoId);
       } else {
+        const proximoItem = catalogo?.find((c) => c.id === proximaPrestacionCatalogoId);
         await marcarPasoPlanRealizado({
           presupuestoId: planActivo.presupuesto_id,
           prestacion: paso.nombre,
@@ -87,14 +89,17 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           notaProximoTurno: notaProximoTurno.trim() || null,
           cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
           cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
+          proximaPrestacionCatalogoId: proximoItem?.id,
+          proximaPrestacionNombre: proximoItem?.prestacion,
           fecha,
         });
-        // La nota y el cargo extra son por visita, no por paso — se limpian
-        // después de usarse una vez para no duplicarlos si se tildan varios
-        // pasos seguidos.
+        // La nota, el cargo extra y la próxima prestación son por visita,
+        // no por paso — se limpian después de usarse una vez para no
+        // duplicarlos si se tildan varios pasos seguidos.
         setNotaProximoTurno("");
         setCargoExtraDescripcion("");
         setCargoExtraMonto("");
+        setProximaPrestacionCatalogoId("");
         await marcarTurnoFinalizado();
       }
       await recargar();
@@ -112,6 +117,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
     setError(null);
     setGuardando(true);
     try {
+      const proximoItem = catalogo?.find((c) => c.id === proximaPrestacionCatalogoId);
       await marcarPrestacionAdHocRealizada({
         catalogoId: item.id,
         prestacion: item.prestacion,
@@ -121,6 +127,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         profesionalId: profesionalId || null,
         turnoGeneralId: turno.id,
         notaProximoTurno: notaProximoTurno.trim() || null,
+        proximaPrestacionCatalogoId: proximoItem?.id,
+        proximaPrestacionNombre: proximoItem?.prestacion,
         fecha,
       });
       await marcarTurnoFinalizado();
@@ -128,6 +136,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setCantidadElegida(1);
       setPrecioElegido("");
       setNotaProximoTurno("");
+      setProximaPrestacionCatalogoId("");
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -210,6 +219,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 {paso.notaProximoTurno && (
                   <span className="text-xs text-gray-500">📌 Sigue: {paso.notaProximoTurno}</span>
                 )}
+                {paso.proximaPrestacionNombre && (
+                  <span className="text-xs text-gray-500">
+                    📅 Próxima vez: {paso.proximaPrestacionNombre}
+                  </span>
+                )}
               </label>
             ))}
           </div>
@@ -227,6 +241,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                     <span className="text-xs text-amber-600">(pendiente de cobro)</span>
                     {p.nota_proximo_turno && (
                       <span className="block text-xs text-gray-500">📌 Próximo turno: {p.nota_proximo_turno}</span>
+                    )}
+                    {p.proxima_prestacion_nombre && (
+                      <span className="block text-xs text-gray-500">
+                        📅 Próxima vez: {p.proxima_prestacion_nombre}
+                      </span>
                     )}
                   </span>
                   <button
@@ -345,6 +364,27 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 placeholder="Ej: continuar con el conducto"
                 className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
               />
+            </label>
+          )}
+
+          {catalogo?.length > 0 && (
+            <label className="flex flex-col gap-1 text-xs text-gray-600">
+              Prestación para el próximo turno (opcional)
+              <select
+                value={proximaPrestacionCatalogoId}
+                onChange={(e) => setProximaPrestacionCatalogoId(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">(no indicar)</option>
+                {catalogo.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.prestacion}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-gray-400">
+                Cuando le den el próximo turno a este paciente, va a venir pre-cargado con esto.
+              </span>
             </label>
           )}
         </div>
