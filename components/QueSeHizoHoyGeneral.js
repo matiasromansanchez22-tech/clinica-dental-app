@@ -74,6 +74,10 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
 
   async function togglePaso(paso) {
     setError(null);
+    if (!paso.realizadoId && catalogo?.length > 0 && !proximaPrestacionCatalogoId) {
+      setError("Elegí la prestación para el próximo turno antes de marcarlo como hecho.");
+      return;
+    }
     setGuardando(true);
     try {
       if (paso.realizadoId) {
@@ -115,6 +119,10 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
     const item = catalogo.find((c) => c.id === catalogoIdElegido);
     if (!item) return;
     setError(null);
+    if (catalogo?.length > 0 && !proximaPrestacionCatalogoId) {
+      setError("Elegí la prestación para el próximo turno antes de marcarlo como hecho.");
+      return;
+    }
     setGuardando(true);
     try {
       const proximoItem = catalogo?.find((c) => c.id === proximaPrestacionCatalogoId);
@@ -188,6 +196,28 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">{error}</div>
       )}
 
+      {catalogo?.length > 0 && (
+        <label className="mb-2 flex flex-col gap-1 text-xs text-gray-600">
+          Prestación para el próximo turno <span className="text-red-600">*</span>
+          <select
+            value={proximaPrestacionCatalogoId}
+            onChange={(e) => setProximaPrestacionCatalogoId(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            <option value="">(elegir prestación)</option>
+            {catalogo.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.prestacion}
+              </option>
+            ))}
+          </select>
+          <span className="text-[11px] text-gray-400">
+            Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le den
+            el próximo turno a este paciente, va a venir pre-cargado con esto.
+          </span>
+        </label>
+      )}
+
       {cargando ? (
         <p className="text-xs text-gray-500">Buscando el plan de tratamiento...</p>
       ) : planActivo ? (
@@ -203,7 +233,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 <input
                   type="checkbox"
                   checked={Boolean(paso.realizadoId) || paso.cobrado}
-                  disabled={paso.cobrado || guardando}
+                  disabled={
+                    paso.cobrado ||
+                    guardando ||
+                    (!paso.realizadoId && catalogo?.length > 0 && !proximaPrestacionCatalogoId)
+                  }
                   onChange={() => togglePaso(paso)}
                 />
                 Paso {i + 1}: {paso.nombre}
@@ -296,7 +330,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 <button
                   type="button"
                   onClick={agregarAdHoc}
-                  disabled={!catalogoIdElegido || guardando}
+                  disabled={
+                    !catalogoIdElegido || guardando || (catalogo?.length > 0 && !proximaPrestacionCatalogoId)
+                  }
                   className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
                 >
                   ✓ Marcar hecho
@@ -364,27 +400,6 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 placeholder="Ej: continuar con el conducto"
                 className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
               />
-            </label>
-          )}
-
-          {catalogo?.length > 0 && (
-            <label className="flex flex-col gap-1 text-xs text-gray-600">
-              Prestación para el próximo turno (opcional)
-              <select
-                value={proximaPrestacionCatalogoId}
-                onChange={(e) => setProximaPrestacionCatalogoId(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              >
-                <option value="">(no indicar)</option>
-                {catalogo.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.prestacion}
-                  </option>
-                ))}
-              </select>
-              <span className="text-[11px] text-gray-400">
-                Cuando le den el próximo turno a este paciente, va a venir pre-cargado con esto.
-              </span>
             </label>
           )}
         </div>

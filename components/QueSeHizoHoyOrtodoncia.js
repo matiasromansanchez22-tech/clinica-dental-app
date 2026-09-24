@@ -41,6 +41,10 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
 
   async function marcarRealizado() {
     setError(null);
+    if (!proximaPrestacion) {
+      setError("Elegí la prestación para el próximo turno antes de marcar como hecho.");
+      return;
+    }
     setGuardando(true);
     try {
       await marcarTurnoOrtodonciaRealizado({
@@ -128,12 +132,32 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
             <button
               type="button"
               onClick={marcarRealizado}
-              disabled={guardando}
+              disabled={guardando || !proximaPrestacion}
               className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               ✓ Marcar hecho
             </button>
           </div>
+
+          <label className="flex flex-col gap-1 text-xs text-gray-600">
+            Prestación para el próximo turno <span className="text-red-600">*</span>
+            <select
+              value={proximaPrestacion}
+              onChange={(e) => setProximaPrestacion(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">(elegir)</option>
+              {CONCEPTOS_TURNO_ORTODONCIA.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] text-gray-400">
+              Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le
+              den el próximo turno a este paciente, va a venir pre-cargado con esto.
+            </span>
+          </label>
 
           {concepto === "Control" && (
             <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
@@ -201,25 +225,6 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
               placeholder="Ej: cambiar arco"
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
             />
-          </label>
-
-          <label className="flex flex-col gap-1 text-xs text-gray-600">
-            Prestación para el próximo turno (opcional)
-            <select
-              value={proximaPrestacion}
-              onChange={(e) => setProximaPrestacion(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              <option value="">(no indicar)</option>
-              {CONCEPTOS_TURNO_ORTODONCIA.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] text-gray-400">
-              Cuando le den el próximo turno a este paciente, va a venir pre-cargado con esto.
-            </span>
           </label>
         </div>
       )}
