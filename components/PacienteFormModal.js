@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { calcularEdad, formatearDni } from "@/lib/pacientes";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import Odontograma from "@/components/Odontograma";
+import SaldoAFavor from "@/components/SaldoAFavor";
 import {
   actualizarPaciente,
   buscarPosiblesDuplicados,
@@ -605,6 +606,7 @@ export default function PacienteFormModal({
 
         {paciente && (
           <>
+            <SaldoAFavor pacienteId={paciente.id} esOrtodoncia={false} />
             <Odontograma
               pacienteId={paciente.id}
               profesionales={profesionales}

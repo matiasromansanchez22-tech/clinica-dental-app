@@ -10,6 +10,7 @@ import {
   obtenerPrestacionesParticular,
 } from "@/lib/data/caja";
 import { marcarPendientesComoCobrados, obtenerPendientesDeCobro } from "@/lib/data/prestacionesRealizadas";
+import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const MAX_PRESTACIONES = 3;
@@ -55,6 +56,9 @@ export default function CobroFormModal({
   const [numeroCuota, setNumeroCuota] = useState("");
   const [precioAnterior, setPrecioAnterior] = useState(false);
   const [cargoExtraPlan, setCargoExtraPlan] = useState(null);
+  const [saldoAFavor, setSaldoAFavor] = useState(0);
+  const [montoAFavorAplicado, setMontoAFavorAplicado] = useState(0);
+  const [montoAAplicarInput, setMontoAAplicarInput] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -78,11 +82,17 @@ export default function CobroFormModal({
     setPendientesIds([]);
     setPrestaciones([filaVacia()]);
     setCargoExtraPlan(null);
+    setSaldoAFavor(0);
+    setMontoAFavorAplicado(0);
+    setMontoAAplicarInput("");
     setCargandoPlan(true);
 
     // Lo que el profesional ya marcó como "hecho" en la Agenda para este
     // paciente — viene pre-cargado acá en vez de arrancar de cero.
     const promesaPendientes = obtenerPendientesDeCobro(paciente.id);
+    obtenerSaldoAFavor(paciente.id, false)
+      .then(setSaldoAFavor)
+      .catch(() => {});
 
     obtenerPlanActivoPaciente(paciente.id)
       .then((plan) => {
@@ -269,6 +279,21 @@ export default function CobroFormModal({
     );
   }
 
+  function aplicarSaldo() {
+    const sugerido = Math.min(saldoAFavor, Number(pago));
+    const elegido = montoAAplicarInput === "" ? sugerido : Number(montoAAplicarInput) || 0;
+    const monto = Math.min(elegido, saldoAFavor, Number(pago));
+    if (monto <= 0) return;
+    setPago((actual) => Number(actual) - monto);
+    setMontoAFavorAplicado(monto);
+    setMontoAAplicarInput("");
+  }
+
+  function quitarSaldoAplicado() {
+    setPago((actual) => Number(actual) + montoAFavorAplicado);
+    setMontoAFavorAplicado(0);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -336,8 +361,13 @@ export default function CobroFormModal({
         desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
         // Si se cargaron las prestaciones completas (para liquidar bien al
         // profesional) pero el paciente pagó menos, queda anotada la
-        // diferencia para no perderla de vista.
-        saldoPendiente: !usaPlan && Number(pago) < importeTotal ? importeTotal - Number(pago) : null,
+        // diferencia para no perderla de vista — lo que se cubrió con saldo
+        // a favor no cuenta como "todavía debe", por eso se suma de vuelta
+        // antes de comparar.
+        saldoPendiente:
+          !usaPlan && Number(pago) + montoAFavorAplicado < importeTotal
+            ? importeTotal - Number(pago) - montoAFavorAplicado
+            : null,
         idDocumento: usaPlan ? planActivo.numero_plan : null,
         tipoDocumento: usaPlan ? "Plan de financiación" : null,
         precioAnterior,
@@ -345,6 +375,15 @@ export default function CobroFormModal({
         prestacionesRealizadas: usaPlan ? prestacionesRealizadas : [],
       });
       if (pendientesIds.length > 0) await marcarPendientesComoCobrados(pendientesIds, caja.id);
+      if (montoAFavorAplicado > 0) {
+        await aplicarSaldoAFavor({
+          pacienteId,
+          esOrtodoncia: false,
+          monto: montoAFavorAplicado,
+          cajaGeneralId: caja.id,
+          fecha,
+        });
+      }
       onCreado();
     } catch (err) {
       setError(err.message);
@@ -624,13 +663,52 @@ export default function CobroFormModal({
           {!usaPlan && (
             <p className="text-right text-sm font-semibold text-gray-900">
               Total prestaciones: ${importeTotal.toLocaleString("es-AR")}
-              {Number(pago) < importeTotal && (
+              {Number(pago) + montoAFavorAplicado < importeTotal && (
                 <span className="ml-2 font-normal text-amber-700">
-                  (queda pendiente ${(importeTotal - Number(pago)).toLocaleString("es-AR")} — se liquida igual al
-                  profesional)
+                  (queda pendiente ${(importeTotal - Number(pago) - montoAFavorAplicado).toLocaleString("es-AR")} — se
+                  liquida igual al profesional)
                 </span>
               )}
             </p>
+          )}
+
+          {!usaPlan && saldoAFavor > 0 && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {montoAFavorAplicado > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>
+                    ✓ Se aplicaron ${montoAFavorAplicado.toLocaleString("es-AR")} de saldo a favor a este cobro.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={quitarSaldoAplicado}
+                    className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>💰 Este paciente tiene ${saldoAFavor.toLocaleString("es-AR")} a favor.</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={Math.min(saldoAFavor, Number(pago))}
+                    value={montoAAplicarInput}
+                    onChange={(e) => setMontoAAplicarInput(e.target.value)}
+                    placeholder={String(Math.min(saldoAFavor, Number(pago)))}
+                    className="w-28 rounded-md border border-emerald-300 px-2 py-1 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={aplicarSaldo}
+                    className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {!usaPlan && (

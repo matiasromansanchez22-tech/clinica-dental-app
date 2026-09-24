@@ -9,6 +9,7 @@ import {
   eliminarPacienteOrtodoncia,
 } from "@/lib/data/pacientesOrtodoncia";
 import HistorialClinicoOrtodoncia from "@/components/HistorialClinicoOrtodoncia";
+import SaldoAFavor from "@/components/SaldoAFavor";
 
 const TIPOS_BRACKETS = ["Metalicos", "Porcelana"];
 const ESTADOS_PACIENTE = ["Consulta", "Activo", "Inactivo", "Finalizado", "Abandonó"];
@@ -509,7 +510,12 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
             />
           </label>
 
-          {paciente && <HistorialClinicoOrtodoncia pacienteId={paciente.id} profesionales={profesionales} />}
+          {paciente && (
+            <>
+              <SaldoAFavor pacienteId={paciente.id} esOrtodoncia={true} />
+              <HistorialClinicoOrtodoncia pacienteId={paciente.id} profesionales={profesionales} />
+            </>
+          )}
 
           <div className="mt-2 flex items-center justify-between gap-2">
             {paciente ? (

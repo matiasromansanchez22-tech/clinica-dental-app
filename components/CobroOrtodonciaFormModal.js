@@ -8,6 +8,7 @@ import {
   marcarPendienteOrtodonciaComoCobrado,
   obtenerPendienteCobroOrtodoncia,
 } from "@/lib/data/prestacionesRealizadas";
+import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -40,6 +41,9 @@ export default function CobroOrtodonciaFormModal({
   const [seDespegoBracket, setSeDespegoBracket] = useState(false);
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
+  const [saldoAFavor, setSaldoAFavor] = useState(0);
+  const [montoAFavorAplicado, setMontoAFavorAplicado] = useState(0);
+  const [montoAAplicarInput, setMontoAAplicarInput] = useState("");
   const [precios, setPrecios] = useState({ precio_bracket_metalico: 0, precio_bracket_porcelana: 0 });
   const [importe, setImporte] = useState(0);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -73,7 +77,13 @@ export default function CobroOrtodonciaFormModal({
     setPendienteRealizado(null);
     setCargoExtraDescripcion("");
     setCargoExtraMonto("");
+    setSaldoAFavor(0);
+    setMontoAFavorAplicado(0);
+    setMontoAAplicarInput("");
     if (!pacienteId) return;
+    obtenerSaldoAFavor(pacienteId, true)
+      .then(setSaldoAFavor)
+      .catch(() => {});
     // Lo que el ortodoncista ya marcó como "hecho" en la Agenda — viene
     // pre-cargado acá en vez de arrancar siempre en "Control".
     obtenerPendienteCobroOrtodoncia(pacienteId).then((pendiente) => {
@@ -108,7 +118,7 @@ export default function CobroOrtodonciaFormModal({
       const valorBrackets = seDespegoBracket ? Number(cantidadBrackets || 0) * precioPorBracket : 0;
       base = valorControles + valorBrackets;
     }
-    setImporte(base + Number(cargoExtraMonto || 0));
+    setImporte(Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pacienteId,
@@ -120,7 +130,21 @@ export default function CobroOrtodonciaFormModal({
     precios,
     aumentoConfirmado,
     cargoExtraMonto,
+    montoAFavorAplicado,
   ]);
+
+  function aplicarSaldo() {
+    const sugerido = Math.min(saldoAFavor, Number(importe));
+    const elegido = montoAAplicarInput === "" ? sugerido : Number(montoAAplicarInput) || 0;
+    const monto = Math.min(elegido, saldoAFavor, Number(importe));
+    if (monto <= 0) return;
+    setMontoAFavorAplicado(monto);
+    setMontoAAplicarInput("");
+  }
+
+  function quitarSaldoAplicado() {
+    setMontoAFavorAplicado(0);
+  }
 
   const totalDesglosado = desglosePago.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
@@ -208,6 +232,15 @@ export default function CobroOrtodonciaFormModal({
         observaciones: observacionesFinal || null,
       });
       if (pendienteRealizado) await marcarPendienteOrtodonciaComoCobrado(pendienteRealizado.id, cobro.id);
+      if (montoAFavorAplicado > 0) {
+        await aplicarSaldoAFavor({
+          pacienteId,
+          esOrtodoncia: true,
+          monto: montoAFavorAplicado,
+          cajaOrtodonciaId: cobro.id,
+          fecha,
+        });
+      }
       onCreado();
     } catch (err) {
       setError(err.message);
@@ -445,6 +478,45 @@ export default function CobroOrtodonciaFormModal({
               />
             </div>
           </div>
+
+          {saldoAFavor > 0 && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {montoAFavorAplicado > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>
+                    ✓ Se aplicaron ${montoAFavorAplicado.toLocaleString("es-AR")} de saldo a favor a este cobro.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={quitarSaldoAplicado}
+                    className="text-xs font-medium text-emerald-700 underline hover:text-emerald-900"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>💰 Este paciente tiene ${saldoAFavor.toLocaleString("es-AR")} a favor.</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={Math.min(saldoAFavor, Number(importe))}
+                    value={montoAAplicarInput}
+                    onChange={(e) => setMontoAAplicarInput(e.target.value)}
+                    placeholder={String(Math.min(saldoAFavor, Number(importe)))}
+                    className="w-28 rounded-md border border-emerald-300 px-2 py-1 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={aplicarSaldo}
+                    className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={pagoMixto} onChange={(e) => setPagoMixto(e.target.checked)} />
