@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { crearFacturacionAsorPacientesMasivo } from "@/lib/data/facturacionObrasSociales";
+import { headerDeSesion } from "@/lib/authHeaders";
 
 function esMismaLinea(a, b) {
   return (
@@ -32,7 +33,11 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
     try {
       const formData = new FormData();
       formData.append("archivo", archivo);
-      const res = await fetch("/api/asor/parsear-pdf", { method: "POST", body: formData });
+      const res = await fetch("/api/asor/parsear-pdf", {
+        method: "POST",
+        headers: await headerDeSesion(),
+        body: formData,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "No se pudo leer el PDF.");
       setLineas(data.lineas);

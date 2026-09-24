@@ -1,7 +1,12 @@
 import { parsearFacturacionAsorPdf } from "@/lib/pdf/parsearFacturacionAsor";
+import { usuarioValido } from "@/lib/server/verificarSesion";
 
 export async function POST(request) {
   try {
+    if (!(await usuarioValido(request))) {
+      return Response.json({ error: "No autorizado." }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const archivo = formData.get("archivo");
     if (!archivo) {

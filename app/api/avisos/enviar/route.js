@@ -1,8 +1,13 @@
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
+import { usuarioValido } from "@/lib/server/verificarSesion";
 
 export async function POST(request) {
   try {
+    if (!(await usuarioValido(request))) {
+      return Response.json({ ok: false, error: "No autorizado." }, { status: 401 });
+    }
+
     const { titulo, mensaje, url, roles } = await request.json();
 
     const clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;

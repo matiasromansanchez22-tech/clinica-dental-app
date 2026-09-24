@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { usuarioValido } from "@/lib/server/verificarSesion";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 
@@ -6,6 +7,10 @@ const TIPOS_IMAGEN = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 export async function POST(request) {
   try {
+    if (!(await usuarioValido(request))) {
+      return Response.json({ error: "No autorizado." }, { status: 401 });
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return Response.json(
