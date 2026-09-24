@@ -263,6 +263,16 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.tipoAtencion} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
+        {turnoActual.pacienteId && (
+          <a
+            href={`/panoramicas?tipoPaciente=General&pacienteId=${turnoActual.pacienteId}&pacienteNombre=${encodeURIComponent(turnoActual.paciente)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-2 inline-block text-xs text-brand-brown hover:underline"
+          >
+            📁 Ver carpeta (fotos y panorámica)
+          </a>
+        )}
 
         {!mostrarProfesional ? (
           <button

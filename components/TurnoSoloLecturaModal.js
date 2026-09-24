@@ -18,9 +18,19 @@ export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, cat
             ✕
           </button>
         </div>
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-1 text-sm text-gray-500">
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio}
         </p>
+        {turnoActual.pacienteId && (
+          <a
+            href={`/panoramicas?tipoPaciente=General&pacienteId=${turnoActual.pacienteId}&pacienteNombre=${encodeURIComponent(turnoActual.paciente)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-3 inline-block text-xs text-brand-brown hover:underline"
+          >
+            📁 Ver carpeta (fotos y panorámica)
+          </a>
+        )}
 
         <div className="flex flex-col gap-1 text-sm text-gray-700">
           <p><span className="text-gray-500">Tipo de atención:</span> {turnoActual.tipoAtencion}</p>

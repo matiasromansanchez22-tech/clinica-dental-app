@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { actualizarAutorizacionFotos, obtenerAutorizacionesFotos, obtenerPacientes } from "@/lib/data/pacientes";
@@ -28,6 +29,8 @@ function formatoFecha(fechaISO) {
 export default function PanoramicasPage() {
   const { perfil } = useAuth();
   const esCM = perfil?.rol === "CM";
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [carpetas, setCarpetas] = useState([]);
   const [cargandoCarpetas, setCargandoCarpetas] = useState(true);
@@ -104,6 +107,18 @@ export default function PanoramicasPage() {
     obtenerAutorizacionesFotosOrtodoncia().then(setAutorizacionesOrto);
     recargarCarpetas();
   }, []);
+
+  // Link directo desde la Agenda ("📁 Ver carpeta") — abre de una la
+  // carpeta de ese paciente en vez de tener que buscarlo acá.
+  useEffect(() => {
+    const tipo = searchParams.get("tipoPaciente");
+    const pacienteId = searchParams.get("pacienteId");
+    const pacienteNombre = searchParams.get("pacienteNombre");
+    if (!tipo || !pacienteId) return;
+    abrirCarpeta(tipo, { id: pacienteId, apellidoYNombre: pacienteNombre, nombre: pacienteNombre });
+    router.replace("/panoramicas");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function alternarAutorizacion() {
     if (!pacienteElegido) return;
