@@ -46,7 +46,10 @@ const ETIQUETA_CARA = {
   distal: "Distal",
   oclusal: "Oclusal",
   palatino: "Palatino / Lingual",
+  general: "Diente completo",
 };
+
+const CARAS_FORM = ["vestibular", "mesial", "distal", "oclusal", "palatino", "general"];
 
 function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
   const general = estados.general;
@@ -121,10 +124,12 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   const [estadoPorPieza, setEstadoPorPieza] = useState({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
-  const [seleccion, setSeleccion] = useState(null);
   const [profesionalId, setProfesionalId] = useState("");
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [guardando, setGuardando] = useState(false);
+  const [piezaForm, setPiezaForm] = useState("");
+  const [caraForm, setCaraForm] = useState("");
+  const [estadoForm, setEstadoForm] = useState("");
 
   async function cargar() {
     setCargando(true);
@@ -148,25 +153,29 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteId]);
 
+  // Tocar una cara (o el número) del diagrama carga esos mismos datos en el
+  // formulario de abajo — con el estado actual ya elegido, para poder
+  // cambiarlo rápido sin tener que adivinar qué tenía.
   function elegir(pieza, cara) {
-    setSeleccion((actual) => (actual?.pieza === pieza && actual?.cara === cara ? null : { pieza, cara }));
+    setPiezaForm(pieza);
+    setCaraForm(cara);
+    setEstadoForm((estadoPorPieza[pieza]?.[cara]) || "Sano");
   }
 
-  async function aplicarEstado(estado) {
-    if (!seleccion) return;
+  async function guardarDesdeFormulario() {
+    if (!piezaForm || !caraForm || !estadoForm) return;
     setGuardando(true);
     setError(null);
     try {
       await marcarEstadoDiente({
         pacienteId,
-        pieza: seleccion.pieza,
-        cara: seleccion.cara,
-        estado,
+        pieza: piezaForm,
+        cara: caraForm,
+        estado: estadoForm,
         profesionalId: profesionalId || null,
         fecha,
       });
       await cargar();
-      setSeleccion(null);
       onCambio?.();
     } catch (e) {
       setError(e.message);
@@ -175,7 +184,19 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
     }
   }
 
-  const opciones = seleccion?.cara === "general" ? ESTADOS_GENERAL : ESTADOS_CARA;
+  const opcionesEstado = caraForm === "general" ? ESTADOS_GENERAL : ESTADOS_CARA;
+
+  function cambiarPieza(nuevaPieza) {
+    setPiezaForm(nuevaPieza);
+    if (caraForm) setEstadoForm(estadoPorPieza[nuevaPieza]?.[caraForm] || "Sano");
+  }
+
+  function cambiarCara(nuevaCara) {
+    setCaraForm(nuevaCara);
+    if (piezaForm) setEstadoForm(estadoPorPieza[piezaForm]?.[nuevaCara] || "Sano");
+  }
+
+  const seleccion = piezaForm && caraForm ? { pieza: piezaForm, cara: caraForm } : null;
 
   return (
     <div>
@@ -243,27 +264,65 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
         </div>
       )}
 
-      {seleccion && (
-        <div className="mt-3 rounded-md border border-brand-brown/40 bg-brand-tan/20 p-3">
-          <p className="mb-2 text-xs font-medium text-brand-brown">
-            Diente {seleccion.pieza}
-            {seleccion.cara !== "general" ? ` — cara ${ETIQUETA_CARA[seleccion.cara].toLowerCase()}` : " (diente completo)"}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {opciones.map((estado) => (
-              <button
-                key={estado}
-                type="button"
-                disabled={guardando}
-                onClick={() => aplicarEstado(estado)}
-                className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:border-brand-brown hover:text-brand-brown disabled:opacity-50"
-              >
-                {estado}
-              </button>
-            ))}
-          </div>
+      <div className="mt-3 rounded-md border border-brand-brown/40 bg-brand-tan/20 p-3">
+        <p className="mb-2 text-xs font-medium text-brand-brown">Elegir pieza, cara y qué se va a hacer</p>
+        <div className="grid grid-cols-3 gap-2">
+          <label className="flex flex-col gap-1 text-xs text-gray-700">
+            Pieza
+            <select
+              value={piezaForm}
+              onChange={(e) => cambiarPieza(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">Elegir...</option>
+              {[...PIEZAS_SUPERIOR, ...PIEZAS_INFERIOR].map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-700">
+            Cara
+            <select
+              value={caraForm}
+              onChange={(e) => cambiarCara(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">Elegir...</option>
+              {CARAS_FORM.map((c) => (
+                <option key={c} value={c}>
+                  {ETIQUETA_CARA[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-gray-700">
+            Qué se va a hacer
+            <select
+              value={estadoForm}
+              onChange={(e) => setEstadoForm(e.target.value)}
+              disabled={!caraForm}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:bg-gray-100"
+            >
+              <option value="">Elegir...</option>
+              {opcionesEstado.map((estado) => (
+                <option key={estado} value={estado}>
+                  {estado}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      )}
+        <button
+          type="button"
+          onClick={guardarDesdeFormulario}
+          disabled={!piezaForm || !caraForm || !estadoForm || guardando}
+          className="mt-2 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+        >
+          {guardando ? "Guardando..." : "Guardar en el odontograma"}
+        </button>
+      </div>
 
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
         <span className="flex items-center gap-1">
@@ -295,9 +354,9 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
         </span>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">
-        Tocá una cara del diente para tildar qué tiene (caries, obturado...), o el número para marcar algo del diente
-        completo (ausente, corona, conducto, implante). Cada cambio queda anotado solo, con fecha y profesional, en el
-        historial clínico de abajo.
+        Elegí pieza, cara y qué se va a hacer en el formulario de arriba, o tocá directo una cara del diagrama (o el
+        número, para el diente completo) — las dos formas cargan lo mismo y podés ajustarlo antes de guardar. Cada
+        cambio queda anotado solo, con fecha y profesional, en el historial clínico de abajo.
       </p>
     </div>
   );
