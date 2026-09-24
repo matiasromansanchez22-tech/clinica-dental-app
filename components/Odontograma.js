@@ -275,9 +275,16 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
 
   const opcionesEstado = caraForm === "general" ? ESTADOS_GENERAL : ESTADOS_CARA;
 
+  // Si todavía no eligieron cara, se completa sola en "Diente completo" —
+  // lo mismo que pasa si tocás el número del diente en el dibujo — así el
+  // desplegable de "Qué se va a hacer" (que necesita saber la cara para
+  // mostrar las opciones correctas) queda disponible enseguida en vez de
+  // quedar gris sin que se note por qué.
   function cambiarPieza(nuevaPieza) {
     setPiezaForm(nuevaPieza);
-    if (caraForm) setEstadoForm(estadoPorPieza[nuevaPieza]?.[caraForm] || "(sin marcar)");
+    const cara = caraForm || "general";
+    setCaraForm(cara);
+    setEstadoForm(estadoPorPieza[nuevaPieza]?.[cara] || "(sin marcar)");
   }
 
   function cambiarCara(nuevaCara) {
