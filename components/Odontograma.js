@@ -344,7 +344,15 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
       {cargando ? (
         <p className="text-xs text-gray-500">Cargando odontograma...</p>
       ) : (
-        <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+        <div className="relative rounded-md border border-gray-200 bg-gray-50 p-3">
+          {/* Línea media: separa el lado derecho del paciente (izquierda de la
+              pantalla, cuadrantes 1 y 4) del izquierdo (cuadrantes 2 y 3) — las
+              dos filas de dientes están centradas, así que el medio del
+              contenedor cae justo entre 18-11 y 21-28 (y 48-41 / 31-38). */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-3 left-1/2 w-0 -translate-x-1/2 border-l-2 border-dashed border-gray-400"
+          />
           <FilaProtesis piezas={PIEZAS_SUPERIOR} estadoPorPieza={estadoPorPieza} />
           <div className="flex justify-center gap-1 overflow-x-auto pb-2">
             {PIEZAS_SUPERIOR.map((pieza) => (
