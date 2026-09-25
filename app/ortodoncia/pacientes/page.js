@@ -179,7 +179,7 @@ function PacientesOrtodonciaContenido() {
         </label>
       </div>
 
-      {!cargando && (
+      {!cargando && !busqueda.trim() && (
         <div className="mt-4 overflow-hidden rounded-lg border border-sky-200">
           {esDuena ? (
             <button
@@ -288,12 +288,25 @@ function PacientesOrtodonciaContenido() {
                   <td className="px-3 py-2 font-medium text-gray-900">
                     {p.nombre}
                     {p.estadoPaciente === "Consulta" && (
-                      <span
-                        title="Todavía no arrancó el tratamiento de ortodoncia"
-                        className="ml-1.5 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-                      >
-                        en consulta
-                      </span>
+                      <>
+                        <span
+                          title="Todavía no arrancó el tratamiento de ortodoncia"
+                          className="ml-1.5 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+                        >
+                          en consulta
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            empezarTratamiento(p);
+                          }}
+                          disabled={promoviendo === p.id}
+                          className="ml-1.5 rounded-full border border-brand-brown/40 px-1.5 py-0.5 text-[10px] font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-50"
+                        >
+                          {promoviendo === p.id ? "Guardando..." : "✅ Empezar tratamiento"}
+                        </button>
+                      </>
                     )}
                   </td>
                   <td className="px-3 py-2 text-gray-600">{calcularEdad(p.fechaNacimiento) ?? "—"}</td>
