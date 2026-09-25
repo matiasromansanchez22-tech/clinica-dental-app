@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obtenerPlanActivoPaciente } from "@/lib/data/caja";
+import { calcularSugerenciaPago, obtenerPlanActivoPaciente } from "@/lib/data/caja";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
 import {
   desmarcarPasoRealizado,
@@ -168,6 +168,14 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
 
   const pasosPendientes = pasos.filter((p) => !p.realizadoId && !p.cobrado).map((p) => p.nombre);
 
+  // Muchos pacientes con plan activo vienen justo para una prueba de
+  // prótesis o un cementado y aprovechan para pagar una cuota (o el saldo
+  // completo si es la última) — se muestra el monto ya calculado acá
+  // mismo, con un atajo directo a Caja, para no obligar al secretario a
+  // ir a buscarlo a mano.
+  const sugerenciaPago = planActivo ? calcularSugerenciaPago(planActivo) : null;
+  const linkCobrar = `/caja?pacienteId=${turno.pacienteId}&profesionalId=${profesionalId || ""}&abrir=1`;
+
   if (!turno.pacienteId) return null;
 
   return (
@@ -194,6 +202,22 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
 
       {error && (
         <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">{error}</div>
+      )}
+
+      {!cargando && planActivo && sugerenciaPago && sugerenciaPago.pagoSugerido > 0 && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2">
+          <p className="text-xs text-emerald-800">
+            💰 Plan activo — {sugerenciaPago.numeroCuota === "Anticipo" ? "anticipo" : `cuota ${sugerenciaPago.numeroCuota}`}:{" "}
+            <strong>${sugerenciaPago.pagoSugerido.toLocaleString("es-AR")}</strong>
+            {" "}(saldo total: ${Number(planActivo.saldo_pendiente).toLocaleString("es-AR")})
+          </p>
+          <a
+            href={linkCobrar}
+            className="shrink-0 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+          >
+            Cobrar ahora
+          </a>
+        </div>
       )}
 
       <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué hiciste hoy?</p>
