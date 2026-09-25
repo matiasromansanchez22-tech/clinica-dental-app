@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { calcularEdad, cuotaControlSugerida, precioInstalacionSugerido } from "@/lib/ortodoncia";
+import {
+  calcularEdad,
+  calcularEstadoInstalacion,
+  cuotaControlSugerida,
+  precioInstalacionSugerido,
+} from "@/lib/ortodoncia";
+import { obtenerCobrosInstalacion } from "@/lib/data/cajaOrtodoncia";
 import {
   actualizarPacienteOrtodoncia,
   buscarPosiblesDuplicadosOrtodoncia,
@@ -90,6 +96,19 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   const [borrando, setBorrando] = useState(false);
   const [error, setError] = useState(null);
   const [duplicados, setDuplicados] = useState([]);
+  // Cobros de "Instalación..." ya registrados en Caja — para mostrar el
+  // estado de instalación solo (pendiente/completa), calculado a partir
+  // de la plata que realmente entró, no de un campo que haya que
+  // acordarse de ir a tildar a mano.
+  const [cobrosInstalacion, setCobrosInstalacion] = useState([]);
+
+  useEffect(() => {
+    if (!paciente?.id) return;
+    obtenerCobrosInstalacion(paciente.id)
+      .then(setCobrosInstalacion)
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paciente?.id]);
 
   function set(campo, valor) {
     setForm((f) => ({ ...f, [campo]: valor }));
@@ -104,6 +123,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   // vacío, así nunca se pisa un valor ya cargado a mano.
   const cuotaInicialSugerida = precioInstalacionSugerido(form.tipoBrackets, form.formaPagoInstalacion, config);
   const valorControlSugerido = cuotaControlSugerida(form.tipoBrackets, config);
+  const estadoInstalacion = calcularEstadoInstalacion(form.formaPagoInstalacion, cobrosInstalacion);
 
   useEffect(() => {
     if (!form.tipoBrackets || !form.formaPagoInstalacion) return;
@@ -412,15 +432,29 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 </span>
               )}
             </label>
-            <label className="flex flex-col gap-1 text-sm text-gray-700">
+            <div className="flex flex-col gap-1 text-sm text-gray-700">
               Estado de instalación
-              <input
-                value={form.estadoInstalacion}
-                onChange={(e) => set("estadoInstalacion", e.target.value)}
-                placeholder="Ej. Pagado"
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              />
-            </label>
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-gray-600">
+                {!paciente ? (
+                  "—"
+                ) : !estadoInstalacion ? (
+                  <span className="text-gray-400">Sin forma de pago de instalación definida.</span>
+                ) : estadoInstalacion.completa ? (
+                  <span className="font-medium text-emerald-600">✓ {estadoInstalacion.texto}</span>
+                ) : (
+                  <span className="font-medium text-amber-600">
+                    ⏳ {estadoInstalacion.texto}
+                    {estadoInstalacion.montoCuota
+                      ? ` ($${Number(estadoInstalacion.montoCuota).toLocaleString("es-AR")})`
+                      : ""}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-gray-400">
+                Se calcula solo a partir de los cobros de "Instalación..." ya registrados en Caja — no hay que
+                tildarlo a mano.
+              </span>
+            </div>
           </div>
 
           <hr className="border-gray-200" />
