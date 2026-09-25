@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
-import { calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
+import { calcularEdad, calcularEstadoAumento, calcularEstadoInstalacion } from "@/lib/ortodoncia";
 import {
   marcarInicioTratamiento,
   obtenerConfiguracionOrtodoncia,
   obtenerPacientesOrtodoncia,
 } from "@/lib/data/pacientesOrtodoncia";
+import { obtenerCobrosInstalacionTodos } from "@/lib/data/cajaOrtodoncia";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 
@@ -23,6 +24,7 @@ function PacientesOrtodonciaContenido() {
   const [pacientes, setPacientes] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
   const [config, setConfig] = useState({});
+  const [cobrosInstalacionPorPaciente, setCobrosInstalacionPorPaciente] = useState({});
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -38,11 +40,17 @@ function PacientesOrtodonciaContenido() {
 
   useEffect(() => {
     setCargando(true);
-    Promise.all([obtenerPacientesOrtodoncia({ busqueda }), obtenerProfesionales(), obtenerConfiguracionOrtodoncia()])
-      .then(([p, prof, conf]) => {
+    Promise.all([
+      obtenerPacientesOrtodoncia({ busqueda }),
+      obtenerProfesionales(),
+      obtenerConfiguracionOrtodoncia(),
+      obtenerCobrosInstalacionTodos(),
+    ])
+      .then(([p, prof, conf, cobrosInstalacion]) => {
         setPacientes(p);
         setProfesionales(prof.filter((pr) => pr.especialidad === "Ortodoncia"));
         setConfig(conf);
+        setCobrosInstalacionPorPaciente(cobrosInstalacion);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -240,6 +248,7 @@ function PacientesOrtodonciaContenido() {
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Edad</th>
               <th className="px-3 py-2 text-left font-semibold">Brackets</th>
+              <th className="px-3 py-2 text-left font-semibold">Instalación</th>
               <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
               <th className="px-3 py-2 text-right font-semibold">Cuota</th>
               <th className="px-3 py-2 text-left font-semibold">Próximo aumento</th>
@@ -250,14 +259,14 @@ function PacientesOrtodonciaContenido() {
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && pacientesMostrados.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   No se encontraron pacientes.
                 </td>
               </tr>
@@ -266,6 +275,10 @@ function PacientesOrtodonciaContenido() {
               const aumento = calcularEstadoAumento(p.proximoAumento);
               const documentos = documentosDe(p);
               const completos = documentos.filter(Boolean).length;
+              const instalacion = calcularEstadoInstalacion(
+                p.formaPagoInstalacion,
+                cobrosInstalacionPorPaciente[p.id] || []
+              );
               return (
                 <tr
                   key={p.id}
@@ -285,6 +298,20 @@ function PacientesOrtodonciaContenido() {
                   </td>
                   <td className="px-3 py-2 text-gray-600">{calcularEdad(p.fechaNacimiento) ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-600">{p.tipoBrackets || "—"}</td>
+                  <td className="px-3 py-2">
+                    {!instalacion ? (
+                      <span className="text-gray-400">—</span>
+                    ) : instalacion.completa ? (
+                      <span className="font-medium text-emerald-600">✓ {instalacion.texto}</span>
+                    ) : (
+                      <span className="font-medium text-amber-600" title={instalacion.texto}>
+                        ⏳ {instalacion.texto}
+                        {instalacion.montoCuota
+                          ? ` ($${instalacion.montoCuota.toLocaleString("es-AR")})`
+                          : ""}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
                   <td className="px-3 py-2 text-right text-gray-600">
                     {p.valorControl ? `$${Number(p.valorControl).toLocaleString("es-AR")}` : "—"}

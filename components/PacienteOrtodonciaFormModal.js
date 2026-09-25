@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { calcularEdad } from "@/lib/ortodoncia";
+import { calcularEdad, cuotaControlSugerida, precioInstalacionSugerido } from "@/lib/ortodoncia";
 import {
   actualizarPacienteOrtodoncia,
   buscarPosiblesDuplicadosOrtodoncia,
@@ -101,15 +101,8 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   // Solo se sugiere en pacientes nuevos y solo si el campo todavía está
   // vacío — no se pisa un valor que ya esté cargado (ni al editar un
   // paciente existente, para no tocar precios históricos ya acordados).
-  const tipoParaClave = form.tipoBrackets === "Metalicos" ? "metalica" : "porcelana";
-  const formaParaClave = form.formaPagoInstalacion === "Contado" ? "contado" : "2_cuotas";
-  const cuotaInicialSugerida =
-    form.tipoBrackets && form.formaPagoInstalacion
-      ? config[`precio_instalacion_${tipoParaClave}_${formaParaClave}`] || null
-      : null;
-  const valorControlSugerido = form.tipoBrackets
-    ? config[form.tipoBrackets === "Metalicos" ? "cuota_control_metalico" : "cuota_control_porcelana"] || null
-    : null;
+  const cuotaInicialSugerida = precioInstalacionSugerido(form.tipoBrackets, form.formaPagoInstalacion, config);
+  const valorControlSugerido = cuotaControlSugerida(form.tipoBrackets, config);
 
   useEffect(() => {
     if (paciente || !form.tipoBrackets || !form.formaPagoInstalacion) return;

@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
+import { crearCobroOrtodoncia, obtenerCobrosInstalacion } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
-import { CONCEPTOS_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA, calcularEstadoAumento } from "@/lib/ortodoncia";
+import {
+  CONCEPTOS_ORTODONCIA,
+  TIPOS_BRACKET_ORTODONCIA,
+  calcularEstadoAumento,
+  calcularEstadoInstalacion,
+  precioInstalacionSugerido,
+} from "@/lib/ortodoncia";
 import {
   marcarPendientesOrtodonciaComoCobrados,
   obtenerPendientesCobroOrtodoncia,
@@ -60,6 +66,9 @@ export default function CobroOrtodonciaFormModal({
   // cobrar" después de haberle cobrado.
   const [pendientesRealizados, setPendientesRealizados] = useState([]);
   const pendienteRealizado = pendientesRealizados[0] || null;
+  // Cobros de "Instalación..." que este paciente ya tiene registrados —
+  // para saber si esto sería la 1ª o la 2ª cuota (o si ya está completa).
+  const [cobrosInstalacion, setCobrosInstalacion] = useState([]);
 
   useEffect(() => {
     obtenerConfiguracionOrtodoncia().then(setPrecios);
@@ -86,9 +95,13 @@ export default function CobroOrtodonciaFormModal({
     setSaldoAFavor(0);
     setMontoAFavorAplicado(0);
     setMontoAAplicarInput("");
+    setCobrosInstalacion([]);
     if (!pacienteId) return;
     obtenerSaldoAFavor(pacienteId, true)
       .then(setSaldoAFavor)
+      .catch(() => {});
+    obtenerCobrosInstalacion(pacienteId)
+      .then(setCobrosInstalacion)
       .catch(() => {});
     // Lo que el ortodoncista ya marcó como "hecho" en la Agenda — viene
     // pre-cargado acá en vez de arrancar siempre en "Control".
@@ -115,6 +128,17 @@ export default function CobroOrtodonciaFormModal({
   const precioPorBracket =
     bracketReposicion === "Porcelana" ? precios.precio_bracket_porcelana : precios.precio_bracket_metalico;
 
+  const estadoInstalacion = useMemo(
+    () => (paciente ? calcularEstadoInstalacion(paciente.formaPagoInstalacion, cobrosInstalacion) : null),
+    [paciente, cobrosInstalacion]
+  );
+  const precioInstalacion =
+    concepto === "Instalación (contado)"
+      ? precioInstalacionSugerido(paciente?.tipoBrackets, "Contado", precios)
+      : concepto === "Instalación (2 cuotas)"
+        ? precioInstalacionSugerido(paciente?.tipoBrackets, "2 Cuotas", precios)
+        : null;
+
   useEffect(() => {
     if (!paciente) return;
     let base = 0;
@@ -124,6 +148,8 @@ export default function CobroOrtodonciaFormModal({
       const valorControles = valorControlUsado * Number(cantidadControlesAbonados || 1);
       const valorBrackets = seDespegoBracket ? Number(cantidadBrackets || 0) * precioPorBracket : 0;
       base = valorControles + valorBrackets;
+    } else if (concepto === "Instalación (contado)" || concepto === "Instalación (2 cuotas)") {
+      base = precioInstalacion || 0;
     }
     setImporte(Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,6 +164,7 @@ export default function CobroOrtodonciaFormModal({
     aumentoConfirmado,
     cargoExtraMonto,
     montoAFavorAplicado,
+    precioInstalacion,
   ]);
 
   function aplicarSaldo() {
@@ -389,6 +416,54 @@ export default function CobroOrtodonciaFormModal({
               ))}
             </select>
           </label>
+
+          {(concepto === "Instalación (contado)" || concepto === "Instalación (2 cuotas)") && (
+            <>
+              {!paciente?.tipoBrackets ? (
+                <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                  Este paciente no tiene cargado el tipo de brackets en su ficha — no se puede sugerir el valor
+                  solo. Cargalo en "Pacientes" (Tipo de brackets) para la próxima.
+                </p>
+              ) : (
+                <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  Según el catálogo ({paciente.tipoBrackets}
+                  {concepto === "Instalación (2 cuotas)" ? " · 2 cuotas" : " · contado"}): $
+                  {(precioInstalacion || 0).toLocaleString("es-AR")}
+                  {concepto === "Instalación (2 cuotas)" ? " por cuota" : ""} — ya viene cargado abajo en
+                  "Importe".
+                </p>
+              )}
+
+              {concepto === "Instalación (2 cuotas)" && estadoInstalacion && (
+                <p
+                  className={`rounded-md border px-3 py-2 text-xs ${
+                    estadoInstalacion.completa
+                      ? "border-red-300 bg-red-50 text-red-800"
+                      : estadoInstalacion.montoCuota
+                        ? "border-amber-300 bg-amber-50 text-amber-800"
+                        : "border-gray-200 bg-gray-50 text-gray-500"
+                  }`}
+                >
+                  {estadoInstalacion.completa ? (
+                    <>⚠ Este paciente ya figura con la instalación pagada (2 cuotas) — revisá que no sea un cobro duplicado.</>
+                  ) : estadoInstalacion.montoCuota ? (
+                    <>
+                      📅 Ya pagó la 1ª cuota (${estadoInstalacion.montoCuota.toLocaleString("es-AR")}). Este cobro
+                      sería la <strong>2ª y última cuota</strong> — después de esto la instalación queda completa.
+                    </>
+                  ) : (
+                    <>Todavía no tiene ninguna cuota de instalación cobrada — este sería la 1ª de 2.</>
+                  )}
+                </p>
+              )}
+
+              {concepto === "Instalación (contado)" && estadoInstalacion?.completa && (
+                <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                  ⚠ Este paciente ya figura con la instalación pagada — revisá que no sea un cobro duplicado.
+                </p>
+              )}
+            </>
+          )}
 
           {concepto === "Control" && (
             <>
