@@ -12,7 +12,7 @@ import {
 import { calcularEdad, calcularEstadoAumento, CONCEPTOS_TURNO_ORTODONCIA } from "@/lib/ortodoncia";
 import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/profesionales";
 import { buscarProximosHorariosLibresOrtodoncia } from "@/lib/data/buscadorHorarioOrtodoncia";
-import { crearPacienteOrtodoncia, marcarInicioTratamiento } from "@/lib/data/pacientesOrtodoncia";
+import { buscarParecidoEnLista, crearPacienteOrtodoncia, marcarInicioTratamiento } from "@/lib/data/pacientesOrtodoncia";
 import { crearTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import { marcarProximaPrestacionUsada, obtenerProximaPrestacionPendiente } from "@/lib/data/prestacionesRealizadas";
 
@@ -125,6 +125,15 @@ export default function NuevoTurnoOrtodonciaModal({
     if (!nombreNormalizado) return null;
     return pacientes.find((p) => p.nombre.trim().toLowerCase() === nombreNormalizado) ?? null;
   }, [pacienteNombre, pacientes]);
+
+  // Si no coincide exactamente con nadie (se estaría por crear un paciente
+  // nuevo), se fija si hay alguno con un nombre parecido — para avisar
+  // antes de duplicar a alguien por no haber escrito el nombre tal cual
+  // ya estaba cargado (un acento, un espacio de más, etc.).
+  const posiblesDuplicados = useMemo(() => {
+    if (pacienteExistente) return [];
+    return buscarParecidoEnLista(pacienteNombre, pacientes);
+  }, [pacienteNombre, pacientes, pacienteExistente]);
 
   useEffect(() => {
     setProximaPrestacionPendiente(null);
@@ -376,6 +385,14 @@ export default function NuevoTurnoOrtodonciaModal({
               )
             )}
           </label>
+
+          {posiblesDuplicados.length > 0 && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ⚠ Posible duplicado: ya existe {posiblesDuplicados.map((d) => d.nombre).join(", ")} con un nombre
+              parecido. Si es la misma persona, escribí el nombre tal cual está cargado (elegilo de la lista) en
+              vez de crear una ficha nueva.
+            </p>
+          )}
 
           {proximaPrestacionPendiente?.proxima_prestacion_nombre && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
