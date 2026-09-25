@@ -119,8 +119,11 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   // Catálogo de precios de instalación (cargado en "configuracion_ortodoncia").
   // Se sugiere tanto en pacientes nuevos como editando uno ya cargado (es
   // común elegir el tipo de brackets/forma de pago recién cuando se
-  // instala, no al dar de alta) — pero solo si el campo todavía está
-  // vacío, así nunca se pisa un valor ya cargado a mano.
+  // instala, no al dar de alta). A propósito sigue el combo elegido cada
+  // vez que se cambia el tipo de brackets o la forma de pago — no solo la
+  // primera vez — para que si te equivocás y lo cambiás (ej. de "2
+  // Cuotas" a "Contado") el valor se actualice solo en vez de quedarse
+  // pegado con el de la opción anterior.
   const cuotaInicialSugerida = precioInstalacionSugerido(form.tipoBrackets, form.formaPagoInstalacion, config);
   const valorControlSugerido = cuotaControlSugerida(form.tipoBrackets, config);
   const estadoInstalacion = calcularEstadoInstalacion(form.formaPagoInstalacion, cobrosInstalacion);
@@ -129,8 +132,8 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
     if (!form.tipoBrackets || !form.formaPagoInstalacion) return;
     setForm((f) => ({
       ...f,
-      cuotaInicial: f.cuotaInicial === "" && cuotaInicialSugerida ? String(cuotaInicialSugerida) : f.cuotaInicial,
-      valorControl: f.valorControl === "" && valorControlSugerido ? String(valorControlSugerido) : f.valorControl,
+      cuotaInicial: cuotaInicialSugerida ? String(cuotaInicialSugerida) : f.cuotaInicial,
+      valorControl: valorControlSugerido ? String(valorControlSugerido) : f.valorControl,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.tipoBrackets, form.formaPagoInstalacion]);
