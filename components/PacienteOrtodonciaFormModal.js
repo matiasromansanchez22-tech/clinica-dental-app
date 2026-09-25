@@ -98,14 +98,15 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   const edad = calcularEdad(form.fechaNacimiento);
 
   // Catálogo de precios de instalación (cargado en "configuracion_ortodoncia").
-  // Solo se sugiere en pacientes nuevos y solo si el campo todavía está
-  // vacío — no se pisa un valor que ya esté cargado (ni al editar un
-  // paciente existente, para no tocar precios históricos ya acordados).
+  // Se sugiere tanto en pacientes nuevos como editando uno ya cargado (es
+  // común elegir el tipo de brackets/forma de pago recién cuando se
+  // instala, no al dar de alta) — pero solo si el campo todavía está
+  // vacío, así nunca se pisa un valor ya cargado a mano.
   const cuotaInicialSugerida = precioInstalacionSugerido(form.tipoBrackets, form.formaPagoInstalacion, config);
   const valorControlSugerido = cuotaControlSugerida(form.tipoBrackets, config);
 
   useEffect(() => {
-    if (paciente || !form.tipoBrackets || !form.formaPagoInstalacion) return;
+    if (!form.tipoBrackets || !form.formaPagoInstalacion) return;
     setForm((f) => ({
       ...f,
       cuotaInicial: f.cuotaInicial === "" && cuotaInicialSugerida ? String(cuotaInicialSugerida) : f.cuotaInicial,
