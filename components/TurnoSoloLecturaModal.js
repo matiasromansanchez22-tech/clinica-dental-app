@@ -4,6 +4,7 @@ import { useState } from "react";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import Odontograma from "@/components/Odontograma";
+import PlanTratamiento from "@/components/PlanTratamiento";
 
 export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, catalogo, onClose, onCambiado }) {
   const [turnoActual, setTurnoActual] = useState(turno);
@@ -61,6 +62,7 @@ export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, cat
               profesionales={profesionales}
               onCambio={() => setVersionHistorial((v) => v + 1)}
             />
+            <PlanTratamiento pacienteId={turnoActual.pacienteId} />
             <HistorialClinicoGeneral
               key={versionHistorial}
               pacienteId={turnoActual.pacienteId}

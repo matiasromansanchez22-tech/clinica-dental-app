@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { calcularEdad, formatearDni } from "@/lib/pacientes";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import Odontograma from "@/components/Odontograma";
+import PlanTratamiento from "@/components/PlanTratamiento";
 import SaldoAFavor from "@/components/SaldoAFavor";
 import {
   actualizarPaciente,
@@ -612,6 +613,7 @@ export default function PacienteFormModal({
               profesionales={profesionales}
               onCambio={() => setVersionHistorial((v) => v + 1)}
             />
+            <PlanTratamiento pacienteId={paciente.id} />
             <HistorialClinicoGeneral key={versionHistorial} pacienteId={paciente.id} profesionales={profesionales} />
           </>
         )}
