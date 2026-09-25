@@ -81,7 +81,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
 
   return (
     <div className="mt-4 border-t border-gray-200 pt-3">
-      <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">¿Qué le hiciste hoy?</p>
+      <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">Actividad de hoy</p>
       {error && (
         <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">{error}</div>
       )}
@@ -117,47 +117,19 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <select
-              value={concepto}
-              onChange={(e) => setConcepto(e.target.value)}
-              className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              {CONCEPTOS_ORTODONCIA.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={marcarRealizado}
-              disabled={guardando || !proximaPrestacion}
-              className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-            >
-              ✓ Marcar hecho
-            </button>
-          </div>
+          <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué hiciste hoy?</p>
 
-          <label className="flex flex-col gap-1 text-xs text-gray-600">
-            Prestación para el próximo turno <span className="text-red-600">*</span>
-            <select
-              value={proximaPrestacion}
-              onChange={(e) => setProximaPrestacion(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            >
-              <option value="">(elegir)</option>
-              {CONCEPTOS_TURNO_ORTODONCIA.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] text-gray-400">
-              Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le
-              den el próximo turno a este paciente, va a venir pre-cargado con esto.
-            </span>
-          </label>
+          <select
+            value={concepto}
+            onChange={(e) => setConcepto(e.target.value)}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            {CONCEPTOS_ORTODONCIA.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
 
           {concepto === "Control" && (
             <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
@@ -216,16 +188,49 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
             </div>
           </div>
 
-          <label className="flex flex-col gap-1 text-xs text-gray-600">
-            Nota para el próximo turno (opcional)
-            <textarea
-              value={notaProximoTurno}
-              onChange={(e) => setNotaProximoTurno(e.target.value)}
-              rows={2}
-              placeholder="Ej: cambiar arco"
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            />
-          </label>
+          <div className="mt-2 border-t border-gray-100 pt-3">
+            <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué vas a realizar la próxima vez?</p>
+
+            <label className="flex flex-col gap-1 text-xs text-gray-600">
+              Prestación para el próximo turno <span className="text-red-600">*</span>
+              <select
+                value={proximaPrestacion}
+                onChange={(e) => setProximaPrestacion(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">(elegir)</option>
+                {CONCEPTOS_TURNO_ORTODONCIA.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-gray-400">
+                Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le
+                den el próximo turno a este paciente, va a venir pre-cargado con esto.
+              </span>
+            </label>
+
+            <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+              Nota para el próximo turno (opcional)
+              <textarea
+                value={notaProximoTurno}
+                onChange={(e) => setNotaProximoTurno(e.target.value)}
+                rows={2}
+                placeholder="Ej: cambiar arco"
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={marcarRealizado}
+            disabled={guardando || !proximaPrestacion}
+            className="mt-1 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            ✓ Marcar hecho
+          </button>
         </div>
       )}
       <p className="mt-2 text-xs text-gray-400">Lo que marques acá le va a quedar pre-cargado al secretario cuando cobre.</p>

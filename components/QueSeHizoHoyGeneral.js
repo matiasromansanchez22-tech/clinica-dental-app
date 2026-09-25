@@ -172,7 +172,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
 
   return (
     <div className="mt-4 border-t border-gray-200 pt-3">
-      <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">¿Qué le hiciste hoy?</p>
+      <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">Actividad de hoy</p>
 
       {profesionales?.length > 0 && (
         <label className="mb-2 flex flex-col gap-1 text-xs text-gray-600">
@@ -196,27 +196,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">{error}</div>
       )}
 
-      {catalogo?.length > 0 && (
-        <label className="mb-2 flex flex-col gap-1 text-xs text-gray-600">
-          Prestación para el próximo turno <span className="text-red-600">*</span>
-          <select
-            value={proximaPrestacionCatalogoId}
-            onChange={(e) => setProximaPrestacionCatalogoId(e.target.value)}
-            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-          >
-            <option value="">(elegir prestación)</option>
-            {catalogo.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.prestacion}
-              </option>
-            ))}
-          </select>
-          <span className="text-[11px] text-gray-400">
-            Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le den
-            el próximo turno a este paciente, va a venir pre-cargado con esto.
-          </span>
-        </label>
-      )}
+      <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué hiciste hoy?</p>
 
       {cargando ? (
         <p className="text-xs text-gray-500">Buscando el plan de tratamiento...</p>
@@ -260,6 +240,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 )}
               </label>
             ))}
+            {catalogo?.length > 0 && !proximaPrestacionCatalogoId && pasos.some((p) => !p.realizadoId && !p.cobrado) && (
+              <p className="text-[11px] text-amber-600">
+                ⚠ Elegí primero, más abajo, qué vas a realizar la próxima vez — recién ahí se puede tildar un paso.
+              </p>
+            )}
           </div>
         )
       ) : (
@@ -318,26 +303,14 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                   className="w-14 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  value={precioElegido}
-                  onChange={(e) => setPrecioElegido(e.target.value)}
-                  placeholder="Precio distinto por unidad (opcional)"
-                  className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={agregarAdHoc}
-                  disabled={
-                    !catalogoIdElegido || guardando || (catalogo?.length > 0 && !proximaPrestacionCatalogoId)
-                  }
-                  className="rounded-md bg-brand-brown px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-                >
-                  ✓ Marcar hecho
-                </button>
-              </div>
+              <input
+                type="number"
+                min={0}
+                value={precioElegido}
+                onChange={(e) => setPrecioElegido(e.target.value)}
+                placeholder="Precio distinto por unidad (opcional)"
+                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
               <p className="text-[11px] text-gray-400">
                 Dejalo vacío para usar el precio de lista/efectivo del catálogo.
               </p>
@@ -348,30 +321,55 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         </div>
       )}
 
+      {!cargando && turno.pacienteId && planActivo && (
+        <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+          <p className="mb-1 text-xs text-gray-600">Cargo extra (opcional, algo aparte del plan)</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={cargoExtraDescripcion}
+              onChange={(e) => setCargoExtraDescripcion(e.target.value)}
+              placeholder="Ej: Estudio radiográfico"
+              className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs"
+            />
+            <input
+              type="number"
+              min={0}
+              value={cargoExtraMonto}
+              onChange={(e) => setCargoExtraMonto(e.target.value)}
+              placeholder="Monto"
+              className="w-24 rounded-md border border-gray-300 px-2 py-1 text-xs"
+            />
+          </div>
+        </div>
+      )}
+
       {!cargando && turno.pacienteId && (
-        <div className="mt-2 flex flex-col gap-2">
-          {planActivo && (
-            <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
-              <p className="mb-1 text-xs text-gray-600">Cargo extra (opcional, algo aparte del plan)</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={cargoExtraDescripcion}
-                  onChange={(e) => setCargoExtraDescripcion(e.target.value)}
-                  placeholder="Ej: Estudio radiográfico"
-                  className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  value={cargoExtraMonto}
-                  onChange={(e) => setCargoExtraMonto(e.target.value)}
-                  placeholder="Monto"
-                  className="w-24 rounded-md border border-gray-300 px-2 py-1 text-xs"
-                />
-              </div>
-            </div>
+        <div className="mt-4 border-t border-gray-100 pt-3">
+          <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué vas a realizar la próxima vez?</p>
+
+          {catalogo?.length > 0 && (
+            <label className="mb-2 flex flex-col gap-1 text-xs text-gray-600">
+              Prestación para el próximo turno <span className="text-red-600">*</span>
+              <select
+                value={proximaPrestacionCatalogoId}
+                onChange={(e) => setProximaPrestacionCatalogoId(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">(elegir prestación)</option>
+                {catalogo.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.prestacion}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-gray-400">
+                Obligatorio: hasta que no elijas esto no se puede marcar como hecho arriba ni mandar a cobrar.
+                Cuando le den el próximo turno a este paciente, va a venir pre-cargado con esto.
+              </span>
+            </label>
           )}
+
           {planActivo ? (
             pasosPendientes.length > 0 && (
               <label className="flex flex-col gap-1 text-xs text-gray-600">
@@ -403,6 +401,17 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
             </label>
           )}
         </div>
+      )}
+
+      {!cargando && !planActivo && catalogo?.length > 0 && (
+        <button
+          type="button"
+          onClick={agregarAdHoc}
+          disabled={!catalogoIdElegido || guardando || !proximaPrestacionCatalogoId}
+          className="mt-3 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+        >
+          ✓ Marcar hecho
+        </button>
       )}
       <p className="mt-2 text-xs text-gray-400">Lo que marques acá le va a quedar pre-cargado al secretario cuando cobre.</p>
     </div>
