@@ -133,6 +133,18 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
   const arriba = esInferior ? "palatino" : "vestibular";
   const abajo = esInferior ? "vestibular" : "palatino";
 
+  // Mesial es siempre el lado que mira hacia la línea media (entre 11/21
+  // arriba, 41/31 abajo) y distal el lado que mira para afuera — no un
+  // lado fijo de la pantalla. En los cuadrantes 1 y 4 (lado derecho del
+  // paciente) las piezas están dibujadas de afuera hacia adentro, así que
+  // mesial queda a la derecha del diente; en los cuadrantes 2 y 3 es al
+  // revés. Sin este ajuste, mesial/distal quedaban del mismo lado de la
+  // pantalla en toda la fila en vez de mirar hacia el medio de la boca.
+  const cuadrante = pieza[0];
+  const ladoInvertido = cuadrante === "1" || cuadrante === "4";
+  const izquierda = ladoInvertido ? "distal" : "mesial";
+  const derecha = ladoInvertido ? "mesial" : "distal";
+
   function celda(cara, posicion) {
     const estado = estados[cara] || "";
     const activo = seleccion?.pieza === pieza && seleccion?.cara === cara;
@@ -152,9 +164,9 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
     <div className="flex flex-col items-center gap-0.5">
       <div className="grid h-8 w-8 grid-cols-3 grid-rows-3 gap-px rounded border border-gray-300 bg-gray-300 p-px">
         {celda(arriba, "col-start-2 row-start-1")}
-        {celda("mesial", "col-start-1 row-start-2")}
+        {celda(izquierda, "col-start-1 row-start-2")}
         {celda("oclusal", "col-start-2 row-start-2")}
-        {celda("distal", "col-start-3 row-start-2")}
+        {celda(derecha, "col-start-3 row-start-2")}
         {celda(abajo, "col-start-2 row-start-3")}
       </div>
       <button
