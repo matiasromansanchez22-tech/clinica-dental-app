@@ -42,13 +42,12 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
     }
     const plan = await obtenerPlanActivoPaciente(turno.pacienteId);
     setPlanActivo(plan);
+    const pendientes = await obtenerPrestacionesAdHocPendientes(turno.pacienteId);
+    setAdHocPendientes(pendientes);
     if (plan) {
       const pasosPlan = await obtenerPasosDelPlan(plan.presupuesto_id);
       setPasos(pasosPlan);
-      setAdHocPendientes([]);
     } else {
-      const pendientes = await obtenerPrestacionesAdHocPendientes(turno.pacienteId);
-      setAdHocPendientes(pendientes);
       setPasos([]);
     }
   }
@@ -176,6 +175,15 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const sugerenciaPago = planActivo ? calcularSugerenciaPago(planActivo) : null;
   const linkCobrar = `/caja?pacienteId=${turno.pacienteId}&profesionalId=${profesionalId || ""}&abrir=1`;
 
+  // Pasos internos (Prueba de prótesis, Cementado, etc.): no son parte del
+  // presupuesto de ningún plan, así que sin esto un paciente con plan
+  // activo no tenía forma de dejarlos anotados — solo veía los ítems del
+  // presupuesto en la lista de pasos. Con plan activo se ofrece SOLO esta
+  // categoría (lo demás ya se factura como parte del plan); sin plan,
+  // sigue viendo el catálogo particular completo, como siempre.
+  const pasosInternos = catalogo?.filter((c) => c.categoria === "Paso interno") || [];
+  const catalogoAdHoc = planActivo ? pasosInternos : catalogo;
+
   if (!turno.pacienteId) return null;
 
   return (
@@ -224,125 +232,139 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
 
       {cargando ? (
         <p className="text-xs text-gray-500">Buscando el plan de tratamiento...</p>
-      ) : planActivo ? (
-        pasos.length === 0 ? (
-          <p className="text-xs text-gray-500">El plan de este paciente no tiene pasos cargados.</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {pasos.map((paso, i) => (
-              <label
-                key={`${paso.nombre}-${i}`}
-                className={`flex items-center gap-2 text-sm ${paso.cobrado ? "text-gray-400" : "text-gray-700"}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(paso.realizadoId) || paso.cobrado}
-                  disabled={
-                    paso.cobrado ||
-                    guardando ||
-                    (!paso.realizadoId && catalogo?.length > 0 && !proximaPrestacionCatalogoId)
-                  }
-                  onChange={() => togglePaso(paso)}
-                />
-                Paso {i + 1}: {paso.nombre}
-                {paso.cobrado && <span className="text-xs text-emerald-600">(ya cobrado)</span>}
-                {!paso.cobrado && paso.realizadoId && (
-                  <span className="text-xs text-amber-600">(pendiente de cobro)</span>
-                )}
-                {paso.cargoExtraMonto ? (
-                  <span className="text-xs text-gray-500">
-                    + {paso.cargoExtraDescripcion || "cargo extra"} (${Number(paso.cargoExtraMonto).toLocaleString("es-AR")})
-                  </span>
-                ) : null}
-                {paso.notaProximoTurno && (
-                  <span className="text-xs text-gray-500">📌 Sigue: {paso.notaProximoTurno}</span>
-                )}
-                {paso.proximaPrestacionNombre && (
-                  <span className="text-xs text-gray-500">
-                    📅 Próxima vez: {paso.proximaPrestacionNombre}
-                  </span>
-                )}
-              </label>
-            ))}
-            {catalogo?.length > 0 && !proximaPrestacionCatalogoId && pasos.some((p) => !p.realizadoId && !p.cobrado) && (
-              <p className="text-[11px] text-amber-600">
-                ⚠ Elegí primero, más abajo, qué vas a realizar la próxima vez — recién ahí se puede tildar un paso.
-              </p>
-            )}
-          </div>
-        )
       ) : (
-        <div className="flex flex-col gap-2">
-          {adHocPendientes.length > 0 && (
-            <div className="flex flex-col gap-1">
-              {adHocPendientes.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 text-sm text-gray-700">
-                  <span>
-                    {p.prestacion}
-                    {p.cantidad > 1 ? ` x${p.cantidad}` : ""}
-                    {p.precio_manual ? ` — $${Number(p.precio_manual).toLocaleString("es-AR")}` : ""}{" "}
-                    <span className="text-xs text-amber-600">(pendiente de cobro)</span>
-                    {p.nota_proximo_turno && (
-                      <span className="block text-xs text-gray-500">📌 Próximo turno: {p.nota_proximo_turno}</span>
-                    )}
-                    {p.proxima_prestacion_nombre && (
-                      <span className="block text-xs text-gray-500">
-                        📅 Próxima vez: {p.proxima_prestacion_nombre}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => quitarAdHoc(p.id)}
-                    disabled={guardando}
-                    className="text-xs text-gray-400 hover:text-red-600"
+        <>
+          {planActivo &&
+            (pasos.length === 0 ? (
+              <p className="text-xs text-gray-500">El plan de este paciente no tiene pasos cargados.</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {pasos.map((paso, i) => (
+                  <label
+                    key={`${paso.nombre}-${i}`}
+                    className={`flex items-center gap-2 text-sm ${paso.cobrado ? "text-gray-400" : "text-gray-700"}`}
                   >
-                    Quitar
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {catalogo?.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <select
-                  value={catalogoIdElegido}
-                  onChange={(e) => setCatalogoIdElegido(e.target.value)}
-                  className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                >
-                  <option value="">(elegir prestación)</option>
-                  {catalogo.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.prestacion}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={1}
-                  value={cantidadElegida}
-                  onChange={(e) => setCantidadElegida(e.target.value)}
-                  title="Cantidad"
-                  className="w-14 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                />
+                    <input
+                      type="checkbox"
+                      checked={Boolean(paso.realizadoId) || paso.cobrado}
+                      disabled={
+                        paso.cobrado ||
+                        guardando ||
+                        (!paso.realizadoId && catalogo?.length > 0 && !proximaPrestacionCatalogoId)
+                      }
+                      onChange={() => togglePaso(paso)}
+                    />
+                    Paso {i + 1}: {paso.nombre}
+                    {paso.cobrado && <span className="text-xs text-emerald-600">(ya cobrado)</span>}
+                    {!paso.cobrado && paso.realizadoId && (
+                      <span className="text-xs text-amber-600">(pendiente de cobro)</span>
+                    )}
+                    {paso.cargoExtraMonto ? (
+                      <span className="text-xs text-gray-500">
+                        + {paso.cargoExtraDescripcion || "cargo extra"} ($
+                        {Number(paso.cargoExtraMonto).toLocaleString("es-AR")})
+                      </span>
+                    ) : null}
+                    {paso.notaProximoTurno && (
+                      <span className="text-xs text-gray-500">📌 Sigue: {paso.notaProximoTurno}</span>
+                    )}
+                    {paso.proximaPrestacionNombre && (
+                      <span className="text-xs text-gray-500">📅 Próxima vez: {paso.proximaPrestacionNombre}</span>
+                    )}
+                  </label>
+                ))}
+                {catalogo?.length > 0 && !proximaPrestacionCatalogoId && pasos.some((p) => !p.realizadoId && !p.cobrado) && (
+                  <p className="text-[11px] text-amber-600">
+                    ⚠ Elegí primero, más abajo, qué vas a realizar la próxima vez — recién ahí se puede tildar un
+                    paso.
+                  </p>
+                )}
               </div>
-              <input
-                type="number"
-                min={0}
-                value={precioElegido}
-                onChange={(e) => setPrecioElegido(e.target.value)}
-                placeholder="Precio distinto por unidad (opcional)"
-                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              />
-              <p className="text-[11px] text-gray-400">
-                Dejalo vacío para usar el precio de lista/efectivo del catálogo.
-              </p>
+            ))}
+
+          {(!planActivo || pasosInternos.length > 0) && (
+            <div className={planActivo ? "mt-3 flex flex-col gap-2" : "flex flex-col gap-2"}>
+              {planActivo && (
+                <p className="text-[11px] text-gray-500">
+                  ¿Hizo algún paso intermedio hoy (no es parte del presupuesto, solo para registrarlo)?
+                </p>
+              )}
+              {adHocPendientes.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {adHocPendientes.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-2 text-sm text-gray-700">
+                      <span>
+                        {p.prestacion}
+                        {p.cantidad > 1 ? ` x${p.cantidad}` : ""}
+                        {p.precio_manual ? ` — $${Number(p.precio_manual).toLocaleString("es-AR")}` : ""}{" "}
+                        <span className="text-xs text-amber-600">(pendiente de cobro)</span>
+                        {p.nota_proximo_turno && (
+                          <span className="block text-xs text-gray-500">📌 Próximo turno: {p.nota_proximo_turno}</span>
+                        )}
+                        {p.proxima_prestacion_nombre && (
+                          <span className="block text-xs text-gray-500">
+                            📅 Próxima vez: {p.proxima_prestacion_nombre}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => quitarAdHoc(p.id)}
+                        disabled={guardando}
+                        className="text-xs text-gray-400 hover:text-red-600"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {catalogoAdHoc?.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={catalogoIdElegido}
+                      onChange={(e) => setCatalogoIdElegido(e.target.value)}
+                      className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    >
+                      <option value="">(elegir prestación)</option>
+                      {catalogoAdHoc.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.prestacion}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      value={cantidadElegida}
+                      onChange={(e) => setCantidadElegida(e.target.value)}
+                      title="Cantidad"
+                      className="w-14 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  {!planActivo && (
+                    <>
+                      <input
+                        type="number"
+                        min={0}
+                        value={precioElegido}
+                        onChange={(e) => setPrecioElegido(e.target.value)}
+                        placeholder="Precio distinto por unidad (opcional)"
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                      <p className="text-[11px] text-gray-400">
+                        Dejalo vacío para usar el precio de lista/efectivo del catálogo.
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">No hay catálogo de prestaciones para elegir.</p>
+              )}
             </div>
-          ) : (
-            <p className="text-xs text-gray-500">No hay catálogo de prestaciones para elegir.</p>
           )}
-        </div>
+        </>
       )}
 
       {!cargando && turno.pacienteId && planActivo && (
@@ -427,7 +449,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         </div>
       )}
 
-      {!cargando && !planActivo && catalogo?.length > 0 && (
+      {!cargando && catalogoAdHoc?.length > 0 && (
         <button
           type="button"
           onClick={agregarAdHoc}
