@@ -5,8 +5,8 @@ import { crearCobroOrtodoncia } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { CONCEPTOS_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA, calcularEstadoAumento } from "@/lib/ortodoncia";
 import {
-  marcarPendienteOrtodonciaComoCobrado,
-  obtenerPendienteCobroOrtodoncia,
+  marcarPendientesOrtodonciaComoCobrados,
+  obtenerPendientesCobroOrtodoncia,
 } from "@/lib/data/prestacionesRealizadas";
 import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 
@@ -53,7 +53,13 @@ export default function CobroOrtodonciaFormModal({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [aumentoConfirmado, setAumentoConfirmado] = useState(false);
-  const [pendienteRealizado, setPendienteRealizado] = useState(null);
+  // Todo lo que el ortodoncista marcó como "hecho" y todavía no se cobró
+  // (puede ser más de una visita) — se usa la más reciente para
+  // pre-completar el formulario, pero se cierran TODAS al cobrar, para
+  // que no quede ninguna colgada mostrando la nube de "listo para
+  // cobrar" después de haberle cobrado.
+  const [pendientesRealizados, setPendientesRealizados] = useState([]);
+  const pendienteRealizado = pendientesRealizados[0] || null;
 
   useEffect(() => {
     obtenerConfiguracionOrtodoncia().then(setPrecios);
@@ -74,7 +80,7 @@ export default function CobroOrtodonciaFormModal({
     if (pacienteIdAnterior.current !== pacienteId) setOrtodoncistaAtencionId("");
     pacienteIdAnterior.current = pacienteId;
     setAumentoConfirmado(false);
-    setPendienteRealizado(null);
+    setPendientesRealizados([]);
     setCargoExtraDescripcion("");
     setCargoExtraMonto("");
     setSaldoAFavor(0);
@@ -86,9 +92,10 @@ export default function CobroOrtodonciaFormModal({
       .catch(() => {});
     // Lo que el ortodoncista ya marcó como "hecho" en la Agenda — viene
     // pre-cargado acá en vez de arrancar siempre en "Control".
-    obtenerPendienteCobroOrtodoncia(pacienteId).then((pendiente) => {
-      if (!pendiente) return;
-      setPendienteRealizado(pendiente);
+    obtenerPendientesCobroOrtodoncia(pacienteId).then((pendientes) => {
+      if (!pendientes.length) return;
+      setPendientesRealizados(pendientes);
+      const pendiente = pendientes[0];
       if (CONCEPTOS.includes(pendiente.prestacion)) setConcepto(pendiente.prestacion);
       if (pendiente.bracket_reposicion) {
         setSeDespegoBracket(true);
@@ -231,7 +238,12 @@ export default function CobroOrtodonciaFormModal({
         desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
         observaciones: observacionesFinal || null,
       });
-      if (pendienteRealizado) await marcarPendienteOrtodonciaComoCobrado(pendienteRealizado.id, cobro.id);
+      if (pendientesRealizados.length > 0) {
+        await marcarPendientesOrtodonciaComoCobrados(
+          pendientesRealizados.map((p) => p.id),
+          cobro.id
+        );
+      }
       if (montoAFavorAplicado > 0) {
         await aplicarSaldoAFavor({
           pacienteId,
@@ -309,6 +321,13 @@ export default function CobroOrtodonciaFormModal({
                 <>
                   {" "}
                   📌 Nota para el próximo turno: {pendienteRealizado.nota_proximo_turno}
+                </>
+              )}
+              {pendientesRealizados.length > 1 && (
+                <>
+                  {" "}
+                  ⚠ Tiene {pendientesRealizados.length} visitas sin cobrar — este cobro las va a cerrar todas
+                  juntas.
                 </>
               )}
             </p>

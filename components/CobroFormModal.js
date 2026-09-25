@@ -47,6 +47,11 @@ export default function CobroFormModal({
   const [prestacionesDelPlan, setPrestacionesDelPlan] = useState([]);
   const [prestacionesRealizadas, setPrestacionesRealizadas] = useState([]);
   const [pendientesIds, setPendientesIds] = useState([]);
+  // Solo para Obra Social sin plan: lo que el profesional marcó en Agenda
+  // no se puede pre-cargar en la fila (el catálogo de acá es el de
+  // particular, no el nomenclador), así que se avisa en texto para que
+  // se agregue a mano — igual se cierra el pendiente al cobrar.
+  const [pendientesObraSocialSinPrecargar, setPendientesObraSocialSinPrecargar] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestaciones, setPrestaciones] = useState([filaVacia()]);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -80,6 +85,7 @@ export default function CobroFormModal({
     setPrestacionesDelPlan([]);
     setPrestacionesRealizadas([]);
     setPendientesIds([]);
+    setPendientesObraSocialSinPrecargar([]);
     setPrestaciones([filaVacia()]);
     setCargoExtraPlan(null);
     setSaldoAFavor(0);
@@ -135,43 +141,50 @@ export default function CobroFormModal({
         : obtenerPrestacionesParticular();
     promesaCatalogo.then((disponibles) => {
       setPrestacionesDisponibles(disponibles);
-      // Las prestaciones sueltas marcadas en Agenda (sin plan) solo se
-      // pueden pre-completar para pacientes particulares, porque el
-      // catálogo que se usa ahí es el de particular, no el nomenclador.
-      if (!esObraSocial) {
-        promesaPendientes.then((pendientes) => {
-          if (pendientes.adHoc.length === 0) return;
-          const filas = pendientes.adHoc
-            .map((p) => {
-              const item = disponibles.find((d) => d.id === p.catalogoId);
-              if (!item) return null;
-              return {
-                itemId: item.id,
-                prestacion: item.prestacion,
-                codigo: item.codigo || "",
-                cantidad: p.cantidad || 1,
-                // Si el profesional marcó un precio distinto en Agenda, se
-                // respeta ese en vez del de lista/efectivo del catálogo —
-                // "esManual" evita que el efecto de abajo (que recalcula al
-                // cambiar el medio de pago) se lo pise.
-                valor: p.precioManual ?? item.valor_efectivo ?? item.valor_lista ?? 0,
-                valorOS: 0,
-                sinHonorarios: item.prestacion === "Estampilla",
-                especialidad: item.especialidad || null,
-                esManual: Boolean(p.precioManual),
-              };
-            })
-            .filter(Boolean);
-          if (filas.length > 0) {
-            setPrestaciones(filas);
-            setPendientesIds((actual) => [...actual, ...pendientes.adHoc.map((p) => p.id)]);
-            const conNota = pendientes.adHoc.find((p) => p.notaProximoTurno);
-            if (conNota) {
-              setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
-            }
-          }
-        });
-      }
+      promesaPendientes.then((pendientes) => {
+        if (pendientes.adHoc.length === 0) return;
+        // Esto se cierra siempre, sea Particular u Obra Social — si no,
+        // para un paciente de Obra Social sin plan lo marcado en Agenda
+        // nunca se limpiaba (el catálogo de acá abajo es el de particular,
+        // no le sirve al nomenclador de obra social, así que antes ni
+        // siquiera se intentaba tocar el pendiente) y la nube de "listo
+        // para cobrar" le quedaba pegada para siempre aunque ya le hubieran
+        // cobrado.
+        setPendientesIds((actual) => [...actual, ...pendientes.adHoc.map((p) => p.id)]);
+        const conNota = pendientes.adHoc.find((p) => p.notaProximoTurno);
+        if (conNota) {
+          setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
+        }
+        // Pre-completar las filas de "A qué viene" con el catálogo de acá
+        // solo tiene sentido para particulares — el catálogo que se usa
+        // acá es el de particular, no el nomenclador de obra social.
+        if (esObraSocial) {
+          setPendientesObraSocialSinPrecargar(pendientes.adHoc.map((p) => p.prestacion));
+          return;
+        }
+        const filas = pendientes.adHoc
+          .map((p) => {
+            const item = disponibles.find((d) => d.id === p.catalogoId);
+            if (!item) return null;
+            return {
+              itemId: item.id,
+              prestacion: item.prestacion,
+              codigo: item.codigo || "",
+              cantidad: p.cantidad || 1,
+              // Si el profesional marcó un precio distinto en Agenda, se
+              // respeta ese en vez del de lista/efectivo del catálogo —
+              // "esManual" evita que el efecto de abajo (que recalcula al
+              // cambiar el medio de pago) se lo pise.
+              valor: p.precioManual ?? item.valor_efectivo ?? item.valor_lista ?? 0,
+              valorOS: 0,
+              sinHonorarios: item.prestacion === "Estampilla",
+              especialidad: item.especialidad || null,
+              esManual: Boolean(p.precioManual),
+            };
+          })
+          .filter(Boolean);
+        if (filas.length > 0) setPrestaciones(filas);
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteId]);
@@ -452,7 +465,7 @@ export default function CobroFormModal({
 
           {cargandoPlan && <p className="text-sm text-gray-500">Buscando plan de financiación activo...</p>}
 
-          {pendientesIds.length > 0 && (
+          {pendientesIds.length > 0 && pendientesObraSocialSinPrecargar.length === 0 && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               ✓ Ya viene pre-cargado con lo que el profesional marcó en Agenda — revisá y confirmá.
               {cargoExtraPlan && (
@@ -462,6 +475,14 @@ export default function CobroFormModal({
                   {Number(cargoExtraPlan.monto).toLocaleString("es-AR")}) — ya viene sumado al pago.
                 </>
               )}
+            </p>
+          )}
+
+          {pendientesObraSocialSinPrecargar.length > 0 && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              ✓ El profesional marcó en Agenda: {pendientesObraSocialSinPrecargar.join(", ")}. No se pudo
+              pre-cargar la fila porque es de Obra Social — agregala a mano abajo con el código del nomenclador
+              que corresponda.
             </p>
           )}
 
