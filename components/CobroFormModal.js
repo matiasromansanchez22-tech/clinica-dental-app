@@ -44,6 +44,8 @@ export default function CobroFormModal({
   const [planActivo, setPlanActivo] = useState(null);
   const [cargandoPlan, setCargandoPlan] = useState(false);
   const [cobroIndependienteDelPlan, setCobroIndependienteDelPlan] = useState(false);
+  const [cobroComoParticular, setCobroComoParticular] = useState(false);
+  const primerCatalogoCargado = useRef(false);
   const [prestacionesDelPlan, setPrestacionesDelPlan] = useState([]);
   const [prestacionesRealizadas, setPrestacionesRealizadas] = useState([]);
   const [pendientesIds, setPendientesIds] = useState([]);
@@ -71,6 +73,12 @@ export default function CobroFormModal({
   const paciente = pacientes.find((p) => p.id === pacienteId);
   const esObraSocial = paciente?.tipo_paciente === "Obra Social" || paciente?.tipo_paciente === "Mixto";
   const usaPlan = Boolean(planActivo) && !cobroIndependienteDelPlan;
+  // Un paciente registrado como Obra Social (o Mixto) a veces viene a
+  // hacerse algo puntual que paga particular (para poder cobrar el valor
+  // particular en vez del de la obra social) — este check no toca el
+  // registro del paciente, solo hace que ESTE cobro use el catálogo y el
+  // precio de particular.
+  const esObraSocialEfectivo = esObraSocial && !cobroComoParticular;
 
   useEffect(() => {
     if (!paciente) {
@@ -82,6 +90,8 @@ export default function CobroFormModal({
     if (pacienteIdAnterior.current !== pacienteId) setProfesionalAtencionId("");
     pacienteIdAnterior.current = pacienteId;
     setCobroIndependienteDelPlan(false);
+    setCobroComoParticular(false);
+    primerCatalogoCargado.current = false;
     setPrestacionesDelPlan([]);
     setPrestacionesRealizadas([]);
     setPendientesIds([]);
@@ -141,6 +151,7 @@ export default function CobroFormModal({
         : obtenerPrestacionesParticular();
     promesaCatalogo.then((disponibles) => {
       setPrestacionesDisponibles(disponibles);
+      primerCatalogoCargado.current = true;
       promesaPendientes.then((pendientes) => {
         if (pendientes.adHoc.length === 0) return;
         // Esto se cierra siempre, sea Particular u Obra Social — si no,
@@ -189,9 +200,24 @@ export default function CobroFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacienteId]);
 
+  // Al tildar/destildar "cobrar como particular" se cambia de catálogo
+  // (nomenclador ↔ particular) — se ignora la primera vez que corre (ya
+  // lo cargó el efecto de arriba al elegir el paciente).
+  useEffect(() => {
+    if (!paciente) return;
+    if (!primerCatalogoCargado.current) return;
+    const promesaCatalogo =
+      esObraSocialEfectivo && paciente.obra_social
+        ? obtenerPrestacionesObraSocial(paciente.obra_social)
+        : obtenerPrestacionesParticular();
+    promesaCatalogo.then(setPrestacionesDisponibles);
+    setPrestaciones([filaVacia()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cobroComoParticular]);
+
   function calcularValor(item) {
     if (!item) return { valor: 0, valorOS: 0 };
-    if (esObraSocial) {
+    if (esObraSocialEfectivo) {
       return { valor: Number(item.copago_oficial) || 0, valorOS: Number(item.valor_os) || 0 };
     }
     // Con pago mixto no hay un único medio para decidir el precio — se usa
@@ -208,7 +234,7 @@ export default function CobroFormModal({
       if ("itemId" in cambios) {
         const item = prestacionesDisponibles.find((p) => p.id === cambios.itemId);
         const { valor, valorOS } = calcularValor(item);
-        fila.prestacion = item ? (esObraSocial ? item.prestacion_os : item.prestacion) : "";
+        fila.prestacion = item ? (esObraSocialEfectivo ? item.prestacion_os : item.prestacion) : "";
         fila.codigo = item?.codigo || "";
         fila.valor = valor;
         fila.valorOS = valorOS;
@@ -233,7 +259,7 @@ export default function CobroFormModal({
   // los valores de particulares (Lista/Efectivo) — salvo las filas con
   // precio manual (marcado como distinto desde Agenda), esas no se tocan.
   useEffect(() => {
-    if (esObraSocial) return;
+    if (esObraSocialEfectivo) return;
     setPrestaciones((filas) =>
       filas.map((f) => {
         if (!f.itemId || f.esManual) return f;
@@ -340,13 +366,14 @@ export default function CobroFormModal({
       const observacionesFinal = [
         observaciones || null,
         cargoExtraPlan ? `Cargo extra: ${cargoExtraPlan.descripcion || "(sin descripción)"} ($${Number(cargoExtraPlan.monto).toLocaleString("es-AR")})` : null,
+        cobroComoParticular ? `Paciente de ${paciente.obra_social || "obra social"} — esta prestación se cobró como particular.` : null,
       ]
         .filter(Boolean)
         .join(" | ");
       const caja = await crearCobro({
         fecha,
-        tipo: esObraSocial ? "Obra Social" : "Particular",
-        cobertura: esObraSocial ? paciente.obra_social : "Particular",
+        tipo: esObraSocialEfectivo ? "Obra Social" : "Particular",
+        cobertura: esObraSocialEfectivo ? paciente.obra_social : "Particular",
         pacienteId,
         dni: paciente.dni,
         numeroAfiliado: paciente.numero_afiliado,
@@ -463,6 +490,17 @@ export default function CobroFormModal({
             </div>
           )}
 
+          {esObraSocial && (
+            <label className="flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              <input
+                type="checkbox"
+                checked={cobroComoParticular}
+                onChange={(e) => setCobroComoParticular(e.target.checked)}
+              />
+              Cobrar esta prestación como particular (no por la obra social)
+            </label>
+          )}
+
           {cargandoPlan && <p className="text-sm text-gray-500">Buscando plan de financiación activo...</p>}
 
           {pendientesIds.length > 0 && pendientesObraSocialSinPrecargar.length === 0 && (
@@ -545,7 +583,7 @@ export default function CobroFormModal({
                 {prestaciones.map((fila, i) => (
                   <div key={i} className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      {esObraSocial && (
+                      {esObraSocialEfectivo && (
                         <input
                           type="text"
                           placeholder="Código"
@@ -570,7 +608,7 @@ export default function CobroFormModal({
                         <option value="">(elegir prestación)</option>
                         {prestacionesDisponibles.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {esObraSocial ? p.prestacion_os : p.prestacion}
+                            {esObraSocialEfectivo ? p.prestacion_os : p.prestacion}
                           </option>
                         ))}
                       </select>
