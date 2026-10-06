@@ -4,10 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obraDelNomenclador, obtenerPrestacionesDeObra } from "@/lib/data/autorizacionesObraSocial";
 
-function tieneObraSocial(p) {
-  return !!p.obra_social;
-}
-
 function etiquetaPrestacion(p) {
   return `${p.prestacion_os}${p.codigo ? ` (${p.codigo})` : ""}`;
 }
@@ -18,7 +14,6 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
   );
   const [busqueda, setBusqueda] = useState("");
   const [listaAbierta, setListaAbierta] = useState(false);
-  const [soloConObraSocial, setSoloConObraSocial] = useState(true);
   const [obraSocial, setObraSocial] = useState(autorizacion?.obraSocial || "");
   const [numeroAfiliado, setNumeroAfiliado] = useState(autorizacion?.numeroAfiliado || "");
   const [prestacion, setPrestacion] = useState(autorizacion?.prestacion || "");
@@ -55,12 +50,10 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
     if (pacienteElegido) return [];
     const q = busqueda.trim().toLowerCase();
     return pacientes
-      .filter((p) => (soloConObraSocial ? tieneObraSocial(p) : true))
       .filter(
         (p) => !q || (p.apellido_y_nombre || "").toLowerCase().includes(q) || (p.dni || "").includes(q)
-      )
-      .slice(0, 8);
-  }, [pacientes, pacienteElegido, busqueda, soloConObraSocial]);
+      );
+  }, [pacientes, pacienteElegido, busqueda]);
 
   function elegirPaciente(p) {
     setPacienteElegido(p);
@@ -147,17 +140,9 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
                   placeholder="Tocá para ver la lista o escribí nombre o DNI..."
                   className="rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
-                <label className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                  <input
-                    type="checkbox"
-                    checked={soloConObraSocial}
-                    onChange={(e) => setSoloConObraSocial(e.target.checked)}
-                  />
-                  Mostrar solo pacientes con obra social
-                </label>
                 {(listaAbierta || busqueda.trim()) &&
                   (coincidencias.length > 0 ? (
-                    <ul className="max-h-48 overflow-y-auto rounded-md border border-gray-200">
+                    <ul className="max-h-64 overflow-y-auto rounded-md border border-gray-200">
                       {coincidencias.map((p) => (
                         <li key={p.id}>
                           <button
@@ -178,7 +163,7 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
                     </ul>
                   ) : (
                     <p className="text-xs text-gray-400">
-                      No hay pacientes con ese dato{soloConObraSocial ? " (probá destildar el filtro de obra social)" : ""}.
+                      No hay pacientes con ese dato.
                     </p>
                   ))}
               </>
