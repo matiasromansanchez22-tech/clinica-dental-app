@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { MEDIOS, obtenerLimpioPorDia } from "@/lib/data/limpioDiario";
 
@@ -261,8 +261,8 @@ function LimpioDiarioContenido() {
 
 export default function LimpioDiarioPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <LimpioDiarioContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }

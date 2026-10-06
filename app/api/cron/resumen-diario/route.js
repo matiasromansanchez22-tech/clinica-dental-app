@@ -56,7 +56,7 @@ export async function GET(request) {
       { data: cierresTurnoOrto, error: e7 },
     ] = await Promise.all([
       supabase.from("caja_general").select("pago, medio_pago, desglose_pago").eq("fecha", fecha),
-      supabase.from("caja_ortodoncia").select("importe, medio_pago").eq("fecha", fecha),
+      supabase.from("caja_ortodoncia").select("importe, medio_pago, desglose_pago").eq("fecha", fecha),
       supabase.from("gastos").select("categoria, monto, medio_pago").eq("fecha", fecha),
       supabase.from("categorias_gasto").select("nombre, sale_de_reserva"),
       supabase.from("pagos_profesionales").select("monto, medio_pago").eq("fecha", fecha),
@@ -66,7 +66,7 @@ export async function GET(request) {
     for (const e of [e1, e2, e3, e4, e5, e6, e7]) if (e) throw e;
 
     const totalesGeneral = sumarPorMedioPago(cobrosGeneral, "pago", "desglose_pago");
-    const totalesOrto = sumarPorMedioPago(cobrosOrto, "importe");
+    const totalesOrto = sumarPorMedioPago(cobrosOrto, "importe", "desglose_pago");
     const totalCombinado = totalesGeneral.totalGeneral + totalesOrto.totalGeneral;
 
     const categoriasReserva = new Set(categoriasGasto.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
@@ -74,6 +74,14 @@ export async function GET(request) {
     const totalEgresos =
       gastosDelDia.reduce((a, g) => a + Number(g.monto), 0) + pagosProfesionales.reduce((a, p) => a + Number(p.monto), 0);
     const totalNeto = totalCombinado - totalEgresos;
+
+    const egresosPorMedio = (medio) =>
+      [...gastosDelDia, ...pagosProfesionales]
+        .filter((e) => e.medio_pago === medio)
+        .reduce((a, e) => a + Number(e.monto), 0);
+    const limpioEfectivo = totalesGeneral.efectivo + totalesOrto.efectivo - egresosPorMedio("Efectivo");
+    const limpioTransferencia =
+      totalesGeneral.transferencia + totalesOrto.transferencia - egresosPorMedio("Transferencia");
 
     // Un día sin ninguna actividad (la clínica no abrió) no amerita aviso.
     if (totalCombinado === 0 && totalEgresos === 0) {
@@ -90,9 +98,9 @@ export async function GET(request) {
 
     let mensaje;
     if (faltantes.length > 0) {
-      mensaje = `⚠️ Falta cerrar el turno de ${faltantes.join(" y ")}. Ingresos ${formatoPesos(totalCombinado)} · Neto ${formatoPesos(totalNeto)}`;
+      mensaje = `⚠️ Falta cerrar el turno de ${faltantes.join(" y ")}. Limpio: Efectivo ${formatoPesos(limpioEfectivo)} · Transf. ${formatoPesos(limpioTransferencia)} · Neto ${formatoPesos(totalNeto)}`;
     } else {
-      mensaje = `Ingresos ${formatoPesos(totalCombinado)} (Gral ${formatoPesos(totalesGeneral.totalGeneral)} + Orto ${formatoPesos(totalesOrto.totalGeneral)}) · Egresos ${formatoPesos(totalEgresos)} · Neto ${formatoPesos(totalNeto)}`;
+      mensaje = `Ingresos ${formatoPesos(totalCombinado)} · Egresos ${formatoPesos(totalEgresos)} · Limpio: Efectivo ${formatoPesos(limpioEfectivo)} + Transf. ${formatoPesos(limpioTransferencia)} = ${formatoPesos(totalNeto)}`;
     }
 
     const clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;

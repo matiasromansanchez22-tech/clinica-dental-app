@@ -25,9 +25,11 @@ export async function POST(request) {
     let query = supabase.from("push_subscriptions").select("*, usuario:perfiles(rol)");
     const { data: suscripcionesCrudas, error } = await query;
     if (error) throw error;
+    // Sin "roles" se manda a todos menos al Contador, que solo recibe el
+    // resumen diario (errores y presupuestos no le corresponden).
     const suscripciones = roles?.length
       ? (suscripcionesCrudas || []).filter((s) => roles.includes(s.usuario?.rol))
-      : suscripcionesCrudas;
+      : (suscripcionesCrudas || []).filter((s) => s.usuario?.rol !== "Contador");
     if (!suscripciones || suscripciones.length === 0) {
       return Response.json({ ok: true, enviados: 0 });
     }

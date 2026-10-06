@@ -19,7 +19,8 @@ export default function ActivarAvisosBoton() {
   const [activado, setActivado] = useState(false);
   const [procesando, setProcesando] = useState(false);
 
-  const puedeActivar = perfil?.rol === "Duena" || perfil?.rol === "Secretaria";
+  const esContador = perfil?.rol === "Contador";
+  const puedeActivar = perfil?.rol === "Duena" || perfil?.rol === "Secretaria" || esContador;
 
   useEffect(() => {
     if (!puedeActivar) return;
@@ -80,9 +81,13 @@ export default function ActivarAvisosBoton() {
       onClick={activado ? desactivar : activar}
       disabled={procesando}
       title={
-        activado
-          ? "Vas a recibir un aviso acá (presupuestos nuevos, errores de la app, etc.)"
-          : "Recibí un aviso en este dispositivo (presupuestos nuevos, errores de la app, etc.)"
+        esContador
+          ? activado
+            ? "Vas a recibir acá el resumen del cierre de cada día"
+            : "Recibí en este dispositivo el resumen del cierre de cada día"
+          : activado
+            ? "Vas a recibir un aviso acá (presupuestos nuevos, errores de la app, etc.)"
+            : "Recibí un aviso en este dispositivo (presupuestos nuevos, errores de la app, etc.)"
       }
       className="rounded-md border border-brand-brown/40 px-2.5 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30 disabled:opacity-50"
     >
