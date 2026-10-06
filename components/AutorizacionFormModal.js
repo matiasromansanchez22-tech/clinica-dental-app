@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { obraDelNomenclador, obtenerPrestacionesDeObra } from "@/lib/data/autorizacionesObraSocial";
+import { normalizar, obraDelNomenclador, obtenerPrestacionesDeObra } from "@/lib/data/autorizacionesObraSocial";
 
 function etiquetaPrestacion(p) {
   return `${p.prestacion_os}${p.codigo ? ` (${p.codigo})` : ""}`;
@@ -25,6 +25,7 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
   const [observaciones, setObservaciones] = useState(autorizacion?.observaciones || "");
   const [cargadas, setCargadas] = useState({ obra: null, lista: [] });
   const [busquedaPrestacion, setBusquedaPrestacion] = useState("");
+  const [prestacionesAbiertas, setPrestacionesAbiertas] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -44,7 +45,10 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
     };
   }, [obraEnNomenclador]);
 
-  const prestacionesDeObra = obraEnNomenclador && cargadas.obra === obraEnNomenclador ? cargadas.lista : [];
+  const prestacionesDeObra = useMemo(
+    () => (obraEnNomenclador && cargadas.obra === obraEnNomenclador ? cargadas.lista : []),
+    [obraEnNomenclador, cargadas]
+  );
 
   const coincidencias = useMemo(() => {
     if (pacienteElegido) return [];
@@ -63,14 +67,27 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
     if (p.numero_afiliado) setNumeroAfiliado(p.numero_afiliado);
   }
 
-  function agregarPrestacion(texto) {
-    const item = prestacionesDeObra.find((p) => etiquetaPrestacion(p) === texto);
-    if (!item) {
-      setBusquedaPrestacion(texto);
-      return;
-    }
+  const prestacionesCoinciden = useMemo(() => {
+    const q = normalizar(busquedaPrestacion);
+    if (!q) return prestacionesDeObra;
+    return prestacionesDeObra.filter(
+      (p) => normalizar(p.codigo).includes(q) || normalizar(p.prestacion_os).includes(q)
+    );
+  }, [prestacionesDeObra, busquedaPrestacion]);
+
+  function agregarPrestacion(item) {
+    const texto = etiquetaPrestacion(item);
     setPrestacion((actual) => (actual.trim() ? `${actual.trim()}\n${texto}` : texto));
     setBusquedaPrestacion("");
+  }
+
+  function alApretarEnter(e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const q = normalizar(busquedaPrestacion);
+    const porCodigo = prestacionesDeObra.find((p) => normalizar(p.codigo) === q);
+    const elegida = porCodigo || (prestacionesCoinciden.length === 1 ? prestacionesCoinciden[0] : null);
+    if (elegida) agregarPrestacion(elegida);
   }
 
   async function guardar() {
@@ -201,16 +218,35 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
               <>
                 <input
                   value={busquedaPrestacion}
-                  onChange={(e) => agregarPrestacion(e.target.value)}
-                  list="autorizaciones-prestaciones"
-                  placeholder={`Buscar prestación de ${obraEnNomenclador} y elegirla para agregarla...`}
+                  onChange={(e) => setBusquedaPrestacion(e.target.value)}
+                  onFocus={() => setPrestacionesAbiertas(true)}
+                  onBlur={() => setPrestacionesAbiertas(false)}
+                  onKeyDown={alApretarEnter}
+                  placeholder={`Escribí el código o el nombre de la prestación de ${obraEnNomenclador}...`}
                   className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                 />
-                <datalist id="autorizaciones-prestaciones">
-                  {prestacionesDeObra.map((p) => (
-                    <option key={p.id} value={etiquetaPrestacion(p)} />
+                {(prestacionesAbiertas || busquedaPrestacion.trim()) &&
+                  (prestacionesCoinciden.length > 0 ? (
+                    <ul className="max-h-48 overflow-y-auto rounded-md border border-gray-200">
+                      {prestacionesCoinciden.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              agregarPrestacion(p);
+                            }}
+                            className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50"
+                          >
+                            <span className="w-12 shrink-0 font-mono text-xs text-gray-400">{p.codigo}</span>
+                            <span>{p.prestacion_os}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-[11px] text-gray-400">No hay ninguna prestación con ese código o nombre.</p>
                   ))}
-                </datalist>
               </>
             ) : (
               obraSocial.trim() && (
