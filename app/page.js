@@ -59,6 +59,8 @@ const ACCESOS_POR_ROL = {
     { href: "/caja", icon: "💰", label: "Caja General" },
     { href: "/ortodoncia/caja", icon: "🦷", label: "Caja Ortodoncia" },
     { href: "/gerencial/gastos", icon: "🧾", label: "Gastos" },
+    { href: "/gerencial/produccion", icon: "💼", label: "Producción y liquidación" },
+    { href: "/gerencial/horarios", icon: "🕐", label: "Horarios y liquidación" },
     { href: "/gerencial/balance-mensual", icon: "📊", label: "Balance Mensual" },
     { href: "/gerencial/balance-anual", icon: "📈", label: "Balance Anual" },
   ],

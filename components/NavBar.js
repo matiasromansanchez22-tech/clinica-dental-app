@@ -98,6 +98,7 @@ const GRUPOS = [
       { href: "/gerencial/fichas-entre-rios", label: "Fichas Entre Ríos (Swiss Medical / Osde / Sancor)" },
       { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
+      { href: "/gerencial/horarios", label: "🕐 Horarios y liquidación" },
       { href: "/gerencial/balance-mensual", label: "Balance Mensual" },
       { href: "/gerencial/balance-anual", label: "Balance Anual" },
     ],

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import RegistroHorarioFormModal from "@/components/RegistroHorarioFormModal";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   actualizarValorHora,
@@ -30,7 +31,7 @@ function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
 
-function FilaPersona({ persona, registros, onCambiarValorHora, onEditar, onNuevo, onBorrar }) {
+function FilaPersona({ persona, registros, soloLectura, onCambiarValorHora, onEditar, onNuevo, onBorrar }) {
   const [abierto, setAbierto] = useState(false);
   const [valorHoraLocal, setValorHoraLocal] = useState(persona.valorHora ?? "");
 
@@ -62,15 +63,18 @@ function FilaPersona({ persona, registros, onCambiarValorHora, onEditar, onNuevo
                 value={valorHoraLocal}
                 onChange={(e) => setValorHoraLocal(e.target.value)}
                 onBlur={() => onCambiarValorHora(persona.id, valorHoraLocal)}
-                className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                disabled={soloLectura}
+                className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50 disabled:text-gray-600"
               />
             </label>
-            <button
-              onClick={() => onNuevo(persona)}
-              className="ml-auto rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
-            >
-              + Agregar registro
-            </button>
+            {!soloLectura && (
+              <button
+                onClick={() => onNuevo(persona)}
+                className="ml-auto rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+              >
+                + Agregar registro
+              </button>
+            )}
           </div>
           <table className="w-full border-collapse text-xs">
             <thead>
@@ -97,12 +101,16 @@ function FilaPersona({ persona, registros, onCambiarValorHora, onEditar, onNuevo
                   <td className="px-2 py-1.5">{r.horaSalida || "—"}</td>
                   <td className="px-2 py-1.5 text-right">{formatoHoras(horasTrabajadas(r))}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                    <button onClick={() => onEditar(r)} className="text-blue-600 hover:underline">
-                      Editar
-                    </button>
-                    <button onClick={() => onBorrar(r)} className="ml-2 text-red-600 hover:underline">
-                      Borrar
-                    </button>
+                    {!soloLectura && (
+                      <>
+                        <button onClick={() => onEditar(r)} className="text-blue-600 hover:underline">
+                          Editar
+                        </button>
+                        <button onClick={() => onBorrar(r)} className="ml-2 text-red-600 hover:underline">
+                          Borrar
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -115,6 +123,8 @@ function FilaPersona({ persona, registros, onCambiarValorHora, onEditar, onNuevo
 }
 
 function HorariosContenido() {
+  const { perfil } = useAuth();
+  const soloLectura = perfil?.rol === "Contador";
   const hoy = fechaDeHoyISO();
   const { primero, ultimo } = primerYUltimoDiaDelMes(hoy);
   const [fechaInicio, setFechaInicio] = useState(primero);
@@ -220,6 +230,7 @@ function HorariosContenido() {
             key={p.id}
             persona={p}
             registros={registrosPorPersona[p.id] || []}
+            soloLectura={soloLectura}
             onCambiarValorHora={alCambiarValorHora}
             onEditar={(registro) => setModal({ registro, usuarioId: p.id, usuarioNombre: p.nombre })}
             onNuevo={(persona) => setModal({ registro: null, usuarioId: persona.id, usuarioNombre: persona.nombre })}
@@ -245,8 +256,8 @@ function HorariosContenido() {
 
 export default function HorariosPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <HorariosContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }
