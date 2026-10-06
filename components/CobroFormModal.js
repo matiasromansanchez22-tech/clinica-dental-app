@@ -166,9 +166,35 @@ export default function CobroFormModal({
         if (conNota) {
           setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
         }
-        // Pre-completar las filas de "A qué viene" con el catálogo de acá
-        // solo tiene sentido para particulares — el catálogo que se usa
-        // acá es el de particular, no el nomenclador de obra social.
+        // Paciente de Obra Social: lo que marcó el profesional viene del
+        // catálogo particular, así que se busca la prestación equivalente en
+        // el nomenclador de su obra social (por id_catalogo) para traer el
+        // código y el copago. Lo que no tenga equivalente se avisa en texto.
+        if (esObraSocial && paciente.obra_social) {
+          const sinEquivalente = [];
+          const filasOS = [];
+          for (const p of pendientes.adHoc) {
+            const item = disponibles.find((d) => d.id_catalogo && d.id_catalogo === p.catalogoId);
+            if (!item) {
+              sinEquivalente.push(p.prestacion);
+              continue;
+            }
+            filasOS.push({
+              itemId: item.id,
+              prestacion: item.prestacion_os,
+              codigo: item.codigo || "",
+              cantidad: p.cantidad || 1,
+              valor: p.precioManual ?? (Number(item.copago_oficial) || 0),
+              valorOS: Number(item.valor_os) || 0,
+              sinHonorarios: item.prestacion_os === "Estampilla",
+              categoria: item.categoria || null,
+              esManual: Boolean(p.precioManual),
+            });
+          }
+          if (filasOS.length > 0) setPrestaciones(filasOS);
+          setPendientesObraSocialSinPrecargar(sinEquivalente);
+          return;
+        }
         if (esObraSocial) {
           setPendientesObraSocialSinPrecargar(pendientes.adHoc.map((p) => p.prestacion));
           return;
@@ -518,9 +544,9 @@ export default function CobroFormModal({
 
           {pendientesObraSocialSinPrecargar.length > 0 && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              ✓ El profesional marcó en Agenda: {pendientesObraSocialSinPrecargar.join(", ")}. No se pudo
-              pre-cargar la fila porque es de Obra Social — agregala a mano abajo con el código del nomenclador
-              que corresponda.
+              ✓ El profesional marcó en Agenda: {pendientesObraSocialSinPrecargar.join(", ")}. No se encontró
+              en el nomenclador de la obra social, así que no se pudo pre-cargar — agregala a mano abajo con el
+              código que corresponda.
             </p>
           )}
 

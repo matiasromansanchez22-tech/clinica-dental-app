@@ -91,6 +91,12 @@ export default function AvisoPrestacionRealizada() {
           <div>
             <p className="font-heading text-sm font-bold text-brand-brown">✅ {a.nombre} — listo para cobrar</p>
             <p className="mt-0.5 text-xs text-gray-700">{a.prestaciones.join(", ")}</p>
+            {a.monto != null && (a.monto > 0 || a.montoIncompleto) && (
+              <p className="mt-1 text-sm font-semibold text-emerald-700">
+                💲 A cobrar: ${a.monto.toLocaleString("es-AR")}
+                {a.montoIncompleto && <span className="text-xs font-normal text-amber-700"> (+ ítems sin precio)</span>}
+              </p>
+            )}
           </div>
 
           {pidiendoFechaPara === a.clave ? (
