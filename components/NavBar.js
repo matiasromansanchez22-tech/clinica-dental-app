@@ -99,6 +99,7 @@ const GRUPOS = [
       { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/horarios", label: "🕐 Horarios y liquidación" },
+      { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
       { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes" },
       { href: "/gerencial/balance-mensual", label: "Balance Mensual" },
       { href: "/gerencial/balance-anual", label: "Balance Anual" },

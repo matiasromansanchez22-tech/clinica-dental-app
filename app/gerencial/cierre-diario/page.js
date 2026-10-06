@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { calcularTotalesDelDia } from "@/lib/data/cierres";
@@ -95,6 +95,7 @@ function TarjetaCierreTurno({ etiqueta, cierres, cantidadCobros }) {
 
 function CierreDiarioContenido() {
   const { user, perfil } = useAuth();
+  const soloLectura = perfil?.rol === "Contador";
   const hoy = fechaDeHoyISO();
   const [fecha, setFecha] = useState(hoy);
   const [totalesGeneral, setTotalesGeneral] = useState(null);
@@ -475,26 +476,38 @@ function CierreDiarioContenido() {
               <p className="mt-1 text-sm text-brand-green">
                 ✅ Aprobado por {cierreAprobado.nombre_duena} el{" "}
                 {new Date(cierreAprobado.aprobado_en).toLocaleString("es-AR")}, con los números de ese momento
-                congelados. Si volvés a aprobar, se vuelve a congelar con los números actuales.
+                congelados.
+                {!soloLectura && " Si volvés a aprobar, se vuelve a congelar con los números actuales."}
               </p>
             ) : (
-              <p className="mt-1 text-sm text-gray-500">Todavía no aprobaste este día.</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {soloLectura
+                  ? "Este día todavía no fue aprobado: los números son provisorios."
+                  : "Todavía no aprobaste este día."}
+              </p>
             )}
-            <label className="mt-3 flex flex-col gap-1 text-sm text-gray-700">
-              Observaciones (opcional)
-              <input
-                value={observacionesAprobacion}
-                onChange={(e) => setObservacionesAprobacion(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5"
-              />
-            </label>
-            <button
-              onClick={handleAprobar}
-              disabled={aprobando}
-              className="mt-3 rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
-            >
-              {aprobando ? "Guardando..." : cierreAprobado ? "Actualizar aprobación" : "✅ Aprobar cierre del día"}
-            </button>
+            {soloLectura && cierreAprobado?.observaciones && (
+              <p className="mt-2 text-sm text-gray-700">Observaciones: {cierreAprobado.observaciones}</p>
+            )}
+            {!soloLectura && (
+              <>
+                <label className="mt-3 flex flex-col gap-1 text-sm text-gray-700">
+                  Observaciones (opcional)
+                  <input
+                    value={observacionesAprobacion}
+                    onChange={(e) => setObservacionesAprobacion(e.target.value)}
+                    className="rounded-md border border-gray-300 px-2 py-1.5"
+                  />
+                </label>
+                <button
+                  onClick={handleAprobar}
+                  disabled={aprobando}
+                  className="mt-3 rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+                >
+                  {aprobando ? "Guardando..." : cierreAprobado ? "Actualizar aprobación" : "✅ Aprobar cierre del día"}
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
@@ -504,8 +517,8 @@ function CierreDiarioContenido() {
 
 export default function CierreDiarioGerencialPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <CierreDiarioContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }
