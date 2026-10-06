@@ -5,8 +5,7 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import { obraDelNomenclador, obtenerPrestacionesDeObra } from "@/lib/data/autorizacionesObraSocial";
 
 function tieneObraSocial(p) {
-  const tipo = p.tipo_paciente;
-  return (tipo === "Obra Social" || tipo === "Mixto") && !!p.obra_social;
+  return !!p.obra_social;
 }
 
 function etiquetaPrestacion(p) {
@@ -167,7 +166,12 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
                             className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50"
                           >
                             <span>{p.apellido_y_nombre}</span>
-                            {p.obra_social && <span className="text-xs text-gray-400">{p.obra_social}</span>}
+                            {p.obra_social && (
+                              <span className="text-xs text-gray-400">
+                                {p.obra_social}
+                                {p.obraSocialDeAgenda ? " (según agenda)" : ""}
+                              </span>
+                            )}
                           </button>
                         </li>
                       ))}

@@ -9,6 +9,7 @@ import {
   crearAutorizacion,
   eliminarAutorizacion,
   obtenerAutorizaciones,
+  obtenerCoberturasDeAgenda,
   obtenerObrasSocialesDelNomenclador,
 } from "@/lib/data/autorizacionesObraSocial";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
@@ -59,7 +60,22 @@ function AutorizacionesContenido() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     recargar();
-    obtenerPacientesActivos().then(setPacientes).catch(() => {});
+    Promise.all([obtenerPacientesActivos(), obtenerCoberturasDeAgenda().catch(() => ({}))])
+      .then(([lista, coberturas]) =>
+        setPacientes(
+          lista.map((p) => {
+            const c = coberturas[p.id];
+            if (p.obra_social || !c) return p;
+            return {
+              ...p,
+              obra_social: c.obraSocial,
+              numero_afiliado: p.numero_afiliado || c.numeroAfiliado,
+              obraSocialDeAgenda: true,
+            };
+          })
+        )
+      )
+      .catch(() => {});
     obtenerObrasSocialesDelNomenclador().then(setObrasNomenclador).catch(() => {});
   }, []);
 
