@@ -9,11 +9,13 @@ import {
   crearAutorizacion,
   eliminarAutorizacion,
   obtenerAutorizaciones,
+  obtenerObrasSocialesDelNomenclador,
 } from "@/lib/data/autorizacionesObraSocial";
-import { obtenerObrasSocialesSugeridas, obtenerPacientesActivos } from "@/lib/data/pacientes";
+import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 
 const COLOR_ESTADO = {
   "Para autorizar": "bg-amber-100 text-amber-700",
+  Enviada: "bg-sky-100 text-sky-700",
   Autorizada: "bg-emerald-100 text-emerald-700",
 };
 
@@ -32,7 +34,7 @@ function diasDesde(fechaISO) {
 function AutorizacionesContenido() {
   const [items, setItems] = useState([]);
   const [pacientes, setPacientes] = useState([]);
-  const [obrasSociales, setObrasSociales] = useState([]);
+  const [obrasNomenclador, setObrasNomenclador] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState("Para autorizar");
@@ -58,11 +60,11 @@ function AutorizacionesContenido() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     recargar();
     obtenerPacientesActivos().then(setPacientes).catch(() => {});
-    obtenerObrasSocialesSugeridas().then(setObrasSociales).catch(() => {});
+    obtenerObrasSocialesDelNomenclador().then(setObrasNomenclador).catch(() => {});
   }, []);
 
   const cantidades = useMemo(() => {
-    const c = { "Para autorizar": 0, Autorizada: 0 };
+    const c = { "Para autorizar": 0, Enviada: 0, Autorizada: 0 };
     for (const i of items) c[i.estado] = (c[i.estado] || 0) + 1;
     return c;
   }, [items]);
@@ -93,11 +95,25 @@ function AutorizacionesContenido() {
     setEnEdicion(null);
   }
 
+  async function cambiarEstado(item, cambios) {
+    try {
+      await actualizarAutorizacion(item.id, { ...item, ...cambios });
+      await recargar();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function marcarEnviada(item) {
+    return cambiarEstado(item, { estado: "Enviada", fechaEnvio: fechaDeHoyISO(), fechaAutorizacion: null });
+  }
+
   async function confirmarAutorizada(item) {
     try {
       await actualizarAutorizacion(item.id, {
         ...item,
         estado: "Autorizada",
+        fechaEnvio: item.fechaEnvio || fechaDeHoyISO(),
         fechaAutorizacion: fechaDeHoyISO(),
         numeroAutorizacion: numeroNuevo,
       });
@@ -109,13 +125,9 @@ function AutorizacionesContenido() {
     }
   }
 
-  async function volverAPendiente(item) {
-    try {
-      await actualizarAutorizacion(item.id, { ...item, estado: "Para autorizar", fechaAutorizacion: null });
-      await recargar();
-    } catch (e) {
-      setError(e.message);
-    }
+  function volverUnPaso(item) {
+    if (item.estado === "Autorizada") return cambiarEstado(item, { estado: "Enviada", fechaAutorizacion: null });
+    return cambiarEstado(item, { estado: "Para autorizar", fechaEnvio: null });
   }
 
   async function borrar(item) {
@@ -130,6 +142,7 @@ function AutorizacionesContenido() {
 
   const pestanas = [
     { clave: "Para autorizar", etiqueta: `Para autorizar (${cantidades["Para autorizar"]})` },
+    { clave: "Enviada", etiqueta: `Enviadas (${cantidades.Enviada})` },
     { clave: "Autorizada", etiqueta: `Autorizadas (${cantidades.Autorizada})` },
     { clave: "Todas", etiqueta: `Todas (${items.length})` },
   ];
@@ -197,7 +210,12 @@ function AutorizacionesContenido() {
           </p>
         )}
         {visibles.map((i) => {
-          const dias = i.estado === "Para autorizar" ? diasDesde(i.fechaPedido) : null;
+          const dias =
+            i.estado === "Para autorizar"
+              ? diasDesde(i.fechaPedido)
+              : i.estado === "Enviada" && i.fechaEnvio
+                ? diasDesde(i.fechaEnvio)
+                : null;
           return (
             <div key={i.id} className="rounded-lg border border-gray-200 p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -217,7 +235,9 @@ function AutorizacionesContenido() {
 
               <p className="mt-1 text-xs text-gray-400">
                 Pedida el {formatoFecha(i.fechaPedido)}
-                {dias !== null && dias > 0 && ` · hace ${dias} ${dias === 1 ? "día" : "días"}`}
+                {i.estado === "Para autorizar" && dias > 0 && ` · hace ${dias} ${dias === 1 ? "día" : "días"}`}
+                {i.fechaEnvio && ` · Enviada el ${formatoFecha(i.fechaEnvio)}`}
+                {i.estado === "Enviada" && dias > 0 && ` (hace ${dias} ${dias === 1 ? "día" : "días"}, esperando respuesta)`}
                 {i.estado === "Autorizada" && (
                   <>
                     {" "}
@@ -256,7 +276,15 @@ function AutorizacionesContenido() {
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  {i.estado === "Para autorizar" ? (
+                  {i.estado === "Para autorizar" && (
+                    <button
+                      onClick={() => marcarEnviada(i)}
+                      className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700"
+                    >
+                      📤 Marcar enviada
+                    </button>
+                  )}
+                  {i.estado !== "Autorizada" && (
                     <button
                       onClick={() => {
                         setAutorizando(i.id);
@@ -266,9 +294,10 @@ function AutorizacionesContenido() {
                     >
                       ✓ Marcar autorizada
                     </button>
-                  ) : (
-                    <button onClick={() => volverAPendiente(i)} className="text-xs text-gray-500 hover:underline">
-                      Volver a «Para autorizar»
+                  )}
+                  {i.estado !== "Para autorizar" && (
+                    <button onClick={() => volverUnPaso(i)} className="text-xs text-gray-500 hover:underline">
+                      {i.estado === "Autorizada" ? "Volver a «Enviada»" : "Volver a «Para autorizar»"}
                     </button>
                   )}
                   <button onClick={() => setEnEdicion(i)} className="text-xs text-blue-600 hover:underline">
@@ -288,7 +317,7 @@ function AutorizacionesContenido() {
         <AutorizacionFormModal
           autorizacion={enEdicion}
           pacientes={pacientes}
-          obrasSociales={obrasSociales}
+          obrasNomenclador={obrasNomenclador}
           onClose={() => {
             setMostrarNuevo(false);
             setEnEdicion(null);
