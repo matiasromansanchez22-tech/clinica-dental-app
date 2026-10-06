@@ -27,6 +27,7 @@ const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
   { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
   { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Laboratorio", "Duena"] },
+  { tipo: "link", href: "/contador-billetes", label: "💵 Contador de billetes", soloRoles: ["Duena", "Contador"] },
   { tipo: "link", href: "/gerencial/produccion", label: "💰 Producción", soloRoles: ["Secretaria"] },
   {
     tipo: "link",

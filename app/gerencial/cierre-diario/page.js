@@ -78,6 +78,21 @@ function TarjetaCierreTurno({ etiqueta, cierres, cantidadCobros }) {
                     {desglose.map((m) => `${m.label}: $${Number(c[m.clave]).toLocaleString("es-AR")}`).join(" · ")}
                   </p>
                 )}
+                {c.efectivo_contado != null &&
+                  (() => {
+                    const diferencia = Number(c.efectivo_contado) - Number(c.efectivo);
+                    const texto =
+                      Math.round(diferencia) === 0
+                        ? "coincide ✓"
+                        : diferencia > 0
+                          ? `sobran $${Math.round(diferencia).toLocaleString("es-AR")}`
+                          : `faltan $${Math.round(-diferencia).toLocaleString("es-AR")}`;
+                    return (
+                      <p className={`ml-5 text-xs ${Math.round(diferencia) === 0 ? "text-gray-500" : "font-medium text-amber-700"}`}>
+                        💵 Contó ${Number(c.efectivo_contado).toLocaleString("es-AR")} en efectivo — {texto}
+                      </p>
+                    );
+                  })()}
               </div>
             );
           })}

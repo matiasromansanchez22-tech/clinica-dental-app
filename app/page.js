@@ -64,6 +64,7 @@ const ACCESOS_POR_ROL = {
     { href: "/gerencial/horarios", icon: "🕐", label: "Horarios y liquidación" },
     { href: "/gerencial/cierre-diario", icon: "🗓️", label: "Cierre Diario" },
     { href: "/gerencial/limpio-diario", icon: "💵", label: "Lo que queda limpio" },
+    { href: "/contador-billetes", icon: "🧮", label: "Contador de billetes" },
     { href: "/gerencial/cierre-mensual", icon: "🔒", label: "Cierre de Mes" },
     { href: "/gerencial/balance-mensual", icon: "📊", label: "Balance Mensual" },
     { href: "/gerencial/balance-anual", icon: "📈", label: "Balance Anual" },

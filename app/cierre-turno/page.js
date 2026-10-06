@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
+import ContadorBilletes from "@/components/ContadorBilletes";
+import { CONTEO_VACIO, conteoDesdeCierre, conteoParaGuardar } from "@/lib/billetes";
 import {
   calcularTotalesDelTurno,
   guardarCierreTurno,
@@ -27,6 +29,7 @@ export default function CierreTurnoPage() {
   const [totales, setTotales] = useState(null);
   const [cierreExistente, setCierreExistente] = useState(null);
   const [observaciones, setObservaciones] = useState("");
+  const [conteo, setConteo] = useState(CONTEO_VACIO);
   const [cierresDelDia, setCierresDelDia] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -46,6 +49,7 @@ export default function CierreTurnoPage() {
         setTotales(t);
         setCierreExistente(c);
         setObservaciones(c?.observaciones || "");
+        setConteo(conteoDesdeCierre(c));
         setCierresDelDia(delDia);
       })
       .catch((e) => setError(e.message))
@@ -79,7 +83,14 @@ export default function CierreTurnoPage() {
     setError(null);
     setMensaje(null);
     try {
-      await guardarCierreTurno(fecha, user.id, perfil?.nombre || user.email, totales, observaciones);
+      await guardarCierreTurno(
+        fecha,
+        user.id,
+        perfil?.nombre || user.email,
+        totales,
+        observaciones,
+        conteoParaGuardar(conteo)
+      );
       const [nuevoCierre, delDia] = await Promise.all([
         obtenerCierreTurno(fecha, user.id),
         obtenerCierresTurnoDelDia(fecha),
@@ -162,6 +173,10 @@ export default function CierreTurnoPage() {
           <div className="mt-3 rounded-md bg-brand-brown px-4 py-3 text-white">
             <span className="text-sm">Tu total ({totales.cantidadCobros} cobros): </span>
             <span className="text-xl font-bold">${totales.totalGeneral.toLocaleString("es-AR")}</span>
+          </div>
+
+          <div className="mt-4">
+            <ContadorBilletes conteo={conteo} onChange={setConteo} esperado={Number(totales.efectivo)} />
           </div>
 
           <label className="mt-4 flex flex-col gap-1 text-sm text-gray-700">
