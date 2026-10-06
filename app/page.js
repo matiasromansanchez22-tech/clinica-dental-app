@@ -60,6 +60,7 @@ const ACCESOS_POR_ROL = {
     { href: "/ortodoncia/caja", icon: "🦷", label: "Caja Ortodoncia" },
     { href: "/gerencial/gastos", icon: "🧾", label: "Gastos" },
     { href: "/gerencial/balance-mensual", icon: "📊", label: "Balance Mensual" },
+    { href: "/gerencial/balance-anual", icon: "📈", label: "Balance Anual" },
   ],
   CM: [
     { href: "/calendario-contenido", icon: "📅", label: "Calendario de Contenido" },
