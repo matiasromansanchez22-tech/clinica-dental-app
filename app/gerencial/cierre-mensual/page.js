@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerBalanceMensual } from "@/lib/data/balance";
@@ -25,6 +25,7 @@ function rangoDelMes(anio, mes) {
 
 function CierreMensualContenido() {
   const { user, perfil } = useAuth();
+  const soloLectura = perfil?.rol === "Contador";
   const hoy = fechaDeHoyISO();
   const [anio, setAnio] = useState(Number(hoy.slice(0, 4)));
   const [mes, setMes] = useState(Number(hoy.slice(5, 7)));
@@ -160,7 +161,7 @@ function CierreMensualContenido() {
           {!cierreAprobado && diasPendientes.length > 0 && (
             <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               ⚠️ Faltan cerrar {diasPendientes.length} día{diasPendientes.length === 1 ? "" : "s"} antes de poder
-              cerrar el mes: {diasPendientes.join(", ")}. Andá a Cierre Diario y aprobá cada uno.
+              cerrar el mes: {diasPendientes.join(", ")}.{soloLectura ? "" : " Andá a Cierre Diario y aprobá cada uno."}
             </div>
           )}
 
@@ -199,14 +200,26 @@ function CierreMensualContenido() {
                   Gastos y pagos a profesionales de este mes quedaron bloqueados, y el balance ya se cargó en la
                   reserva de Consultorio.
                 </p>
-                <button
-                  onClick={handleReabrir}
-                  disabled={procesando}
-                  className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  {procesando ? "Reabriendo..." : "🔓 Reabrir mes para corregir algo"}
-                </button>
+                {cierreAprobado.observaciones && (
+                  <p className="mt-2 text-sm text-gray-700">Observaciones: {cierreAprobado.observaciones}</p>
+                )}
+                {!soloLectura && (
+                  <button
+                    onClick={handleReabrir}
+                    disabled={procesando}
+                    className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {procesando ? "Reabriendo..." : "🔓 Reabrir mes para corregir algo"}
+                  </button>
+                )}
               </>
+            ) : soloLectura ? (
+              <p className="mt-1 text-sm text-gray-500">
+                {diasPendientes.length > 0
+                  ? "Este mes todavía no está cerrado: faltan cerrar días."
+                  : "Este mes todavía no está cerrado: está pendiente de la aprobación de la Dueña."}{" "}
+                Los números de arriba son provisorios.
+              </p>
             ) : (
               <>
                 <p className="mt-1 text-sm text-gray-500">
@@ -240,8 +253,8 @@ function CierreMensualContenido() {
 
 export default function CierreMensualPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <CierreMensualContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }
