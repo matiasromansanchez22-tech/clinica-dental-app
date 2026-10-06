@@ -16,6 +16,7 @@ import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
 import { obtenerCantidadPresupuestosPendientesConPagos, obtenerCantidadPresupuestosSinRespuesta } from "@/lib/data/presupuestos";
 import { obtenerCantidadDeudoresOrtodoncia } from "@/lib/data/controlesOrtodoncia";
 import { obtenerCantidadTurnosSinCerrarHoy } from "@/lib/data/cierres";
+import { obtenerCantidadParaAutorizar } from "@/lib/data/autorizacionesObraSocial";
 import { obtenerCantidadMesesPendientesAprobar } from "@/lib/data/cierresMes";
 import {
   obtenerCantidadPacientesConPendientesDeCobro,
@@ -27,6 +28,13 @@ const GRUPOS = [
   { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
   { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Laboratorio", "Duena"] },
   { tipo: "link", href: "/gerencial/produccion", label: "💰 Producción", soloRoles: ["Secretaria"] },
+  {
+    tipo: "link",
+    href: "/autorizaciones",
+    label: "📋 Autorizaciones",
+    soloRoles: ["Secretaria", "Duena"],
+    badgeKey: "autorizacionesPendientes",
+  },
   { tipo: "link", href: "/chat", label: "💬 Chat", ocultarRoles: ["Contador"] },
   {
     tipo: "grupo",
@@ -225,6 +233,12 @@ export default function NavBar() {
       )
       .catch(() => {});
 
+    if (perfil?.rol === "Duena" || perfil?.rol === "Secretaria") {
+      obtenerCantidadParaAutorizar()
+        .then((autorizacionesPendientes) => setBadges((b) => ({ ...b, autorizacionesPendientes })))
+        .catch(() => {});
+    }
+
     // Cierre Diario y Cierre de Mes solo los ve la Dueña — no hace falta
     // (ni conviene, por los permisos) pedirlos para los demás roles.
     if (perfil?.rol === "Duena") {
@@ -262,11 +276,12 @@ export default function NavBar() {
               <Link
                 key={g.href}
                 href={g.href}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
                   activo ? "bg-brand-brown text-brand-cream" : "text-brand-charcoal/70 hover:bg-brand-tan/40"
                 }`}
               >
                 {g.label}
+                {g.badgeKey && badges[g.badgeKey] > 0 && <BadgeCantidad cantidad={badges[g.badgeKey]} />}
               </Link>
             );
           }

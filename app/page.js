@@ -41,6 +41,7 @@ const ACCESOS_POR_ROL = {
     { href: "/pacientes", icon: "🧑‍⚕️", label: "Pacientes General" },
     { href: "/ortodoncia/pacientes", icon: "🦷", label: "Pacientes Ortodoncia" },
     { href: "/presupuestos", icon: "📋", label: "Presupuestos" },
+    { href: "/autorizaciones", icon: "✅", label: "Autorizaciones" },
   ],
   Odontologo: [
     { href: "/agenda", icon: "📅", label: "Agenda General" },
