@@ -94,6 +94,7 @@ const GRUPOS = [
       { href: "/caja", label: "Caja General" },
       { href: "/ortodoncia/caja", label: "Caja Ortodoncia" },
       { href: "/gerencial/gastos", label: "Gastos" },
+      { href: "/gastos-recurrentes", label: "💼 Gastos de la Clínica" },
       { href: "/gerencial/obras-sociales", label: "Control de Obras Sociales" },
       { href: "/gerencial/fichas-entre-rios", label: "Fichas Entre Ríos (Swiss Medical / Osde / Sancor)" },
       { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import GastoRecurrenteFormModal from "@/components/GastoRecurrenteFormModal";
 import RegistrarPagoRecurrenteModal from "@/components/RegistrarPagoRecurrenteModal";
 import { fechaDeHoyISO } from "@/lib/agenda";
@@ -25,15 +26,19 @@ function primerYUltimoDiaDelMes(fechaISO) {
   return { primero, ultimo };
 }
 
-function FilaGasto({ gasto, pagos, onPagar, onEditar }) {
+function FilaGasto({ gasto, pagos, soloLectura, onPagar, onEditar }) {
   const ultimoPago = pagos?.[0] || null;
+  const Titulo = soloLectura ? "div" : "button";
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-3 py-2.5 first:border-t-0">
-      <button type="button" onClick={() => onEditar(gasto)} className="text-left hover:underline">
+      <Titulo
+        {...(soloLectura ? {} : { type: "button", onClick: () => onEditar(gasto) })}
+        className={soloLectura ? "text-left" : "text-left hover:underline"}
+      >
         <span className="font-medium text-gray-900">{gasto.nombre}</span>{" "}
         <span className="text-xs text-gray-400">({gasto.categoria})</span>
         {gasto.montoSugerido && <span className="ml-2 text-xs text-gray-400">~ {formatoPesos(gasto.montoSugerido)}</span>}
-      </button>
+      </Titulo>
       <div className="flex items-center gap-3">
         {ultimoPago ? (
           <span className="text-xs font-medium text-emerald-700">
@@ -43,19 +48,23 @@ function FilaGasto({ gasto, pagos, onPagar, onEditar }) {
         ) : (
           <span className="text-xs font-medium text-amber-600">Pendiente este mes</span>
         )}
-        <button
-          type="button"
-          onClick={() => onPagar(gasto)}
-          className="rounded-md border border-brand-brown/40 px-3 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
-        >
-          💳 Pago
-        </button>
+        {!soloLectura && (
+          <button
+            type="button"
+            onClick={() => onPagar(gasto)}
+            className="rounded-md border border-brand-brown/40 px-3 py-1.5 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+          >
+            💳 Pago
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
 function GastosRecurrentesContenido() {
+  const { perfil } = useAuth();
+  const soloLectura = perfil?.rol === "Contador";
   const hoy = fechaDeHoyISO();
   const { primero, ultimo } = primerYUltimoDiaDelMes(hoy);
   const [gastos, setGastos] = useState([]);
@@ -101,16 +110,19 @@ function GastosRecurrentesContenido() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">💼 Gastos de la Clínica</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Privado — solo lo ven Marianela y Matías. Todos los gastos fijos y variables de siempre, para tildarlos
-            pagados con un toque en vez de cargar el formulario completo cada vez.
+            {soloLectura
+              ? "Todos los gastos fijos y variables de siempre, y cuáles ya se pagaron este mes."
+              : "Privado — solo lo ven Marianela y Matías. Todos los gastos fijos y variables de siempre, para tildarlos pagados con un toque en vez de cargar el formulario completo cada vez."}
           </p>
         </div>
-        <button
-          onClick={() => setMostrarNuevo(true)}
-          className="whitespace-nowrap rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-        >
-          + Agregar
-        </button>
+        {!soloLectura && (
+          <button
+            onClick={() => setMostrarNuevo(true)}
+            className="whitespace-nowrap rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+          >
+            + Agregar
+          </button>
+        )}
       </div>
 
       {error && (
@@ -143,6 +155,7 @@ function GastosRecurrentesContenido() {
                 <FilaGasto
                   key={g.id}
                   gasto={g}
+                  soloLectura={soloLectura}
                   pagos={pagosPorNombre[g.nombre]}
                   onPagar={setModalPago}
                   onEditar={(gasto) => setModalEdicion({ gasto })}
@@ -160,6 +173,7 @@ function GastosRecurrentesContenido() {
                 <FilaGasto
                   key={g.id}
                   gasto={g}
+                  soloLectura={soloLectura}
                   pagos={pagosPorNombre[g.nombre]}
                   onPagar={setModalPago}
                   onEditar={(gasto) => setModalEdicion({ gasto })}
@@ -170,10 +184,12 @@ function GastosRecurrentesContenido() {
         </>
       )}
 
-      <p className="mt-4 text-xs text-gray-400">
-        Al marcar un pago, se carga como Gasto igual que siempre y, si la categoría está marcada "sale de la
-        reserva", se descuenta de la reserva de Consultorio — automático, sin pasos extra.
-      </p>
+      {!soloLectura && (
+        <p className="mt-4 text-xs text-gray-400">
+          Al marcar un pago, se carga como Gasto igual que siempre y, si la categoría está marcada "sale de la
+          reserva", se descuenta de la reserva de Consultorio — automático, sin pasos extra.
+        </p>
+      )}
 
       {modalPago && (
         <RegistrarPagoRecurrenteModal
@@ -208,8 +224,8 @@ function GastosRecurrentesContenido() {
 
 export default function GastosRecurrentesPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <GastosRecurrentesContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }
