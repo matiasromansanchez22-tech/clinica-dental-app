@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { esMesDePrueba } from "@/lib/mesesDePrueba";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerBalanceMensual } from "@/lib/data/balance";
 import { aprobarCierreMes, obtenerCierreMes, obtenerDiasPendientesDelMes, reabrirCierreMes } from "@/lib/data/cierresMes";
@@ -151,6 +152,12 @@ function CierreMensualContenido() {
         <p className="mt-6 text-sm text-gray-500">Calculando...</p>
       ) : (
         <>
+          {!cierreAprobado && esMesDePrueba(anio, mes) && (
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Mes de prueba: se muestra solo como historial.
+            </div>
+          )}
+
           {cierreAprobado && (
             <div className="mt-4 rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-sm text-brand-brown">
               🔒 Este mes ya está cerrado — se muestran los números <strong>congelados</strong> del momento de la
@@ -158,7 +165,7 @@ function CierreMensualContenido() {
             </div>
           )}
 
-          {!cierreAprobado && diasPendientes.length > 0 && (
+          {!cierreAprobado && !esMesDePrueba(anio, mes) && diasPendientes.length > 0 && (
             <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               ⚠️ Faltan cerrar {diasPendientes.length} día{diasPendientes.length === 1 ? "" : "s"} antes de poder
               cerrar el mes: {diasPendientes.join(", ")}.{soloLectura ? "" : " Andá a Cierre Diario y aprobá cada uno."}
@@ -213,6 +220,11 @@ function CierreMensualContenido() {
                   </button>
                 )}
               </>
+            ) : esMesDePrueba(anio, mes) ? (
+              <p className="mt-1 text-sm text-gray-500">
+                {NOMBRES_MES[mes - 1]} {anio} fue un mes de prueba y no se cierra: no entra a la reserva ni cuenta en los
+                totales.
+              </p>
             ) : soloLectura ? (
               <p className="mt-1 text-sm text-gray-500">
                 {diasPendientes.length > 0

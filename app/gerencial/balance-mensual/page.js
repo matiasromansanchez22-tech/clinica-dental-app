@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { esMesDePrueba } from "@/lib/mesesDePrueba";
 import { obtenerAhorroDelMes, obtenerBalanceMensual, obtenerDetalleDiarioMes } from "@/lib/data/balance";
 
 const NOMBRES_MES = [
@@ -31,7 +32,7 @@ function sumarMeses({ anio, mes }, delta) {
 
 function formatoMoneda(monto) {
   const redondeado = Math.round(monto);
-  return `${redondeado < 0 ? "-" : ""}${Math.abs(redondeado).toLocaleString("es-AR")}`;
+  return (redondeado < 0 ? "-$" : "$") + Math.abs(redondeado).toLocaleString("es-AR");
 }
 
 function TarjetaResumen({ titulo, monto, tono }) {
@@ -156,6 +157,23 @@ function TablaDesglose({ titulo, filas }) {
 function AhorroDelMes({ ahorro, nombreMes }) {
   const { mesAnterior } = ahorro;
   const nombreAnterior = `${NOMBRES_MES[mesAnterior.mes - 1]} ${mesAnterior.anio}`;
+  if (ahorro.primerMesReal) {
+    return (
+      <div className="rounded-lg border border-brand-brown/30 bg-brand-tan/10 p-4">
+        <h3 className="font-heading text-sm font-semibold text-brand-brown">💰 Plata para ahorrar</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          {nombreMes} es el primer mes real: la reserva arrancó con el saldo inicial que cargaste en Consultorio, así que
+          todavía no hay un mes anterior para comparar. Pagado con la reserva este mes:{" "}
+          <strong>{formatoMoneda(ahorro.pagadoConReserva)}</strong>
+          {ahorro.cantidad > 0 &&
+            ` (${ahorro.cantidad} gasto${ahorro.cantidad === 1 ? "" : "s"}: ${ahorro.porCategoria
+              .map((c) => `${c.clave} ${formatoMoneda(c.monto)}`)
+              .join(" · ")})`}
+          . Desde el mes que viene, acá vas a ver cuánto queda para ahorrar.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-lg border border-brand-brown/30 bg-brand-tan/10 p-4">
       <h3 className="font-heading text-sm font-semibold text-brand-brown">💰 Plata para ahorrar</h3>
@@ -255,6 +273,13 @@ function BalanceMensualContenido() {
           Este mes
         </button>
       </div>
+
+      {esMesDePrueba(mesSeleccionado.anio, mesSeleccionado.mes) && (
+        <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {nombreMes} fue un mes de prueba: se muestra solo como historial y no cuenta en el balance anual ni en el
+          acumulado.
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>

@@ -115,11 +115,12 @@ function BalanceAnualContenido() {
                     return (
                       <tr
                         key={m.mes}
-                        className={`border-t border-gray-100 ${esMesActual ? "bg-brand-tan/20" : ""}`}
+                        className={`border-t border-gray-100 ${esMesActual ? "bg-brand-tan/20" : ""} ${m.prueba ? "opacity-50" : ""}`}
                       >
                         <td className="px-3 py-2 font-medium text-gray-900">
                           {NOMBRES_MES[m.mes - 1]}
                           {esMesActual && <span className="ml-1 text-xs text-brand-brown">(actual)</span>}
+                          {m.prueba && <span className="ml-1 text-xs text-amber-700">(mes de prueba — no suma)</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-brand-green">
                           {sinDatos ? "—" : formatoMoneda(m.ingresos)}
