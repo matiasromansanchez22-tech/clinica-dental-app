@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { obtenerBalanceMensual, obtenerDetalleDiarioMes } from "@/lib/data/balance";
+import { obtenerAhorroDelMes, obtenerBalanceMensual, obtenerDetalleDiarioMes } from "@/lib/data/balance";
 
 const NOMBRES_MES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -30,7 +30,8 @@ function sumarMeses({ anio, mes }, delta) {
 }
 
 function formatoMoneda(monto) {
-  return `$${Math.round(monto).toLocaleString("es-AR")}`;
+  const redondeado = Math.round(monto);
+  return `${redondeado < 0 ? "-" : ""}${Math.abs(redondeado).toLocaleString("es-AR")}`;
 }
 
 function TarjetaResumen({ titulo, monto, tono }) {
@@ -152,21 +153,73 @@ function TablaDesglose({ titulo, filas }) {
   );
 }
 
+function AhorroDelMes({ ahorro, nombreMes }) {
+  const { mesAnterior } = ahorro;
+  const nombreAnterior = `${NOMBRES_MES[mesAnterior.mes - 1]} ${mesAnterior.anio}`;
+  return (
+    <div className="rounded-lg border border-brand-brown/30 bg-brand-tan/10 p-4">
+      <h3 className="font-heading text-sm font-semibold text-brand-brown">💰 Plata para ahorrar</h3>
+      <p className="mt-1 text-xs text-gray-500">
+        Las cuentas de {nombreMes} que se pagan con la reserva salen de lo que dejó {nombreAnterior}. Lo que sobra es
+        lo que se puede ahorrar.
+      </p>
+      <dl className="mt-3 flex flex-col gap-2 text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-gray-700">
+            Balance de {nombreAnterior}
+            <span className="block text-xs text-gray-400">
+              {mesAnterior.cerrado ? "mes cerrado — es lo que entró a la reserva" : "mes sin cerrar — número provisorio"}
+            </span>
+          </dt>
+          <dd className="font-semibold tabular-nums text-gray-900">{formatoMoneda(mesAnterior.balance)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-gray-700">
+            − Pagado con la reserva en {nombreMes}
+            <span className="block text-xs text-gray-400">
+              {ahorro.cantidad === 0
+                ? "todavía no se cargó ningún gasto con la reserva"
+                : `${ahorro.cantidad} gasto${ahorro.cantidad === 1 ? "" : "s"}: ${ahorro.porCategoria
+                    .map((c) => `${c.clave} ${formatoMoneda(c.monto)}`)
+                    .join(" · ")}`}
+            </span>
+          </dt>
+          <dd className="font-semibold tabular-nums text-gray-900">{formatoMoneda(ahorro.pagadoConReserva)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3 border-t border-brand-brown/20 pt-2">
+          <dt className="font-semibold text-brand-brown">= Queda para ahorrar</dt>
+          <dd
+            className={`text-lg font-semibold tabular-nums ${ahorro.quedaParaAhorrar >= 0 ? "text-brand-green" : "text-red-700"}`}
+          >
+            {formatoMoneda(ahorro.quedaParaAhorrar)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function BalanceMensualContenido() {
   const hoy = fechaDeHoyISO();
   const [mesSeleccionado, setMesSeleccionado] = useState(() => mesActualDeFecha(hoy));
   const [balance, setBalance] = useState(null);
   const [detalleDiario, setDetalleDiario] = useState([]);
+  const [ahorro, setAhorro] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     setCargando(true);
     const { primero, ultimo } = primerYUltimoDiaDelMes(mesSeleccionado.anio, mesSeleccionado.mes);
-    Promise.all([obtenerBalanceMensual(primero, ultimo), obtenerDetalleDiarioMes(primero, ultimo)])
-      .then(([b, dias]) => {
+    Promise.all([
+      obtenerBalanceMensual(primero, ultimo),
+      obtenerDetalleDiarioMes(primero, ultimo),
+      obtenerAhorroDelMes(mesSeleccionado.anio, mesSeleccionado.mes),
+    ])
+      .then(([b, dias, a]) => {
         setBalance(b);
         setDetalleDiario(dias);
+        setAhorro(a);
       })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -178,7 +231,7 @@ function BalanceMensualContenido() {
     <main className="mx-auto max-w-5xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Balance Mensual</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Ingresos (Caja General + Caja Ortodoncia) menos Gastos, para ver la ganancia real del mes.
+        Ingresos (Caja General + Caja Ortodoncia) menos lo que se pagó con la plata del mes (honorarios y gastos). No incluye lo pagado con la reserva del Consultorio: eso se ve abajo, en el cuadro «Plata para ahorrar».
       </p>
 
       <div className="mt-4 flex items-center gap-2">
@@ -221,6 +274,12 @@ function BalanceMensualContenido() {
                 tono={balance.balance >= 0 ? "balancePositivo" : "balanceNegativo"}
               />
             </div>
+
+            {ahorro && (
+              <div className="mt-6">
+                <AhorroDelMes ahorro={ahorro} nombreMes={nombreMes} />
+              </div>
+            )}
 
             <div className="mt-6">
               <TablaNeto titulo="Lo que queda limpio por medio de pago (ingresos − egresos)" filas={balance.netoPorMedioPago} />
