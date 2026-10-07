@@ -15,6 +15,7 @@ import {
   obtenerPendientesCobroOrtodoncia,
 } from "@/lib/data/prestacionesRealizadas";
 import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
+import { marcarControlesPagados } from "@/lib/data/controlesOrtodoncia";
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -270,6 +271,19 @@ export default function CobroOrtodonciaFormModal({
           pendientesRealizados.map((p) => p.id),
           cobro.id
         );
+      }
+      // Si era un Control, la grilla de Controles se completa sola. Si falla
+      // no se frena el cobro (que ya quedó registrado): se puede marcar a mano.
+      if (concepto === "Control") {
+        try {
+          await marcarControlesPagados({
+            pacienteId,
+            cantidad: Number(cantidadControlesAbonados) || 1,
+            fechaInstalacion: paciente.fechaInstalacion,
+          });
+        } catch (errControl) {
+          console.error("No se pudo completar la grilla de Controles", errControl);
+        }
       }
       if (montoAFavorAplicado > 0) {
         await aplicarSaldoAFavor({
