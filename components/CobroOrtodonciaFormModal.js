@@ -280,6 +280,8 @@ export default function CobroOrtodonciaFormModal({
             pacienteId,
             cantidad: Number(cantidadControlesAbonados) || 1,
             fechaInstalacion: paciente.fechaInstalacion,
+            fecha,
+            cajaOrtodonciaId: cobro.id,
           });
         } catch (errControl) {
           console.error("No se pudo completar la grilla de Controles", errControl);
