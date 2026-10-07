@@ -13,7 +13,7 @@ import {
   obtenerCobrosOrtodonciaPorFecha,
 } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
-import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
+import { eliminarGasto, gastoSaleDeLaReserva, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
@@ -53,7 +53,7 @@ export default function CajaOrtodonciaPage() {
   function gastosDeEstaCaja(gastos, categoriasGastoLista) {
     const categoriasReserva = new Set(categoriasGastoLista.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
     return gastos.filter(
-      (g) => g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria) && g.especialidad !== "General"
+      (g) => !gastoSaleDeLaReserva(g, categoriasReserva) && g.especialidad !== "General"
     );
   }
 

@@ -11,7 +11,7 @@ import { obtenerCierresTurnoDelDia } from "@/lib/data/cierresTurno";
 import { obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerCobrosOrtodonciaPorFecha } from "@/lib/data/cajaOrtodoncia";
 import { obtenerPerfiles } from "@/lib/data/perfiles";
-import { obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
+import { gastoSaleDeLaReserva, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 
 const CLAVE_POR_MEDIO = {
@@ -182,7 +182,7 @@ function CierreDiarioContenido() {
   // salen de la plata que entró hoy: salen de la reserva acumulada en
   // Consultorio. Por eso no cuentan como egreso del día acá.
   const categoriasReserva = new Set(categoriasGasto.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
-  const gastosDelDia = gastos.filter((g) => g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria));
+  const gastosDelDia = gastos.filter((g) => !gastoSaleDeLaReserva(g, categoriasReserva));
 
   const totalesEgresos = ETIQUETAS.reduce((acc, e) => {
     acc[e.clave] = 0;

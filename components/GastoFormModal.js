@@ -41,10 +41,16 @@ export default function GastoFormModal({
   const [observaciones, setObservaciones] = useState(gasto?.observaciones || "");
   const [mecanico, setMecanico] = useState(gasto?.mecanico || mecanicoInicial || "");
   const [trabajosSeleccionados, setTrabajosSeleccionados] = useState(new Set());
+  const [reservaManual, setReservaManual] = useState(null);
   const [comprobante, setComprobante] = useState(null);
   const [viendoComprobante, setViendoComprobante] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  // Se tilda solo para Sueldos y las categorías que salen de la reserva; se
+  // puede cambiar a mano para cualquier gasto.
+  const categoriaElegida = categorias.find((c) => c.nombre === categoria);
+  const desdeReserva = reservaManual ?? Boolean(categoriaElegida?.sale_de_reserva || categoria === "Sueldos");
 
   function aplicarSugerencia(sugerencia) {
     if (sugerencia.monto) setMonto(sugerencia.monto);
@@ -108,6 +114,7 @@ export default function GastoFormModal({
             ? Array.from(trabajosSeleccionados)
             : undefined,
         ...(comprobantePath ? { comprobantePath } : {}),
+        desdeReserva,
       };
       if (gasto) {
         await actualizarGasto(gasto.id, datos);
@@ -294,6 +301,31 @@ export default function GastoFormModal({
               </select>
             </label>
           </div>
+
+          {!gasto ? (
+            <label className="flex items-start gap-2 rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={desdeReserva}
+                onChange={(e) => setReservaManual(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Se paga con la reserva del Consultorio
+                <span className="block text-xs text-gray-500">
+                  {desdeReserva
+                    ? `Se descuenta de ${medioPago === "Efectivo" ? "Efectivo" : "Banco"} en Consultorio y no cuenta en el balance del mes ni en lo que queda limpio.`
+                    : "Si no, se paga con la plata que entró y resta del balance del mes."}
+                </span>
+              </span>
+            </label>
+          ) : (
+            gasto.desdeReserva && (
+              <p className="rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-xs text-gray-600">
+                Este gasto se pagó con la reserva del Consultorio. Para cambiarlo, borralo y cargalo de nuevo.
+              </p>
+            )
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Especialidad (opcional)

@@ -57,7 +57,7 @@ export async function GET(request) {
     ] = await Promise.all([
       supabase.from("caja_general").select("pago, medio_pago, desglose_pago").eq("fecha", fecha),
       supabase.from("caja_ortodoncia").select("importe, medio_pago, desglose_pago").eq("fecha", fecha),
-      supabase.from("gastos").select("categoria, monto, medio_pago").eq("fecha", fecha),
+      supabase.from("gastos").select("categoria, monto, medio_pago, desde_reserva").eq("fecha", fecha),
       supabase.from("categorias_gasto").select("nombre, sale_de_reserva"),
       supabase.from("pagos_profesionales").select("monto, medio_pago").eq("fecha", fecha),
       supabase.from("cierres_turno").select("id").eq("fecha", fecha),
@@ -70,7 +70,9 @@ export async function GET(request) {
     const totalCombinado = totalesGeneral.totalGeneral + totalesOrto.totalGeneral;
 
     const categoriasReserva = new Set(categoriasGasto.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
-    const gastosDelDia = gastos.filter((g) => g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria));
+    const gastosDelDia = gastos.filter(
+      (g) => !g.desde_reserva && g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria)
+    );
     const totalEgresos =
       gastosDelDia.reduce((a, g) => a + Number(g.monto), 0) + pagosProfesionales.reduce((a, p) => a + Number(p.monto), 0);
     const totalNeto = totalCombinado - totalEgresos;

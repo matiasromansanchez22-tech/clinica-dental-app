@@ -11,7 +11,7 @@ import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { desglosarPago, eliminarCobro, obtenerCobrosPorFecha } from "@/lib/data/caja";
 import { obtenerPacientesActivos } from "@/lib/data/pacientes";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { eliminarGasto, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
+import { eliminarGasto, gastoSaleDeLaReserva, obtenerCategoriasGasto, obtenerGastos } from "@/lib/data/gastos";
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
 import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/pagosProfesionales";
 import { eliminarTransferenciaCaja, obtenerTransferenciasCajaPorFecha } from "@/lib/data/transferenciasCaja";
@@ -51,7 +51,7 @@ export default function CajaPage() {
   function gastosDeEstaCaja(gastos, categoriasGastoLista) {
     const categoriasReserva = new Set(categoriasGastoLista.filter((c) => c.sale_de_reserva).map((c) => c.nombre));
     return gastos.filter(
-      (g) => g.categoria !== "Sueldos" && !categoriasReserva.has(g.categoria) && g.especialidad !== "Ortodoncia"
+      (g) => !gastoSaleDeLaReserva(g, categoriasReserva) && g.especialidad !== "Ortodoncia"
     );
   }
 
