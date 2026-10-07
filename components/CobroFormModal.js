@@ -48,7 +48,11 @@ export default function CobroFormModal({
   const primerCatalogoCargado = useRef(false);
   const [prestacionesDelPlan, setPrestacionesDelPlan] = useState([]);
   const [prestacionesRealizadas, setPrestacionesRealizadas] = useState([]);
-  const [pendientesIds, setPendientesIds] = useState([]);
+  // Lo que el profesional mandó a caja, separado en lo que es del plan y lo
+  // que se hizo aparte: se cobran por separado y solo se cierra lo que se
+  // cobra en este cobro.
+  const [pendientesPlanIds, setPendientesPlanIds] = useState([]);
+  const [pendientesAparteIds, setPendientesAparteIds] = useState([]);
   // Solo para Obra Social sin plan: lo que el profesional marcó en Agenda
   // no se puede pre-cargar en la fila (el catálogo de acá es el de
   // particular, no el nomenclador), así que se avisa en texto para que
@@ -79,12 +83,17 @@ export default function CobroFormModal({
   // registro del paciente, solo hace que ESTE cobro use el catálogo y el
   // precio de particular.
   const esObraSocialEfectivo = esObraSocial && !cobroComoParticular;
+  // Qué se cierra al guardar este cobro: lo del plan si es una cuota, o lo
+  // que se hizo aparte si es otro tratamiento. Lo otro queda pendiente.
+  const pendientesIds = usaPlan ? pendientesPlanIds : pendientesAparteIds;
+  const hayDosCosasParaCobrar = Boolean(planActivo) && pendientesPlanIds.length > 0 && pendientesAparteIds.length > 0;
 
   useEffect(() => {
     if (!paciente) {
       setPlanActivo(null);
       setPrestacionesDisponibles([]);
-      setPendientesIds([]);
+      setPendientesPlanIds([]);
+      setPendientesAparteIds([]);
       return;
     }
     if (pacienteIdAnterior.current !== pacienteId) setProfesionalAtencionId("");
@@ -94,7 +103,8 @@ export default function CobroFormModal({
     primerCatalogoCargado.current = false;
     setPrestacionesDelPlan([]);
     setPrestacionesRealizadas([]);
-    setPendientesIds([]);
+    setPendientesPlanIds([]);
+    setPendientesAparteIds([]);
     setPendientesObraSocialSinPrecargar([]);
     setPrestaciones([filaVacia()]);
     setCargoExtraPlan(null);
@@ -119,9 +129,11 @@ export default function CobroFormModal({
           setNumeroCuota(String(cuota));
           obtenerPrestacionesDelPresupuesto(plan.presupuesto_id).then(setPrestacionesDelPlan);
           promesaPendientes.then((pendientes) => {
+            // Solo hay algo aparte (nada del plan): se cobra aparte directamente.
+            if (pendientes.adHoc.length > 0 && pendientes.plan.length === 0) setCobroIndependienteDelPlan(true);
             if (pendientes.plan.length > 0) {
               setPrestacionesRealizadas(pendientes.plan.map((p) => p.nombre));
-              setPendientesIds(pendientes.plan.map((p) => p.id));
+              setPendientesPlanIds(pendientes.plan.map((p) => p.id));
               // Algo aparte del plan que el profesional marcó al lado de un
               // paso (ej. un estudio) — se suma a la cuota sugerida de arriba.
               const conCargoExtra = pendientes.plan.find((p) => p.cargoExtraMonto);
@@ -161,7 +173,7 @@ export default function CobroFormModal({
         // siquiera se intentaba tocar el pendiente) y la nube de "listo
         // para cobrar" le quedaba pegada para siempre aunque ya le hubieran
         // cobrado.
-        setPendientesIds((actual) => [...actual, ...pendientes.adHoc.map((p) => p.id)]);
+        setPendientesAparteIds(pendientes.adHoc.map((p) => p.id));
         const conNota = pendientes.adHoc.find((p) => p.notaProximoTurno);
         if (conNota) {
           setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
@@ -562,14 +574,39 @@ export default function CobroFormModal({
                   <strong>{numeroCuota === "Anticipo" ? "el anticipo" : `la cuota ${numeroCuota}`}</strong>.
                 </p>
               )}
-              <label className="mt-2 flex items-center gap-2 text-brand-green">
-                <input
-                  type="checkbox"
-                  checked={cobroIndependienteDelPlan}
-                  onChange={(e) => setCobroIndependienteDelPlan(e.target.checked)}
-                />
-                Este pago es por otro tratamiento, no es una cuota del plan
-              </label>
+              {hayDosCosasParaCobrar ? (
+                <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
+                  <p className="font-medium">Hoy hay dos cosas para cobrar de este paciente. Elegí cuál cobrás ahora:</p>
+                  <label className="mt-1.5 flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="que-se-cobra"
+                      checked={!cobroIndependienteDelPlan}
+                      onChange={() => setCobroIndependienteDelPlan(false)}
+                    />
+                    La cuota del plan
+                  </label>
+                  <label className="mt-1 flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="que-se-cobra"
+                      checked={cobroIndependienteDelPlan}
+                      onChange={() => setCobroIndependienteDelPlan(true)}
+                    />
+                    Lo que se hizo aparte del plan
+                  </label>
+                  <p className="mt-1.5 text-xs">Después de guardar, la otra queda pendiente para cobrarla en otro cobro.</p>
+                </div>
+              ) : (
+                <label className="mt-2 flex items-center gap-2 text-brand-green">
+                  <input
+                    type="checkbox"
+                    checked={cobroIndependienteDelPlan}
+                    onChange={(e) => setCobroIndependienteDelPlan(e.target.checked)}
+                  />
+                  Este pago es por otro tratamiento, no es una cuota del plan
+                </label>
+              )}
             </div>
           )}
 
