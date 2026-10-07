@@ -22,6 +22,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [proximaPrestacion, setProximaPrestacion] = useState("");
+  const [tiempoProximoTurno, setTiempoProximoTurno] = useState("");
   const [pendiente, setPendiente] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -58,6 +59,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
         cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
         proximaPrestacionNombre: proximaPrestacion || null,
+        proximaPrestacionTiempoMin: tiempoProximoTurno ? Number(tiempoProximoTurno) : null,
         fecha,
       });
       if (turno.presencia !== "Finalizado") {
@@ -68,6 +70,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       setCargoExtraDescripcion("");
       setCargoExtraMonto("");
       setProximaPrestacion("");
+      setTiempoProximoTurno("");
       const pendienteNuevo = await obtenerPendienteCobroOrtodoncia(turno.pacienteId);
       setPendiente(pendienteNuevo);
     } catch (e) {
@@ -112,6 +115,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
           {pendiente.proxima_prestacion_nombre && (
             <p className="mt-1 text-xs text-emerald-600">
               📅 La próxima vez viene para: {pendiente.proxima_prestacion_nombre}
+              {pendiente.proxima_prestacion_tiempo_min ? ` (turno de ${pendiente.proxima_prestacion_tiempo_min} min)` : ""}
             </p>
           )}
         </div>
@@ -208,6 +212,25 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
               <span className="text-[11px] text-gray-400">
                 Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le
                 den el próximo turno a este paciente, va a venir pre-cargado con esto.
+              </span>
+            </label>
+
+            <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+              ¿Cuánto tiempo necesitás para el próximo turno?
+              <select
+                value={tiempoProximoTurno}
+                onChange={(e) => setTiempoProximoTurno(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">(el habitual de esa prestación)</option>
+                {[15, 30, 45, 60].map((m) => (
+                  <option key={m} value={m}>
+                    {m} minutos
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-gray-400">
+                Cuando le den el turno, el secretario lo va a ver cargado con este tiempo.
               </span>
             </label>
 

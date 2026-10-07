@@ -36,6 +36,9 @@ export default function NuevoTurnoOrtodonciaModal({
   const [concepto, setConcepto] = useState("Control");
   const [bracketDespegado, setBracketDespegado] = useState(false);
   const [duracionMin, setDuracionMin] = useState(duraciones["Control"] || 15);
+  // Duración elegida a mano (o indicada por el ortodoncista para este turno);
+  // null = la habitual del concepto.
+  const [duracionElegida, setDuracionElegida] = useState(null);
   const [pacienteNombre, setPacienteNombre] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [ortodoncistaId, setOrtodoncistaId] = useState(ortodoncistas[0]?.id ?? "");
@@ -60,11 +63,12 @@ export default function NuevoTurnoOrtodonciaModal({
   const ortodoncistaSeleccionado = ortodoncistas.find((p) => p.id === ortodoncistaId);
   const noAtiendeEseDia = ortodoncistaSeleccionado && !atiendeEseDia(ortodoncistaSeleccionado, diaSemana);
 
-  // La duración sale de la config por concepto + 15 min extra si se despegó un bracket.
+  // La duración sale de la config por concepto (o la elegida a mano / indicada
+  // por el ortodoncista) + 15 min extra si se despegó un bracket.
+  const duracionBase = duracionElegida ?? duraciones[concepto] ?? 15;
   useEffect(() => {
-    const base = duraciones[concepto] ?? 15;
-    setDuracionMin(base + (bracketDespegado ? 15 : 0));
-  }, [concepto, bracketDespegado, duraciones]);
+    setDuracionMin(duracionBase + (bracketDespegado ? 15 : 0));
+  }, [duracionBase, bracketDespegado]);
 
   useEffect(() => {
     if (!ortodoncistaId) {
@@ -152,6 +156,8 @@ export default function NuevoTurnoOrtodonciaModal({
         if (CONCEPTOS.includes(pendiente.proxima_prestacion_nombre)) {
           setConcepto(pendiente.proxima_prestacion_nombre);
         }
+        // El ortodoncista también puede haber indicado cuánto tiempo necesita.
+        if (pendiente.proxima_prestacion_tiempo_min) setDuracionElegida(Number(pendiente.proxima_prestacion_tiempo_min));
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -401,6 +407,13 @@ export default function NuevoTurnoOrtodonciaModal({
               {CONCEPTOS.includes(proximaPrestacionPendiente.proxima_prestacion_nombre)
                 ? " — ya viene elegido abajo."
                 : " (elegilo abajo a mano, no coincide con ningún concepto de la lista)."}
+              {proximaPrestacionPendiente.proxima_prestacion_tiempo_min && (
+                <>
+                  {" "}
+                  Pidió un turno de <strong>{proximaPrestacionPendiente.proxima_prestacion_tiempo_min} minutos</strong> — ya
+                  viene cargado.
+                </>
+              )}
             </p>
           )}
 
@@ -502,7 +515,10 @@ export default function NuevoTurnoOrtodonciaModal({
               Concepto
               <select
                 value={concepto}
-                onChange={(e) => setConcepto(e.target.value)}
+                onChange={(e) => {
+                  setConcepto(e.target.value);
+                  setDuracionElegida(null);
+                }}
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               >
                 {CONCEPTOS.map((c) => (
@@ -527,7 +543,23 @@ export default function NuevoTurnoOrtodonciaModal({
             <input type="checkbox" checked={bracketDespegado} onChange={(e) => setBracketDespegado(e.target.checked)} />
             Se despegó un bracket (+15 min)
           </label>
-          <p className="-mt-2 text-xs text-gray-500">Duración de este turno: {duracionMin} minutos.</p>
+          <label className="-mt-1 flex items-center gap-2 text-sm text-gray-700">
+            Duración del turno
+            <select
+              value={duracionBase}
+              onChange={(e) => setDuracionElegida(Number(e.target.value))}
+              className="rounded-md border border-gray-300 px-2 py-1"
+            >
+              {[...new Set([15, 30, 45, 60, 75, 90, duracionBase])]
+                .sort((a, b) => a - b)
+                .map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
+            </select>
+            <span className="text-xs text-gray-500">Total en la agenda: {duracionMin} minutos.</span>
+          </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Observaciones
