@@ -33,6 +33,10 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
   const [nuevoConsultorio, setNuevoConsultorio] = useState(turno.consultorio);
   const [moviendo, setMoviendo] = useState(false);
 
+  const [mostrarDuracion, setMostrarDuracion] = useState(false);
+  const [nuevaDuracion, setNuevaDuracion] = useState(turno.duracionMin);
+  const [cambiandoDuracion, setCambiandoDuracion] = useState(false);
+
   async function aplicarCambio(nombreAccion, cambios) {
     setError(null);
     setGuardando(nombreAccion);
@@ -100,6 +104,43 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     }
   }
 
+  // Cambiar cuánto dura un turno ya cargado (ej. alargarlo a media hora):
+  // se fija que no pise a otro turno del mismo consultorio u ortodoncista.
+  async function confirmarDuracion() {
+    setError(null);
+    const duracion = Number(nuevaDuracion);
+    if (duracion === turnoActual.duracionMin) {
+      setMostrarDuracion(false);
+      return;
+    }
+    setCambiandoDuracion(true);
+    try {
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha);
+      const conflicto = hayConflictoDeHorario({
+        turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
+        consultorio: turnoActual.consultorio,
+        profesionalDeTurnoId: turnoActual.profesionalDeTurnoId,
+        horaInicio: turnoActual.horaInicio,
+        duracionMin: duracion,
+        idExcluido: turnoActual.id,
+      });
+      if (conflicto) {
+        setError(
+          "Con esa duración se pisa con otro turno (del mismo consultorio o del mismo ortodoncista). Probá con menos tiempo o movelo primero."
+        );
+        return;
+      }
+      const actualizado = await actualizarEstadoTurnoOrtodoncia(turnoActual.id, { duracion_min: duracion });
+      setTurnoActual(actualizado);
+      onCambiado();
+      setMostrarDuracion(false);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCambiandoDuracion(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
@@ -110,8 +151,8 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           </button>
         </div>
         <p className="mb-4 text-sm text-gray-500">
-          {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.concepto} ·{" "}
-          {turnoActual.profesionalDeTurno}
+          {fecha} · {turnoActual.horaInicio} ({turnoActual.duracionMin} min) · Consultorio {turnoActual.consultorio} ·{" "}
+          {turnoActual.concepto} · {turnoActual.profesionalDeTurno}
         </p>
 
         {error && (
@@ -224,15 +265,74 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
             )}
           </div>
 
-          {!mostrarMover ? (
-            <button
-              onClick={() => setMostrarMover(true)}
-              disabled={guardando !== null}
-              className="w-fit text-sm text-blue-600 hover:underline disabled:opacity-50"
-            >
-              Mover turno
-            </button>
-          ) : (
+          {!mostrarMover && !mostrarDuracion && (
+            <div className="flex gap-4">
+              <button
+                onClick={() => setMostrarMover(true)}
+                disabled={guardando !== null}
+                className="w-fit text-sm text-blue-600 hover:underline disabled:opacity-50"
+              >
+                Mover turno
+              </button>
+              <button
+                onClick={() => {
+                  setNuevaDuracion(turnoActual.duracionMin);
+                  setMostrarDuracion(true);
+                }}
+                disabled={guardando !== null}
+                className="w-fit text-sm text-blue-600 hover:underline disabled:opacity-50"
+              >
+                Cambiar duración
+              </button>
+            </div>
+          )}
+
+          {mostrarDuracion && (
+            <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase text-brand-green">Duración del turno</p>
+              <div className="flex items-center gap-2">
+                <select
+                  value={nuevaDuracion}
+                  onChange={(e) => setNuevaDuracion(Number(e.target.value))}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                >
+                  {[...new Set([15, 30, 45, 60, 75, 90, turnoActual.duracionMin])]
+                    .sort((a, b) => a - b)
+                    .map((m) => (
+                      <option key={m} value={m}>
+                        {m} minutos
+                      </option>
+                    ))}
+                </select>
+                <span className="text-xs text-gray-500">
+                  Termina a las{" "}
+                  {(() => {
+                    const [h, mi] = turnoActual.horaInicio.split(":").map(Number);
+                    const fin = h * 60 + mi + Number(nuevaDuracion);
+                    return `${String(Math.floor(fin / 60)).padStart(2, "0")}:${String(fin % 60).padStart(2, "0")}`;
+                  })()}
+                </span>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={confirmarDuracion}
+                  disabled={cambiandoDuracion}
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {cambiandoDuracion ? "Guardando..." : "Guardar duración"}
+                </button>
+                <button
+                  onClick={() => setMostrarDuracion(false)}
+                  disabled={cambiandoDuracion}
+                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mostrarMover && (
             <div className="rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
               <p className="mb-2 text-xs font-semibold uppercase text-brand-green">Mover a</p>
               <div className="flex flex-wrap items-center gap-2">
