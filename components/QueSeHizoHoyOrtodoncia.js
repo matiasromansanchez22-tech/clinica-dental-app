@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CONCEPTOS_ORTODONCIA, CONCEPTOS_TURNO_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA } from "@/lib/ortodoncia";
+import {
+  CONCEPTO_CONTINUACION,
+  CONCEPTOS_ORTODONCIA,
+  CONCEPTOS_TURNO_ORTODONCIA,
+  precioContinuacionSugerido,
+  TIPOS_BRACKET_ORTODONCIA,
+} from "@/lib/ortodoncia";
+import {
+  definirContinuacionEnFicha,
+  obtenerConfiguracionOrtodoncia,
+  obtenerPacienteOrtodonciaPorId,
+} from "@/lib/data/pacientesOrtodoncia";
 import { marcarTurnoOrtodonciaRealizado, obtenerPendienteCobroOrtodoncia } from "@/lib/data/prestacionesRealizadas";
 import { actualizarEstadoTurnoOrtodoncia } from "@/lib/data/turnosOrtodoncia";
 
@@ -23,6 +34,10 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [proximaPrestacion, setProximaPrestacion] = useState("");
   const [tiempoProximoTurno, setTiempoProximoTurno] = useState("");
+  // Para la continuación: tipo de brackets ("Metalicos"/"Porcelana", como en la
+  // ficha) y los precios del catálogo para mostrar cuánto se cobra.
+  const [tipoBracketsContinuacion, setTipoBracketsContinuacion] = useState("");
+  const [preciosCatalogo, setPreciosCatalogo] = useState({});
   const [pendiente, setPendiente] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -37,6 +52,12 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       .then(setPendiente)
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
+    obtenerConfiguracionOrtodoncia()
+      .then(setPreciosCatalogo)
+      .catch(() => {});
+    obtenerPacienteOrtodonciaPorId(turno.pacienteId)
+      .then((p) => setTipoBracketsContinuacion(p?.tipoBrackets || ""))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turno.pacienteId]);
 
@@ -46,8 +67,14 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       setError("Elegí la prestación para el próximo turno antes de marcar como hecho.");
       return;
     }
+    const esContinuacion = concepto === CONCEPTO_CONTINUACION;
+    if (esContinuacion && !tipoBracketsContinuacion) {
+      setError("Elegí el tipo de brackets de la continuación para que aparezca el valor a cobrar.");
+      return;
+    }
     setGuardando(true);
     try {
+      if (esContinuacion) await definirContinuacionEnFicha(turno.pacienteId, tipoBracketsContinuacion);
       await marcarTurnoOrtodonciaRealizado({
         turnoOrtodonciaId: turno.id,
         pacienteOrtodonciaId: turno.pacienteId,
@@ -60,6 +87,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
         proximaPrestacionNombre: proximaPrestacion || null,
         proximaPrestacionTiempoMin: tiempoProximoTurno ? Number(tiempoProximoTurno) : null,
+        precioManual: esContinuacion ? precioContinuacionSugerido(tipoBracketsContinuacion, preciosCatalogo) : null,
         fecha,
       });
       if (turno.presencia !== "Finalizado") {
@@ -100,6 +128,12 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
                 + bracket {pendiente.bracket_reposicion} x{pendiente.cantidad_brackets || 1}
               </>
             )}
+            {pendiente.prestacion === CONCEPTO_CONTINUACION && pendiente.precio_manual ? (
+              <>
+                {" "}
+                (valor a cobrar: ${Number(pendiente.precio_manual).toLocaleString("es-AR")})
+              </>
+            ) : null}
             {pendiente.cargo_extra_monto ? (
               <>
                 {" "}
@@ -134,6 +168,36 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
               </option>
             ))}
           </select>
+
+          {concepto === CONCEPTO_CONTINUACION && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs text-blue-900">
+              <label className="flex flex-col gap-1">
+                Es continuación — tipo de brackets <span className="text-red-600">*</span>
+                <select
+                  value={tipoBracketsContinuacion}
+                  onChange={(e) => setTipoBracketsContinuacion(e.target.value)}
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
+                >
+                  <option value="">(elegir)</option>
+                  <option value="Metalicos">Metálico</option>
+                  <option value="Porcelana">Porcelana</option>
+                </select>
+              </label>
+              <p className="mt-1.5">
+                {tipoBracketsContinuacion ? (
+                  <>
+                    Valor a cobrar:{" "}
+                    <strong>
+                      ${(precioContinuacionSugerido(tipoBracketsContinuacion, preciosCatalogo) || 0).toLocaleString("es-AR")}
+                    </strong>{" "}
+                    (2 veces el control). Se paga una sola vez y cuenta como el control de este mes.
+                  </>
+                ) : (
+                  "Elegí el tipo de brackets y te muestro cuánto se cobra."
+                )}
+              </p>
+            </div>
+          )}
 
           {concepto === "Control" && (
             <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">

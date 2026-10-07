@@ -277,7 +277,8 @@ function PacientesOrtodonciaContenido() {
               const completos = documentos.filter(Boolean).length;
               const instalacion = calcularEstadoInstalacion(
                 p.formaPagoInstalacion,
-                cobrosInstalacionPorPaciente[p.id] || []
+                cobrosInstalacionPorPaciente[p.id] || [],
+                p.origenPaciente
               );
               return (
                 <tr

@@ -5,6 +5,9 @@ import { crearCobroOrtodoncia, obtenerCobrosInstalacion } from "@/lib/data/cajaO
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import {
   CONCEPTOS_ORTODONCIA,
+  CONCEPTO_CONTINUACION,
+  cuotaControlSugerida,
+  precioContinuacionSugerido,
   TIPOS_BRACKET_ORTODONCIA,
   calcularEstadoAumento,
   calcularEstadoInstalacion,
@@ -16,6 +19,7 @@ import {
 } from "@/lib/data/prestacionesRealizadas";
 import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 import { marcarControlesPagados } from "@/lib/data/controlesOrtodoncia";
+import { registrarContinuacionEnFicha } from "@/lib/data/pacientesOrtodoncia";
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -130,7 +134,10 @@ export default function CobroOrtodonciaFormModal({
     bracketReposicion === "Porcelana" ? precios.precio_bracket_porcelana : precios.precio_bracket_metalico;
 
   const estadoInstalacion = useMemo(
-    () => (paciente ? calcularEstadoInstalacion(paciente.formaPagoInstalacion, cobrosInstalacion) : null),
+    () =>
+      paciente
+        ? calcularEstadoInstalacion(paciente.formaPagoInstalacion, cobrosInstalacion, paciente.origenPaciente)
+        : null,
     [paciente, cobrosInstalacion]
   );
   const precioInstalacion =
@@ -139,6 +146,8 @@ export default function CobroOrtodonciaFormModal({
       : concepto === "Instalación (2 cuotas)"
         ? precioInstalacionSugerido(paciente?.tipoBrackets, "2 Cuotas", precios)
         : null;
+  const precioContinuacion =
+    concepto === CONCEPTO_CONTINUACION ? precioContinuacionSugerido(paciente?.tipoBrackets, precios) : null;
 
   useEffect(() => {
     if (!paciente) return;
@@ -151,6 +160,8 @@ export default function CobroOrtodonciaFormModal({
       base = valorControles + valorBrackets;
     } else if (concepto === "Instalación (contado)" || concepto === "Instalación (2 cuotas)") {
       base = precioInstalacion || 0;
+    } else if (concepto === CONCEPTO_CONTINUACION) {
+      base = precioContinuacion || 0;
     }
     setImporte(Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,6 +177,7 @@ export default function CobroOrtodonciaFormModal({
     cargoExtraMonto,
     montoAFavorAplicado,
     precioInstalacion,
+    precioContinuacion,
   ]);
 
   function aplicarSaldo() {
@@ -274,11 +286,24 @@ export default function CobroOrtodonciaFormModal({
       }
       // Si era un Control, la grilla de Controles se completa sola. Si falla
       // no se frena el cobro (que ya quedó registrado): se puede marcar a mano.
-      if (concepto === "Control") {
+      // La continuación se toma como un control: marca el mes del cobro y deja
+      // la ficha como paciente de continuación (ya arrancó el tratamiento).
+      if (concepto === CONCEPTO_CONTINUACION) {
+        try {
+          await registrarContinuacionEnFicha(
+            pacienteId,
+            fecha,
+            cuotaControlSugerida(paciente.tipoBrackets, precios)
+          );
+        } catch (errFicha) {
+          console.error("No se pudo actualizar la ficha del paciente", errFicha);
+        }
+      }
+      if (concepto === "Control" || concepto === CONCEPTO_CONTINUACION) {
         try {
           await marcarControlesPagados({
             pacienteId,
-            cantidad: Number(cantidadControlesAbonados) || 1,
+            cantidad: concepto === CONCEPTO_CONTINUACION ? 1 : Number(cantidadControlesAbonados) || 1,
             fechaInstalacion: paciente.fechaInstalacion,
             fecha,
             cajaOrtodonciaId: cobro.id,
@@ -478,6 +503,31 @@ export default function CobroOrtodonciaFormModal({
                   ⚠ Este paciente ya figura con la instalación pagada — revisá que no sea un cobro duplicado.
                 </p>
               )}
+            </>
+          )}
+
+          {concepto === CONCEPTO_CONTINUACION && (
+            <>
+              {!paciente?.tipoBrackets ? (
+                <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                  Este paciente no tiene cargado el tipo de brackets en su ficha — no se puede sugerir el valor
+                  solo. Cargalo en &quot;Pacientes&quot; (Tipo de brackets) o escribí el importe a mano.
+                </p>
+              ) : (
+                <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  Continuación de ortodoncia ({paciente.tipoBrackets}): 2 veces el control, $
+                  {(precioContinuacion || 0).toLocaleString("es-AR")} — ya viene cargado abajo en &quot;Importe&quot;.
+                </p>
+              )}
+              {estadoInstalacion?.esContinuacion && estadoInstalacion.completa && (
+                <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                  ⚠ Este paciente ya figura con la continuación pagada — revisá que no sea un cobro duplicado.
+                </p>
+              )}
+              <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                Se paga una sola vez y se toma como el control de este mes (queda marcado en Controles). El mes que
+                viene paga un control normal. La ficha se actualiza sola.
+              </p>
             </>
           )}
 

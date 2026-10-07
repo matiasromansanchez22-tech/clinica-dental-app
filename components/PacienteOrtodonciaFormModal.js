@@ -126,7 +126,8 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   // pegado con el de la opción anterior.
   const cuotaInicialSugerida = precioInstalacionSugerido(form.tipoBrackets, form.formaPagoInstalacion, config);
   const valorControlSugerido = cuotaControlSugerida(form.tipoBrackets, config);
-  const estadoInstalacion = calcularEstadoInstalacion(form.formaPagoInstalacion, cobrosInstalacion);
+  const esContinuacion = form.origenPaciente === "Continuación de otra clínica";
+  const estadoInstalacion = calcularEstadoInstalacion(form.formaPagoInstalacion, cobrosInstalacion, form.origenPaciente);
 
   useEffect(() => {
     if (!form.tipoBrackets || !form.formaPagoInstalacion) return;
@@ -380,7 +381,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm text-gray-700">
-              Fecha de instalación
+              {esContinuacion ? "Fecha de inicio de la continuación" : "Fecha de instalación"}
               <input
                 type="date"
                 value={form.fechaInstalacion}
@@ -389,6 +390,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
               />
             </label>
 
+            {!esContinuacion && (
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Forma de pago instalación
               <select
@@ -404,6 +406,8 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 ))}
               </select>
             </label>
+            )}
+            {!esContinuacion && (
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Cuota inicial
               <input
@@ -420,6 +424,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 </span>
               )}
             </label>
+            )}
 
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Valor del control mensual
@@ -436,7 +441,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
               )}
             </label>
             <div className="flex flex-col gap-1 text-sm text-gray-700">
-              Estado de instalación
+              {esContinuacion ? "Estado de la continuación" : "Estado de instalación"}
               <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-gray-600">
                 {!paciente ? (
                   "—"
@@ -454,8 +459,9 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 )}
               </div>
               <span className="text-[11px] text-gray-400">
-                Se calcula solo a partir de los cobros de "Instalación..." ya registrados en Caja — no hay que
-                tildarlo a mano.
+                {esContinuacion
+                  ? "Paciente de continuación: no tiene instalación acá. Se calcula solo con el cobro de \"Continuación de ortodoncia\" en Caja (se paga una sola vez y cuenta como el control de ese mes)."
+                  : "Se calcula solo a partir de los cobros de \"Instalación...\" ya registrados en Caja — no hay que tildarlo a mano."}
               </span>
             </div>
           </div>
