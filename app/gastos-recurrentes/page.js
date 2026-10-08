@@ -48,7 +48,7 @@ function FilaGasto({ gasto, pagos, soloLectura, onPagar, onEditar }) {
         ) : (
           <span className="text-xs font-medium text-amber-600">Pendiente este mes</span>
         )}
-        {!soloLectura && (
+        {onPagar && (
           <button
             type="button"
             onClick={() => onPagar(gasto)}
@@ -111,7 +111,7 @@ function GastosRecurrentesContenido() {
           <h1 className="text-2xl font-bold text-gray-900">💼 Gastos de la Clínica</h1>
           <p className="mt-1 text-sm text-gray-500">
             {soloLectura
-              ? "Todos los gastos fijos y variables de siempre, y cuáles ya se pagaron este mes."
+              ? "Todos los gastos fijos y variables de siempre, y cuáles ya se pagaron este mes. Tocá 💳 Pago para registrar uno: se carga como gasto y descuenta de la reserva si corresponde."
               : "Privado — solo lo ven Marianela y Matías. Todos los gastos fijos y variables de siempre, para tildarlos pagados con un toque en vez de cargar el formulario completo cada vez."}
           </p>
         </div>

@@ -5,11 +5,16 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import { MEDIOS_PAGO_GASTO } from "@/lib/data/gastos";
 import { registrarSueldo } from "@/lib/data/finanzasPersonales";
 import { obtenerPerfiles } from "@/lib/data/perfiles";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 export default function RegistrarSueldoModal({ onClose, onGuardado }) {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Transferencia");
+  const { perfil } = useAuth();
+  // La contadora solo registra sueldos de empleados; el de las dueñas (que
+  // suma a su cuenta Personal privada) lo carga una Dueña.
+  const esContador = perfil?.rol === "Contador";
   const [esParaDuenos, setEsParaDuenos] = useState(null);
   const [duenas, setDuenas] = useState([]);
   const [paraUsuarioId, setParaUsuarioId] = useState("");
@@ -68,11 +73,13 @@ export default function RegistrarSueldoModal({ onClose, onGuardado }) {
 
         <div className="mt-4 rounded-md border-2 border-amber-300 bg-amber-50 p-3">
           <p className="text-xs font-semibold text-amber-900">¿A quién le pagás? (elegí uno)</p>
-          <label className="mt-2 flex items-center gap-1.5 text-sm">
-            <input type="radio" checked={esParaDuenos === true} onChange={() => setEsParaDuenos(true)} />
-            A uno de los dueños
-          </label>
-          {esParaDuenos === true && (
+          {!esContador && (
+            <label className="mt-2 flex items-center gap-1.5 text-sm">
+              <input type="radio" checked={esParaDuenos === true} onChange={() => setEsParaDuenos(true)} />
+              A uno de los dueños
+            </label>
+          )}
+          {!esContador && esParaDuenos === true && (
             <select
               value={paraUsuarioId}
               onChange={(e) => setParaUsuarioId(e.target.value)}

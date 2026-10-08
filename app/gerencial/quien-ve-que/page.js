@@ -5,7 +5,7 @@ import SoloDuena from "@/components/SoloDuena";
 // Foto de "quién ve qué" armada revisando el menú, las pantallas con acceso
 // restringido y los permisos de la base de datos. No se actualiza sola: si se
 // cambia algún permiso, hay que actualizar esta tabla.
-const FECHA_REVISION = "7 de octubre de 2026";
+const FECHA_REVISION = "8 de octubre de 2026";
 
 const ROLES = [
   { clave: "D", nombre: "Dueñas" },
@@ -76,9 +76,28 @@ const SECCIONES = [
     ],
   },
   {
-    titulo: "Finanzas (Ane las ve en solo lectura)",
+    titulo: "Finanzas (Ane las ve en solo lectura, salvo gastos y Consultorio, que también carga)",
     filas: [
-      ["Gastos y Gastos de la Clínica", "ok", "no", "no", "no", "ro", "no"],
+      [
+        "Gastos y Gastos de la Clínica",
+        "ok",
+        "no",
+        "no",
+        "no",
+        "ok",
+        "no",
+        "Ane carga y corrige gastos de meses sin cerrar, y marca los pagos de Gastos de la Clínica. No edita la lista de gastos fijos.",
+      ],
+      [
+        "Consultorio (la reserva): saldo, movimientos, sueldos de empleados y conciliar banco",
+        "ok",
+        "no",
+        "no",
+        "no",
+        "ok",
+        "no",
+        "Ane ve solo el panel Consultorio. El Personal de cada dueña es privado y no lo puede ver. El sueldo de una dueña lo carga una Dueña.",
+      ],
       ["Cierre Diario y Cierre de Mes", "ok", "no", "no", "no", "ro", "no"],
       ["Balance Mensual y Balance Anual", "ok", "no", "no", "no", "ro", "no"],
       ["Lo que queda limpio", "ok", "no", "no", "no", "ro", "no"],
@@ -105,7 +124,7 @@ const SECCIONES = [
     titulo: "Solo las Dueñas",
     filas: [
       ["Tablero Mensual y Metas", "ok", "no", "no", "no", "no", "no"],
-      ["Consultorio y Personal (la plata de ustedes)", "ok", "no", "no", "no", "no", "no", "Cada dueña ve solo su Personal."],
+      ["Personal (la plata de cada dueña)", "ok", "no", "no", "no", "no", "no", "Cada dueña ve solo su Personal."],
       ["Casa y Catalina", "ok", "no", "no", "no", "no", "no"],
       ["Comparativa y cuentas por mecánico, rentabilidad, ranking y registro por profesional", "ok", "no", "no", "no", "no", "no"],
       ["Profesionales, aumentos de Ortodoncia y pedidos de insumos", "ok", "no", "no", "no", "no", "no"],

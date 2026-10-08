@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import ConciliarBancoModal from "@/components/ConciliarBancoModal";
 import MovimientoPersonalFormModal from "@/components/MovimientoPersonalFormModal";
 import RegistrarSueldoModal from "@/components/RegistrarSueldoModal";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   eliminarMovimientoPersonal,
@@ -36,6 +37,10 @@ function formatoFecha(fechaISO) {
 }
 
 function FinanzasPersonalesContenido() {
+  const { perfil } = useAuth();
+  // La contadora lleva los pagos: ve y mueve solo el panel Consultorio (la
+  // reserva). El panel Personal de cada dueño es privado.
+  const esContador = perfil?.rol === "Contador";
   const hoy = fechaDeHoyISO();
   const { primero, ultimo } = primerYUltimoDiaDelMes(hoy);
   const [panel, setPanel] = useState("Consultorio");
@@ -88,6 +93,10 @@ function FinanzasPersonalesContenido() {
   }
 
   async function borrar(mov) {
+    if (esContador && mov.movimientoVinculadoId) {
+      setError("Este movimiento es un sueldo de una de las dueñas y también figura en su cuenta Personal: solo lo puede borrar una Dueña.");
+      return;
+    }
     const vinculado = mov.gastoId || mov.movimientoVinculadoId;
     const detalle = vinculado
       ? " (también se borran el sueldo y el gasto del consultorio vinculados a este movimiento)"
@@ -107,7 +116,7 @@ function FinanzasPersonalesContenido() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">💰 Consultorio y Personal</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{esContador ? "💰 Consultorio (reserva)" : "💰 Consultorio y Personal"}</h1>
         <div className="flex flex-wrap gap-2">
           {panel === "Consultorio" && (
             <>
@@ -134,10 +143,12 @@ function FinanzasPersonalesContenido() {
         </div>
       </div>
       <p className="mt-1 text-sm text-gray-500">
-        Dos cuentas separadas: la plata del consultorio, y la de Matías y Marianela una vez cobrado el sueldo.
+        {esContador
+          ? "La reserva del consultorio: de acá salen los pagos de cada mes. Cada gasto que se carga con \"se paga con la reserva\" se descuenta solo."
+          : "Dos cuentas separadas: la plata del consultorio, y la de Matías y Marianela una vez cobrado el sueldo."}
       </p>
 
-      <div className="mt-4 flex gap-2 border-b border-gray-200">
+      <div className={`mt-4 flex gap-2 border-b border-gray-200 ${esContador ? "hidden" : ""}`}>
         {PANELES.map((p) => (
           <button
             key={p.id}
@@ -335,8 +346,8 @@ function FinanzasPersonalesContenido() {
 
 export default function FinanzasPersonalesPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <FinanzasPersonalesContenido />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }
