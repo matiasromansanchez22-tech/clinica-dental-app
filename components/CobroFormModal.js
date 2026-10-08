@@ -45,6 +45,12 @@ export default function CobroFormModal({
   const [cargandoPlan, setCargandoPlan] = useState(false);
   const [cobroIndependienteDelPlan, setCobroIndependienteDelPlan] = useState(false);
   const [cobroComoParticular, setCobroComoParticular] = useState(false);
+  // true cuando todo lo marcado en Agenda salió de turnos cargados como "Particular":
+  // aunque el paciente tenga obra social, ese cobro viene como particular.
+  const particularPorTurno = useRef(false);
+  // Cuando el tilde de "cobrar como particular" lo pone el sistema solo, el efecto que
+  // limpia las prestaciones al tildar a mano no tiene que borrar lo pre-cargado.
+  const saltarLimpiezaPorTilde = useRef(false);
   const primerCatalogoCargado = useRef(false);
   const [prestacionesDelPlan, setPrestacionesDelPlan] = useState([]);
   const [prestacionesRealizadas, setPrestacionesRealizadas] = useState([]);
@@ -101,6 +107,8 @@ export default function CobroFormModal({
     setCobroIndependienteDelPlan(false);
     setCobroComoParticular(false);
     primerCatalogoCargado.current = false;
+    particularPorTurno.current = false;
+    saltarLimpiezaPorTilde.current = false;
     setPrestacionesDelPlan([]);
     setPrestacionesRealizadas([]);
     setPendientesPlanIds([]);
@@ -157,10 +165,23 @@ export default function CobroFormModal({
       })
       .finally(() => setCargandoPlan(false));
 
-    const promesaCatalogo =
-      esObraSocial && paciente.obra_social
-        ? obtenerPrestacionesObraSocial(paciente.obra_social)
-        : obtenerPrestacionesParticular();
+    const promesaCatalogo = promesaPendientes
+      .catch(() => ({ plan: [], adHoc: [] }))
+      .then((pend) => {
+        if (
+          esObraSocial &&
+          pend.plan.length === 0 &&
+          pend.adHoc.length > 0 &&
+          pend.adHoc.every((p) => p.turnoCobertura === "Particular")
+        ) {
+          particularPorTurno.current = true;
+          saltarLimpiezaPorTilde.current = true;
+          setCobroComoParticular(true);
+        }
+        return esObraSocial && !particularPorTurno.current && paciente.obra_social
+          ? obtenerPrestacionesObraSocial(paciente.obra_social)
+          : obtenerPrestacionesParticular();
+      });
     promesaCatalogo.then((disponibles) => {
       setPrestacionesDisponibles(disponibles);
       primerCatalogoCargado.current = true;
@@ -182,7 +203,7 @@ export default function CobroFormModal({
         // catálogo particular, así que se busca la prestación equivalente en
         // el nomenclador de su obra social (por id_catalogo) para traer el
         // código y el copago. Lo que no tenga equivalente se avisa en texto.
-        if (esObraSocial && paciente.obra_social) {
+        if (esObraSocial && !particularPorTurno.current && paciente.obra_social) {
           const sinEquivalente = [];
           const filasOS = [];
           for (const p of pendientes.adHoc) {
@@ -207,7 +228,7 @@ export default function CobroFormModal({
           setPendientesObraSocialSinPrecargar(sinEquivalente);
           return;
         }
-        if (esObraSocial) {
+        if (esObraSocial && !particularPorTurno.current) {
           setPendientesObraSocialSinPrecargar(pendientes.adHoc.map((p) => p.prestacion));
           return;
         }
@@ -243,6 +264,10 @@ export default function CobroFormModal({
   // lo cargó el efecto de arriba al elegir el paciente).
   useEffect(() => {
     if (!paciente) return;
+    if (saltarLimpiezaPorTilde.current) {
+      saltarLimpiezaPorTilde.current = false;
+      return;
+    }
     if (!primerCatalogoCargado.current) return;
     const promesaCatalogo =
       esObraSocialEfectivo && paciente.obra_social
