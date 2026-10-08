@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { agruparPorObraSocial, obtenerPrestacionesPorObraSocial } from "@/lib/data/pacientesPorObraSocial";
+import {
+  agruparPorObraSocial,
+  honorariosDe,
+  obtenerPrestacionesPorObraSocial,
+  resumenParaLiquidar,
+  totalOS,
+} from "@/lib/data/pacientesPorObraSocial";
 
 function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
@@ -71,9 +77,9 @@ function PaginaPacientesPorObraSocial() {
     return [...mapa.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
   }, [prestaciones]);
 
-  const grupos = useMemo(() => {
+  const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
-    const filtradas = prestaciones.filter((p) => {
+    return prestaciones.filter((p) => {
       if (obraSocialElegida !== "todas" && p.claveObraSocial !== obraSocialElegida) return false;
       if (profesionalElegido !== "todos" && (p.profesionalId ?? "sin-asignar") !== profesionalElegido) return false;
       if (!texto) return true;
@@ -84,15 +90,20 @@ function PaginaPacientesPorObraSocial() {
         (p.numeroAfiliado || "").toLowerCase().includes(texto)
       );
     });
-    return agruparPorObraSocial(filtradas);
   }, [prestaciones, obraSocialElegida, profesionalElegido, busqueda]);
+
+  const grupos = useMemo(() => agruparPorObraSocial(filtradas), [filtradas]);
+  const liquidacion = useMemo(() => resumenParaLiquidar(filtradas), [filtradas]);
 
   const totales = useMemo(
     () => ({
-      prestaciones: grupos.reduce((s, g) => s + g.prestaciones, 0),
-      total: grupos.reduce((s, g) => s + g.total, 0),
+      prestaciones: liquidacion.reduce((s, r) => s + r.prestaciones, 0),
+      facturado: liquidacion.reduce((s, r) => s + r.facturado, 0),
+      sinLiquidar: liquidacion.reduce((s, r) => s + r.sinLiquidar, 0),
+      baseLiquidable: liquidacion.reduce((s, r) => s + r.baseLiquidable, 0),
+      honorarios: liquidacion.reduce((s, r) => s + r.honorarios, 0),
     }),
-    [grupos]
+    [liquidacion]
   );
 
   function alternar(clave) {
@@ -108,14 +119,15 @@ function PaginaPacientesPorObraSocial() {
     const lineas = [
       [
         "Obra social", "Paciente", "DNI", "Nº afiliado", "Fecha", "Prestación", "Código",
-        "Cantidad", "Valor OS (c/u)", "Total OS", "Atendió", "Estado",
+        "Cantidad", "Valor OS (c/u)", "Total OS", "Atendió", "Se liquida", "Honorarios", "Estado",
       ],
     ];
     for (const g of grupos) {
       for (const f of g.filas) {
         lineas.push([
           g.nombre, f.paciente, f.dni || "", f.numeroAfiliado || "", formatoFecha(f.fecha), f.prestacion,
-          f.codigo || "", f.cantidad, f.valorOS, f.valorOS * f.cantidad, f.profesional, f.estado,
+          f.codigo || "", f.cantidad, f.valorOS, totalOS(f), f.profesional,
+          f.sinHonorarios ? "No" : "Sí", Math.round(honorariosDe(f)), f.estado,
         ]);
       }
     }
@@ -228,9 +240,6 @@ function PaginaPacientesPorObraSocial() {
             <span>
               <strong>{totales.prestaciones}</strong> prestaciones
             </span>
-            <span>
-              Total a cobrar a las obras sociales: <strong>{formatoPesos(totales.total)}</strong>
-            </span>
             <button
               onClick={() => setAbiertas(new Set(grupos.map((g) => g.clave)))}
               className="text-brand-brown underline"
@@ -248,6 +257,56 @@ function PaginaPacientesPorObraSocial() {
             </button>
           </div>
 
+          <section className="mt-4 overflow-hidden rounded-lg border-2 border-brand-brown">
+            <h2 className="bg-brand-tan/40 px-4 py-2 text-sm font-bold uppercase text-brand-brown">
+              💰 Resumen para liquidar
+            </h2>
+            <div className="overflow-x-auto bg-white">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-xs text-gray-500">
+                    <th className="px-4 py-2 text-left font-semibold">Profesional</th>
+                    <th className="px-3 py-2 text-right font-semibold">Facturado a las OS</th>
+                    <th className="px-3 py-2 text-right font-semibold">Sin liquidar (estampillas)</th>
+                    <th className="px-3 py-2 text-right font-semibold">Base a liquidar</th>
+                    <th className="px-3 py-2 text-right font-semibold">%</th>
+                    <th className="px-4 py-2 text-right font-semibold">Hay que pagarle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liquidacion.map((r) => (
+                    <tr key={r.id} className="border-t border-gray-100">
+                      <td className="px-4 py-2 font-medium text-gray-900">{r.nombre}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.facturado)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{formatoPesos(r.sinLiquidar)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.baseLiquidable)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{r.porcentaje}%</td>
+                      <td className="px-4 py-2 text-right font-semibold tabular-nums text-brand-brown">
+                        {formatoPesos(r.honorarios)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-brand-brown bg-brand-tan/20 font-bold">
+                    <td className="px-4 py-2.5">TOTAL</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{formatoPesos(totales.facturado)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{formatoPesos(totales.sinLiquidar)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{formatoPesos(totales.baseLiquidable)}</td>
+                    <td className="px-3 py-2.5"></td>
+                    <td className="px-4 py-2.5 text-right text-base tabular-nums text-brand-brown">
+                      {formatoPesos(totales.honorarios)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="bg-white px-4 pb-3 text-xs text-gray-500">
+              Las estampillas se cobran a la obra social pero no se liquidan. Los honorarios son el % de obra social de
+              cada profesional sobre la base a liquidar (valor de cada prestación × cantidad).
+            </p>
+          </section>
+
           <div className="mt-3 flex flex-col gap-3">
             {grupos.map((g) => {
               const abierta = abiertas.has(g.clave);
@@ -264,7 +323,8 @@ function PaginaPacientesPorObraSocial() {
                     <span className="flex flex-wrap gap-x-5 gap-y-0.5 text-sm">
                       <span>{g.pacientes} paciente{g.pacientes === 1 ? "" : "s"}</span>
                       <span>{g.prestaciones} prestaciones</span>
-                      <span className="font-semibold">{formatoPesos(g.total)}</span>
+                      <span>{formatoPesos(g.total)}</span>
+                      <span className="font-semibold">A pagar: {formatoPesos(g.honorarios)}</span>
                     </span>
                   </button>
                   {abierta && (
@@ -277,6 +337,7 @@ function PaginaPacientesPorObraSocial() {
                             <th className="px-3 py-2 text-left font-semibold">Qué se le hizo</th>
                             <th className="px-3 py-2 text-right font-semibold">Cant.</th>
                             <th className="px-3 py-2 text-right font-semibold">Valor OS</th>
+                            <th className="px-3 py-2 text-right font-semibold">Honorarios</th>
                             <th className="px-3 py-2 text-left font-semibold">Atendió</th>
                             <th className="px-3 py-2 text-left font-semibold">Estado</th>
                           </tr>
@@ -310,6 +371,9 @@ function PaginaPacientesPorObraSocial() {
                                 <td className="px-3 py-1.5 text-right align-top tabular-nums">{f.cantidad}</td>
                                 <td className="whitespace-nowrap px-3 py-1.5 text-right align-top tabular-nums">
                                   {formatoPesos(f.valorOS)}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-1.5 text-right align-top tabular-nums">
+                                  {f.sinHonorarios ? <span className="text-xs text-gray-400">No se liquida</span> : formatoPesos(honorariosDe(f))}
                                 </td>
                                 <td className="whitespace-nowrap px-3 py-1.5 align-top text-gray-800">{f.profesional}</td>
                                 <td className="px-3 py-1.5 align-top">
