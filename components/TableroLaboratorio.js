@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { COLOR_SEMAFORO, ETAPAS, calcularCircuito } from "@/lib/circuitoLaboratorio";
+import { COLOR_SEMAFORO, DIAS_ENTREGADOS_VISIBLES, ETAPAS, calcularCircuito } from "@/lib/circuitoLaboratorio";
 import { claveTurnoTrabajo, registrarPasoCircuito } from "@/lib/data/laboratorio";
 import { fechaDeHoyISO } from "@/lib/agenda";
 
@@ -74,9 +74,15 @@ function Tarjeta({ trabajo, circuito, turno, ocupado, onAbrir, onAccion }) {
       </p>
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1">
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{circuito.vuelta || "—"}</span>
-        <span className={`text-[11px] font-medium ${sem.clase}`}>
-          {sem.emoji} {circuito.dias} día{circuito.dias === 1 ? "" : "s"}
-        </span>
+        {circuito.etapa === "entregado" ? (
+          <span className="text-[11px] font-medium text-emerald-700">
+            ✅ Entregado {circuito.dias === 0 ? "hoy" : `hace ${circuito.dias} día${circuito.dias === 1 ? "" : "s"}`}
+          </span>
+        ) : (
+          <span className={`text-[11px] font-medium ${sem.clase}`}>
+            {sem.emoji} {circuito.dias} día{circuito.dias === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
       {circuito.etapa === "en_clinica" &&
         (turno ? (
@@ -130,7 +136,13 @@ export default function TableroLaboratorio({
   const [aviso, setAviso] = useState(null);
   const [filtroMecanico, setFiltroMecanico] = useState("");
 
-  const activos = trabajos.filter((t) => t.estado !== "Entregado");
+  // Los entregados se muestran los últimos 30 días; el resto del historial está en "Lista".
+  const hoy = new Date(fechaDeHoyISO() + "T12:00:00");
+  const entregadoReciente = (t) =>
+    t.estado === "Entregado" &&
+    t.fechaAlta &&
+    Math.round((hoy - new Date(t.fechaAlta + "T12:00:00")) / (1000 * 60 * 60 * 24)) <= DIAS_ENTREGADOS_VISIBLES;
+  const activos = trabajos.filter((t) => t.estado !== "Entregado" || entregadoReciente(t));
   const mecanicos = [...new Set(activos.map((t) => t.laboratorio || "Sin mecánico"))].sort((a, b) => a.localeCompare(b, "es"));
   const visibles = activos.filter((t) => !filtroMecanico || (t.laboratorio || "Sin mecánico") === filtroMecanico);
 
@@ -202,11 +214,12 @@ export default function TableroLaboratorio({
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 overflow-x-auto pb-3" style={{ gridTemplateColumns: "repeat(5, minmax(12rem, 1fr))" }}>
+      <div className="mt-4 grid gap-3 overflow-x-auto pb-3" style={{ gridTemplateColumns: "repeat(6, minmax(11rem, 1fr))" }}>
         {ETAPAS.map((etapa) => {
           const items = conCircuito
             .filter((x) => x.circuito.etapa === etapa.id)
-            .sort((a, b) => b.circuito.dias - a.circuito.dias);
+            // Los entregados, del más reciente al más viejo; el resto, el más demorado primero.
+            .sort((a, b) => (etapa.id === "entregado" ? a.circuito.dias - b.circuito.dias : b.circuito.dias - a.circuito.dias));
           return (
             <section
               key={etapa.id}
