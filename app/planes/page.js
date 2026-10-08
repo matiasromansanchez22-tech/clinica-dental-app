@@ -9,11 +9,22 @@ import {
   obtenerPlanesFinanciacion,
 } from "@/lib/data/presupuestos";
 import { obtenerPasosDelPlan } from "@/lib/data/prestacionesRealizadas";
+import { armarCronogramaPlan, textoProximoPaso } from "@/lib/cronogramaPlan";
 
 function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
   const [anio, mes, dia] = fechaISO.split("-");
   return `${dia}/${mes}/${anio}`;
+}
+
+const ESTILO_ESTADO_RENGLON = {
+  pagada: { texto: "✅ Pagada", clase: "bg-emerald-100 text-emerald-800" },
+  parcial: { texto: "🟡 Pago parcial", clase: "bg-amber-100 text-amber-800" },
+  pendiente: { texto: "⬜ Pendiente", clase: "bg-gray-100 text-gray-600" },
+};
+
+function pesos(n) {
+  return `$${Math.round(Number(n) || 0).toLocaleString("es-AR")}`;
 }
 
 const ESTADO_COLOR = {
@@ -192,6 +203,12 @@ export default function PlanesPage() {
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[p.estadoPlan]}`}>
                       {p.estadoPlan}
                     </span>
+                    {p.estadoPlan !== "Finalizado" && p.estadoPlan !== "Cancelado" && (
+                      <span className="mt-1 block text-[11px] text-gray-500">
+                        Sigue:{" "}
+                        {textoProximoPaso(armarCronogramaPlan(p, [{ fecha: "", monto: p.totalPagado }])) || "—"}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-gray-600">
                     {p.fechaUltimoPago ? (
@@ -229,6 +246,65 @@ export default function PlanesPage() {
                         <div className="mb-2 whitespace-pre-line rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-500">
                           {p.observaciones}
                         </div>
+                      )}
+
+                      <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Detalle del plan</p>
+                      {!historiales[p.id] ? (
+                        <p className="mb-3 text-xs text-gray-500">Cargando...</p>
+                      ) : (
+                        (() => {
+                          const crono = armarCronogramaPlan(p, historiales[p.id]);
+                          return (
+                            <div className="mb-3 overflow-x-auto rounded-md border border-gray-200 bg-white">
+                              <table className="w-full min-w-[560px] border-collapse text-xs">
+                                <thead>
+                                  <tr className="bg-brand-tan/30 text-brand-brown">
+                                    <th className="px-3 py-1.5 text-left font-semibold">Concepto</th>
+                                    <th className="px-3 py-1.5 text-right font-semibold">Monto</th>
+                                    <th className="px-3 py-1.5 text-right font-semibold">Pagado</th>
+                                    <th className="px-3 py-1.5 text-right font-semibold">Falta</th>
+                                    <th className="px-3 py-1.5 text-left font-semibold">Estado</th>
+                                    <th className="px-3 py-1.5 text-left font-semibold">Cómo se pagó</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {crono.renglones.map((r) => (
+                                    <tr
+                                      key={r.clave}
+                                      className={`border-t border-gray-100 ${crono.proximo?.clave === r.clave ? "bg-amber-50/60" : ""}`}
+                                    >
+                                      <td className="px-3 py-1.5 font-medium text-gray-900">{r.nombre}</td>
+                                      <td className="px-3 py-1.5 text-right tabular-nums">{pesos(r.monto)}</td>
+                                      <td className="px-3 py-1.5 text-right tabular-nums">{pesos(r.pagado)}</td>
+                                      <td className="px-3 py-1.5 text-right tabular-nums">{pesos(r.falta)}</td>
+                                      <td className="px-3 py-1.5">
+                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTILO_ESTADO_RENGLON[r.estado].clase}`}>
+                                          {ESTILO_ESTADO_RENGLON[r.estado].texto}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-1.5 text-gray-600">
+                                        {r.aportes.length === 0
+                                          ? "—"
+                                          : r.aportes
+                                              .map(
+                                                (a) =>
+                                                  `${formatoFecha(a.fecha)} ${pesos(a.monto)}${a.medioPago ? ` · ${a.medioPago}` : ""}${a.origen === "Histórico" ? " (histórico)" : ""}`
+                                              )
+                                              .join(" + ")}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              <p className="border-t border-gray-100 px-3 py-1.5 text-[11px] text-gray-500">
+                                {crono.proximo
+                                  ? `Sigue: ${textoProximoPaso(crono)}.`
+                                  : "El plan está completo."}{" "}
+                                Cada pago se aplica en orden: primero el anticipo y después las cuotas.
+                              </p>
+                            </div>
+                          );
+                        })()
                       )}
 
                       <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Pasos del tratamiento</p>

@@ -571,7 +571,12 @@ export default function CobroFormModal({
               {usaPlan && (
                 <p className="mt-1">
                   Este cobro se va a aplicar a{" "}
-                  <strong>{numeroCuota === "Anticipo" ? "el anticipo" : `la cuota ${numeroCuota}`}</strong>.
+                  <strong>
+                    {numeroCuota === "Anticipo"
+                      ? "el anticipo"
+                      : `la cuota ${numeroCuota}${planActivo.cantidad_cuotas ? ` de ${planActivo.cantidad_cuotas}` : ""}`}
+                  </strong>
+                  .
                 </p>
               )}
               {hayDosCosasParaCobrar ? (
