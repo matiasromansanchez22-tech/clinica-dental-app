@@ -21,12 +21,19 @@ function accionesDe(etapa) {
       return [
         { clave: "ajustar", texto: "🔧 Probó: hay que ajustar", tipos: ["Prueba con el paciente", "Ajuste - reenviado"], prueba: true },
         { clave: "ok", texto: "👍 Probó: está bien", tipos: ["Prueba con el paciente", "Prueba aprobada"], prueba: true },
+        {
+          clave: "ok_entrega",
+          texto: "🎁 Probó: está bien y se entrega hoy",
+          tipos: ["Prueba con el paciente", "Prueba aprobada", "Alta / Entregado"],
+          prueba: true,
+        },
         { clave: "directo", texto: "🎁 Entregar sin prueba", tipos: ["Alta / Entregado"], suave: true },
       ];
     case "probado":
       return [
         { clave: "ajustar", texto: "🔧 Hay que ajustar", tipos: ["Ajuste - reenviado"] },
         { clave: "ok", texto: "👍 Está bien", tipos: ["Prueba aprobada"] },
+        { clave: "ok_entrega", texto: "🎁 Está bien y se entrega hoy", tipos: ["Prueba aprobada", "Alta / Entregado"] },
       ];
     case "listo":
       return [{ clave: "entregar", texto: "🎁 Entregado al paciente", tipos: ["Alta / Entregado"] }];
@@ -139,11 +146,23 @@ export default function TableroLaboratorio({
     setAviso(null);
     try {
       await registrarPasoCircuito(trabajo.id, accion.tipos);
-      // Mario cobra la mitad en la prueba: se le recuerda a quien lo carga.
-      if (accion.prueba && (trabajo.laboratorio || "").trim().toLowerCase() === "mario" && trabajo.valor) {
-        setAviso(
-          `Recordá: a Mario le corresponde el 50% de este trabajo al probarlo (${formatoPesos(trabajo.valor / 2)}) — ${trabajo.pacienteNombre}.`
-        );
+      // Mario cobra la mitad al probar y la otra mitad al entregar: se le recuerda a
+      // quien lo carga (si se prueba y se entrega el mismo día, le toca el 100%).
+      if ((trabajo.laboratorio || "").trim().toLowerCase() === "mario" && trabajo.valor) {
+        const entrega = accion.tipos.includes("Alta / Entregado");
+        const prueba = accion.tipos.includes("Prueba con el paciente");
+        let texto = null;
+        if (prueba && entrega) {
+          texto = `a Mario le corresponde el 100% de este trabajo (${formatoPesos(trabajo.valor)})`;
+        } else if (prueba) {
+          texto = `a Mario le corresponde el 50% de este trabajo al probarlo (${formatoPesos(trabajo.valor / 2)})`;
+        } else if (entrega) {
+          texto =
+            circuito.pruebas > 0
+              ? `al entregarlo, a Mario le corresponde el 50% restante (${formatoPesos(trabajo.valor / 2)})`
+              : `a Mario le corresponde el 100% de este trabajo (${formatoPesos(trabajo.valor)})`;
+        }
+        if (texto) setAviso(`Recordá: ${texto} — ${trabajo.pacienteNombre}.`);
       }
       await onCambio();
     } catch (e) {
