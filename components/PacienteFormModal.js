@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { calcularEdad, formatearDni } from "@/lib/pacientes";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import Odontograma from "@/components/Odontograma";
 import PlanTratamiento from "@/components/PlanTratamiento";
 import SaldoAFavor from "@/components/SaldoAFavor";
 import {
   actualizarPaciente,
+  buscarPacientesParecidos,
   buscarPosiblesDuplicados,
   crearPacienteCompleto,
   crearVinculoFamiliar,
@@ -54,6 +56,9 @@ export default function PacienteFormModal({
   const [form, setForm] = useState(paciente ? mapearAFormulario(paciente) : VACIO);
   const [versionHistorial, setVersionHistorial] = useState(0);
   const [duplicados, setDuplicados] = useState([]);
+  const [yaExisten, setYaExisten] = useState([]);
+  const [crearIgual, setCrearIgual] = useState(false);
+  const { perfil: perfilActual } = useAuth();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [borrando, setBorrando] = useState(false);
@@ -181,6 +186,16 @@ export default function PacienteFormModal({
       if (paciente) {
         await actualizarPaciente(paciente.id, datos);
       } else {
+        // Un paciente nuevo no se carga si ya hay uno con el mismo DNI o un nombre
+        // parecido: se completa la ficha que ya existe (la Dueña puede confirmar que
+        // es otra persona).
+        const parecidos = await buscarPacientesParecidos({ apellidoYNombre: datos.apellidoYNombre, dni: datos.dni });
+        if (parecidos.length > 0 && !(perfilActual?.rol === "Duena" && crearIgual)) {
+          setYaExisten(parecidos);
+          setError("Ese paciente ya está cargado. Abrí su ficha y completale los datos ahí, sin cargarlo de nuevo.");
+          setGuardando(false);
+          return;
+        }
         await crearPacienteCompleto(datos);
       }
       onGuardado();
@@ -223,6 +238,33 @@ export default function PacienteFormModal({
           </div>
         )}
 
+        {!paciente && yaExisten.length > 0 && (
+          <div className="mb-4 flex flex-col gap-1.5 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p className="font-semibold">Ya existe en el sistema:</p>
+            {yaExisten.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2">
+                <span>
+                  <strong>{p.apellido_y_nombre}</strong> · DNI {p.dni || "—"} · {p.celular || "sin celular"}
+                </span>
+                {onAbrirOtroPaciente && (
+                  <button
+                    type="button"
+                    onClick={() => onAbrirOtroPaciente(p.id)}
+                    className="shrink-0 rounded-md border border-red-400 bg-white px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-100"
+                  >
+                    Abrir su ficha
+                  </button>
+                )}
+              </div>
+            ))}
+            {perfilActual?.rol === "Duena" && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs">
+                <input type="checkbox" checked={crearIgual} onChange={(e) => setCrearIgual(e.target.checked)} />
+                Es otra persona distinta (crear igual)
+              </label>
+            )}
+          </div>
+        )}
         {duplicados.length > 0 && (
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             ⚠ Posible duplicado: ya existe {duplicados.map((d) => d.apellido_y_nombre).join(", ")} con el mismo DNI o celular. Podés guardar igual si son personas distintas.

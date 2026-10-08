@@ -363,6 +363,7 @@ function PacientesContenido() {
 
       {(mostrarNuevo || pacienteEnEdicion) && (
         <PacienteFormModal
+          key={pacienteEnEdicion?.id || "nuevo"}
           paciente={pacienteEnEdicion}
           profesionales={profesionales}
           obrasSocialesSugeridas={obrasSocialesSugeridas}

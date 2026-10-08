@@ -14,7 +14,8 @@ import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/prof
 import { buscarProximosHorariosLibres } from "@/lib/data/buscadorHorario";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
-import { crearPaciente } from "@/lib/data/pacientes";
+import { buscarPacientesParecidos, crearPaciente } from "@/lib/data/pacientes";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { calcularEdad } from "@/lib/pacientes";
 import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
 import { marcarProximaPrestacionUsada, obtenerProximaPrestacionPendiente } from "@/lib/data/prestacionesRealizadas";
@@ -45,6 +46,9 @@ export default function NuevoTurnoModal({
   const [horaInicio, setHoraInicio] = useState(horaInicial);
   const [duracionMin, setDuracionMin] = useState(30);
   const [pacienteNombre, setPacienteNombre] = useState("");
+  const { perfil } = useAuth();
+  const [parecidos, setParecidos] = useState([]);
+  const [crearIgual, setCrearIgual] = useState(false);
   const [celular, setCelular] = useState("");
   const [profesionalDeTurnoId, setProfesionalDeTurnoId] = useState(profesionales[0]?.id ?? "");
   const [tipoAtencion, setTipoAtencion] = useState("Consulta");
@@ -67,6 +71,23 @@ export default function NuevoTurnoModal({
   const [catalogoCompleto, setCatalogoCompleto] = useState([]);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestacionesTurno, setPrestacionesTurno] = useState([]);
+
+  // Mientras se escribe un nombre que no coincide exacto con nadie, se avisa si ya hay
+  // un paciente parecido (otro orden, otra tilde, una letra distinta): no hace falta
+  // cargarlo de nuevo, se usa esa ficha.
+  useEffect(() => {
+    const nombre = pacienteNombre.trim();
+    const timeout = setTimeout(() => {
+      if (nombre.length < 5) {
+        setParecidos([]);
+        return;
+      }
+      buscarPacientesParecidos({ apellidoYNombre: nombre })
+        .then((lista) => setParecidos(lista.filter((p) => p.apellido_y_nombre.trim().toLowerCase() !== nombre.toLowerCase())))
+        .catch(() => setParecidos([]));
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [pacienteNombre]);
 
   const pacienteExistente = useMemo(() => {
     const nombreNormalizado = pacienteNombre.trim().toLowerCase();
@@ -280,6 +301,17 @@ export default function NuevoTurnoModal({
     try {
       let pacienteId = pacienteExistente?.id;
       if (!pacienteId) {
+        // Última barrera: si ya existe uno parecido, no se crea otro (la Dueña puede
+        // confirmar que es una persona distinta).
+        const yaExisten = await buscarPacientesParecidos({ apellidoYNombre: pacienteNombre.trim() });
+        if (yaExisten.length > 0 && !(perfil?.rol === "Duena" && crearIgual)) {
+          setErrorMsg(
+            `Ya hay un paciente cargado parecido: ${yaExisten.map((p) => p.apellido_y_nombre).join(", ")}. Usá esa ficha (botón "Usar este paciente") en lugar de cargarlo de nuevo.`
+          );
+          setParecidos(yaExisten);
+          setGuardando(false);
+          return;
+        }
         const nuevoPaciente = await crearPaciente({
           apellidoYNombre: pacienteNombre.trim(),
           celular,
@@ -483,12 +515,47 @@ export default function NuevoTurnoModal({
                 <option key={p.id} value={p.apellido_y_nombre} />
               ))}
             </datalist>
+            {!pacienteExistente && parecidos.length > 0 && (
+              <div className="mt-1 flex flex-col gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <p className="font-semibold">⚠ Ya hay un paciente parecido cargado — no hace falta cargarlo de nuevo:</p>
+                {parecidos.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      <strong>{p.apellido_y_nombre}</strong>
+                      <span className="text-amber-800">
+                        {" "}
+                        · DNI {p.dni || "—"} · {p.celular || "sin celular"}
+                        {p.obra_social ? ` · ${p.obra_social}` : ""}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPacienteNombre(p.apellido_y_nombre)}
+                      className="shrink-0 rounded-md border border-amber-400 bg-white px-2 py-1 font-medium text-amber-900 hover:bg-amber-100"
+                    >
+                      Usar este paciente
+                    </button>
+                  </div>
+                ))}
+                {perfil?.rol === "Duena" && (
+                  <label className="mt-1 flex items-center gap-1.5 text-amber-900">
+                    <input type="checkbox" checked={crearIgual} onChange={(e) => setCrearIgual(e.target.checked)} />
+                    Es otra persona distinta (crear igual)
+                  </label>
+                )}
+              </div>
+            )}
             {pacienteExistente ? (
               <span className="text-xs text-emerald-600">Paciente ya existente, se va a vincular.</span>
             ) : (
-              pacienteNombre.trim() && (
+              pacienteNombre.trim() &&
+              (parecidos.length > 0 && !(perfil?.rol === "Duena" && crearIgual) ? (
+                <span className="text-xs font-medium text-red-600">
+                  No se puede cargar como paciente nuevo: ya existe uno parecido. Usá esa ficha.
+                </span>
+              ) : (
                 <span className="text-xs text-blue-600">Es un paciente nuevo, se va a crear su ficha.</span>
-              )
+              ))
             )}
           </label>
 
