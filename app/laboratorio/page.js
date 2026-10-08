@@ -10,7 +10,9 @@ import {
   calcularEstadoDemora,
   eliminarTrabajoLaboratorio,
   obtenerConfiguracionLaboratorio,
+  claveTurnoTrabajo,
   obtenerEventosPorTrabajo,
+  obtenerProximosTurnosDeTrabajos,
   obtenerTrabajosLaboratorio,
 } from "@/lib/data/laboratorio";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
@@ -22,6 +24,7 @@ import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios
 function PaginaLaboratorio() {
   const [trabajos, setTrabajos] = useState([]);
   const [eventosPorTrabajo, setEventosPorTrabajo] = useState({});
+  const [turnosPorPaciente, setTurnosPorPaciente] = useState({});
   const [vista, setVista] = useState("tablero"); // "tablero" | "lista"
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
@@ -87,6 +90,16 @@ function PaginaLaboratorio() {
     });
   }, []);
 
+  // Próximo turno de cada paciente con trabajo en curso: se vuelve a buscar cada vez
+  // que cambian los trabajos (por ejemplo, después de marcar que llegó uno).
+  useEffect(() => {
+    const activos = trabajos.filter((t) => t.estado !== "Entregado");
+    if (activos.length === 0) return;
+    obtenerProximosTurnosDeTrabajos(activos)
+      .then(setTurnosPorPaciente)
+      .catch(() => {});
+  }, [trabajos]);
+
   const trabajosMostrados = soloActivos ? trabajos.filter((t) => t.estado !== "Entregado") : trabajos;
 
   const resumen = useMemo(() => {
@@ -102,8 +115,13 @@ function PaginaLaboratorio() {
   // Trabajos que ya llegaron de vuelta del mecánico y esperan que el paciente venga
   // a probarlos: es la lista de "falta dar turno de prueba" para la secretaria.
   const paraDarTurnoDePrueba = useMemo(
-    () => trabajos.filter((t) => calcularCircuito(t, eventosPorTrabajo[t.id] || []).etapa === "en_clinica").length,
-    [trabajos, eventosPorTrabajo]
+    () =>
+      trabajos.filter(
+        (t) =>
+          calcularCircuito(t, eventosPorTrabajo[t.id] || []).etapa === "en_clinica" &&
+          !turnosPorPaciente[claveTurnoTrabajo(t)]
+      ).length,
+    [trabajos, eventosPorTrabajo, turnosPorPaciente]
   );
 
   const pendientesDeEnvio = useMemo(
@@ -210,6 +228,7 @@ function PaginaLaboratorio() {
         <TableroLaboratorio
           trabajos={trabajos}
           eventosPorTrabajo={eventosPorTrabajo}
+          turnosPorPaciente={turnosPorPaciente}
           onAbrirTrabajo={setTrabajoEnDetalle}
           onMarcarEnviado={setTrabajoAMarcarEnviado}
           onCambio={recargarTrabajos}

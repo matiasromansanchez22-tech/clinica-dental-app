@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { COLOR_SEMAFORO, ETAPAS, calcularCircuito } from "@/lib/circuitoLaboratorio";
-import { registrarPasoCircuito } from "@/lib/data/laboratorio";
+import { claveTurnoTrabajo, registrarPasoCircuito } from "@/lib/data/laboratorio";
+import { fechaDeHoyISO } from "@/lib/agenda";
 
 function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
@@ -34,7 +35,20 @@ function accionesDe(etapa) {
   }
 }
 
-function Tarjeta({ trabajo, circuito, ocupado, onAbrir, onAccion }) {
+const DIAS_SEMANA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+
+function textoTurno(turno) {
+  const [anio, mes, dia] = turno.fecha.split("-").map(Number);
+  const semana = DIAS_SEMANA[new Date(anio, mes - 1, dia).getDay()];
+  return `${semana} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}${turno.hora ? ` · ${turno.hora}` : ""}`;
+}
+
+function diasHasta(fechaISO) {
+  const hoy = new Date(fechaDeHoyISO() + "T12:00:00");
+  return Math.round((new Date(fechaISO + "T12:00:00") - hoy) / (1000 * 60 * 60 * 24));
+}
+
+function Tarjeta({ trabajo, circuito, turno, ocupado, onAbrir, onAccion }) {
   const sem = COLOR_SEMAFORO[circuito.semaforo];
   const acciones = accionesDe(circuito.etapa);
   return (
@@ -57,8 +71,21 @@ function Tarjeta({ trabajo, circuito, ocupado, onAbrir, onAccion }) {
           {sem.emoji} {circuito.dias} día{circuito.dias === 1 ? "" : "s"}
         </span>
       </div>
-      {circuito.etapa === "en_clinica" && (
-        <p className="mt-1 text-[11px] font-medium text-amber-800">📅 Falta dar turno de prueba</p>
+      {circuito.etapa === "en_clinica" &&
+        (turno ? (
+          <p className="mt-1 text-[11px] font-medium text-emerald-700">📅 Ya tiene turno: {textoTurno(turno)}</p>
+        ) : (
+          <p className="mt-1 text-[11px] font-medium text-amber-800">📅 Falta dar turno de prueba</p>
+        ))}
+      {circuito.etapa === "en_mecanico" && turno && (
+        <p
+          className={`mt-1 text-[11px] font-medium ${diasHasta(turno.fecha) <= 3 ? "text-red-700" : "text-gray-600"}`}
+        >
+          📅 Turno: {textoTurno(turno)} — tiene que volver antes
+        </p>
+      )}
+      {(circuito.etapa === "probado" || circuito.etapa === "listo") && turno && (
+        <p className="mt-1 text-[11px] font-medium text-gray-600">📅 Próximo turno: {textoTurno(turno)}</p>
       )}
       {acciones.length > 0 && (
         <div className="mt-2 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
@@ -83,7 +110,14 @@ function Tarjeta({ trabajo, circuito, ocupado, onAbrir, onAccion }) {
   );
 }
 
-export default function TableroLaboratorio({ trabajos, eventosPorTrabajo, onAbrirTrabajo, onMarcarEnviado, onCambio }) {
+export default function TableroLaboratorio({
+  trabajos,
+  eventosPorTrabajo,
+  turnosPorPaciente = {},
+  onAbrirTrabajo,
+  onMarcarEnviado,
+  onCambio,
+}) {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -173,6 +207,7 @@ export default function TableroLaboratorio({ trabajos, eventosPorTrabajo, onAbri
                       key={trabajo.id}
                       trabajo={trabajo}
                       circuito={circuito}
+                      turno={turnosPorPaciente[claveTurnoTrabajo(trabajo)]}
                       ocupado={ocupado}
                       onAbrir={() => onAbrirTrabajo(trabajo)}
                       onAccion={ejecutarAccion}
