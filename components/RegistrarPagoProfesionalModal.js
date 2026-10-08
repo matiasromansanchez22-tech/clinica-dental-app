@@ -11,6 +11,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
   const [monto, setMonto] = useState(Math.round(montoSugerido || 0));
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
+  const [desdeReserva, setDesdeReserva] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -30,6 +31,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
         monto: Number(monto),
         medioPago,
         observaciones,
+        desdeReserva,
       });
       onGuardado();
     } catch (err) {
@@ -91,6 +93,20 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <input
+              type="checkbox"
+              checked={desdeReserva}
+              onChange={(e) => setDesdeReserva(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <strong>Se paga con la reserva del Consultorio.</strong> Descuenta de la reserva (
+              {medioPago === "Efectivo" ? "Efectivo" : "Banco"}) y no baja lo limpio del mes. Cuenta como pagado a este
+              profesional.
+            </span>
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

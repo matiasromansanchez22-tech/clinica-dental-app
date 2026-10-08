@@ -59,7 +59,7 @@ export async function GET(request) {
       supabase.from("caja_ortodoncia").select("importe, medio_pago, desglose_pago").eq("fecha", fecha),
       supabase.from("gastos").select("categoria, monto, medio_pago, desde_reserva").eq("fecha", fecha),
       supabase.from("categorias_gasto").select("nombre, sale_de_reserva"),
-      supabase.from("pagos_profesionales").select("monto, medio_pago").eq("fecha", fecha),
+      supabase.from("pagos_profesionales").select("monto, medio_pago").eq("desde_reserva", false).eq("fecha", fecha),
       supabase.from("cierres_turno").select("id").eq("fecha", fecha),
       supabase.from("cierres_turno_ortodoncia").select("id").eq("fecha", fecha),
     ]);

@@ -12,6 +12,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
+  const [montoReserva, setMontoReserva] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,9 +27,24 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
       setError("El monto tiene que ser mayor a cero.");
       return;
     }
+    const deReserva = Number(montoReserva) || 0;
+    if (deReserva < 0 || deReserva > Number(monto)) {
+      setError("Lo que sale de la reserva no puede ser más que el monto total del pago.");
+      return;
+    }
+    const deCaja = Number(monto) - deReserva;
     setGuardando(true);
     try {
-      await crearPagoProfesional({ fecha, profesionalId, tipo, monto: Number(monto), medioPago, observaciones, origen: "Caja" });
+      // El pago se parte en dos: lo que sale de la caja (descuenta del disponible
+      // del día) y lo que sale de la reserva (no toca la caja ni lo limpio).
+      if (deCaja > 0) {
+        await crearPagoProfesional({ fecha, profesionalId, tipo, monto: deCaja, medioPago, observaciones, origen: "Caja" });
+      }
+      if (deReserva > 0) {
+        await crearPagoProfesional({
+          fecha, profesionalId, tipo, monto: deReserva, medioPago, observaciones, origen: "Produccion", desdeReserva: true,
+        });
+      }
       onGuardado();
     } catch (err) {
       setError(err.message);
@@ -90,7 +106,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
-            Monto
+            Monto total del pago
             <input
               type="number"
               value={monto}
@@ -112,6 +128,25 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="flex flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            ¿Cuánto de ese total sale de la reserva del Consultorio? (opcional)
+            <input
+              type="number"
+              min={0}
+              value={montoReserva}
+              onChange={(e) => setMontoReserva(e.target.value)}
+              placeholder="0"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5"
+            />
+            {Number(monto) > 0 && Number(montoReserva) > 0 && Number(montoReserva) <= Number(monto) && (
+              <span className="text-xs">
+                Sale de la caja: <strong>${(Number(monto) - Number(montoReserva)).toLocaleString("es-AR")}</strong> · Sale de
+                la reserva ({medioPago === "Efectivo" ? "Efectivo" : "Banco"}):{" "}
+                <strong>${Number(montoReserva).toLocaleString("es-AR")}</strong>
+              </span>
+            )}
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">

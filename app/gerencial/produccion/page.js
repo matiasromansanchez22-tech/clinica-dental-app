@@ -54,7 +54,7 @@ function ProduccionPorProfesionalContenido() {
       const [data, pagado, pagos] = await Promise.all([
         obtenerProduccionPorProfesional(fechaInicio, fechaFin),
         obtenerTotalPagadoPorProfesional(fechaInicio, fechaFin),
-        obtenerPagosProfesionales(fechaInicio, fechaFin),
+        obtenerPagosProfesionales(fechaInicio, fechaFin, { incluirDesdeReserva: true }),
       ]);
       setFilas(data);
       setPagadoPorProfesional(pagado);
