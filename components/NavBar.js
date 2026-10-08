@@ -44,6 +44,7 @@ const GRUPOS = [
     items: [
       { href: "/agenda", label: "Agenda" },
       { href: "/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
+      { href: "/pendientes-de-registro", label: "📝 Pendientes de registro", ocultarRoles: ["Secretaria", "Laboratorio"] },
       { href: "/reprogramar", label: "Turnos a reprogramar", badgeKey: "general" },
       { href: "/cancelados", label: "Turnos cancelados" },
       { href: "/pacientes", label: "Pacientes" },

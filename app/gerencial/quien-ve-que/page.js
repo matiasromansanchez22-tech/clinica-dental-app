@@ -41,6 +41,7 @@ const SECCIONES = [
     titulo: "Odontología General y Ortodoncia (la parte clínica)",
     filas: [
       ["Agenda, turnos a reprogramar y cancelados", "ok", "ok", "ok", "ok", "no", "no"],
+      ["Pendientes de registro (pacientes sin \"qué se hizo\")", "ok", "no", "propio", "no", "no", "no", "Cada odontólogo ve solo los suyos; las dueñas ven a todos."],
       ["Pacientes (fichas)", "ok", "ok", "ok", "ok", "no", "no"],
       ["Presupuestos, planes, catálogo y nomenclador", "ok", "ok", "ok", "ok", "no", "no"],
       ["Controles de Ortodoncia", "ok", "ok", "ok", "ok", "no", "no"],
