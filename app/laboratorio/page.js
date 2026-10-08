@@ -135,7 +135,7 @@ function PaginaLaboratorio() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
+    <main className={`mx-auto p-6 ${vista === "tablero" ? "max-w-[96rem]" : "max-w-6xl"}`}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Laboratorio / Prótesis</h1>

@@ -149,7 +149,7 @@ export default function TableroLaboratorio({ trabajos, eventosPorTrabajo, onAbri
         </div>
       )}
 
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-3">
+      <div className="mt-4 grid gap-3 overflow-x-auto pb-3" style={{ gridTemplateColumns: "repeat(5, minmax(12rem, 1fr))" }}>
         {ETAPAS.map((etapa) => {
           const items = conCircuito
             .filter((x) => x.circuito.etapa === etapa.id)
@@ -157,7 +157,7 @@ export default function TableroLaboratorio({ trabajos, eventosPorTrabajo, onAbri
           return (
             <section
               key={etapa.id}
-              className={`w-64 shrink-0 rounded-lg border ${etapa.colorBorde} ${etapa.colorFondo} p-2`}
+              className={`min-w-0 rounded-lg border ${etapa.colorBorde} ${etapa.colorFondo} p-2`}
             >
               <h2 className="flex items-baseline justify-between text-sm font-bold text-gray-900">
                 <span>{etapa.titulo}</span>
