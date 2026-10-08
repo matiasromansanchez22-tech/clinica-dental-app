@@ -131,14 +131,14 @@ const SECCIONES = [
 
 const AVISOS = [
   {
-    titulo: "Las cajas ya están ocultas para el Odontólogo y Laboratorio",
+    titulo: "La plata ya está protegida para el Odontólogo y Laboratorio",
     texto:
-      "Desde el 7/10, Caja, Cuentas por cobrar y Cierre de Turno (General y Ortodoncia) no aparecen en su menú y, si entran por dirección, ven \"Acceso restringido\". Quedan por revisar Presupuestos y Planes de Financiación, que sí ven y muestran importes.",
+      "Desde el 7/10, Caja, Cuentas por cobrar y Cierre de Turno no aparecen en su menú, la pantalla les dice \"Acceso restringido\" y además la base de datos no les deja leer ni cargar cobros, gastos, pagos a profesionales ni cierres. Lo que arman ellos (presupuestos y planes) sigue visible para ellos.",
   },
   {
-    titulo: "La base de datos permite más de lo que muestra el menú",
+    titulo: "Secretaria: ve toda la plata de las cajas",
     texto:
-      "Los cobros, gastos, pagos a profesionales y cierres se pueden leer desde la base con los roles Secretaria, Odontólogo y Laboratorio, aunque el menú no se los muestre. Para un uso normal no se nota, pero no es una barrera real contra alguien que sepa buscar.",
+      "La Secretaria necesita cobrar, así que la base le permite leer y cargar cobros, gastos, pagos y cierres de todas las cajas, aunque su menú no le muestre Gastos ni los balances. Es una decisión a tener en cuenta si alguna vez querés afinarlo más.",
   },
   {
     titulo: "Ane ve los cierres de turno con lo que contó cada una",
