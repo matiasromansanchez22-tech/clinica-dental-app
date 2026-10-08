@@ -27,6 +27,16 @@ function rangoDelMes(mesISO) {
   return { desde: `${mesISO}-01`, hasta: `${mesISO}-${String(ultimoDia).padStart(2, "0")}` };
 }
 
+const NOMBRES_MES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+function nombreMes(claveMes) {
+  const [anio, mes] = claveMes.split("-");
+  return `${NOMBRES_MES[Number(mes) - 1]} ${anio}`;
+}
+
 function celdaCSV(valor) {
   const texto = String(valor ?? "");
   return /[;"\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
@@ -92,19 +102,33 @@ function PaginaPacientesPorObraSocial() {
     });
   }, [prestaciones, obraSocialElegida, profesionalElegido, busqueda]);
 
-  const grupos = useMemo(() => agruparPorObraSocial(filtradas), [filtradas]);
-  const liquidacion = useMemo(() => resumenParaLiquidar(filtradas), [filtradas]);
-
-  const totales = useMemo(
-    () => ({
-      prestaciones: liquidacion.reduce((s, r) => s + r.prestaciones, 0),
-      facturado: liquidacion.reduce((s, r) => s + r.facturado, 0),
-      sinLiquidar: liquidacion.reduce((s, r) => s + r.sinLiquidar, 0),
-      baseLiquidable: liquidacion.reduce((s, r) => s + r.baseLiquidable, 0),
-      honorarios: liquidacion.reduce((s, r) => s + r.honorarios, 0),
-    }),
-    [liquidacion]
-  );
+  // Todo se arma mes por mes (el más nuevo primero): cada mes tiene su propio
+  // resumen para liquidar y sus obras sociales, sin un total general.
+  const meses = useMemo(() => {
+    const porMes = new Map();
+    for (const f of filtradas) {
+      const clave = f.fecha.slice(0, 7);
+      if (!porMes.has(clave)) porMes.set(clave, []);
+      porMes.get(clave).push(f);
+    }
+    return [...porMes.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([clave, filas]) => {
+        const liquidacion = resumenParaLiquidar(filas);
+        const suma = (campo) => liquidacion.reduce((acc, r) => acc + r[campo], 0);
+        return {
+          clave,
+          grupos: agruparPorObraSocial(filas),
+          liquidacion,
+          totales: {
+            facturado: suma("facturado"),
+            sinLiquidar: suma("sinLiquidar"),
+            baseLiquidable: suma("baseLiquidable"),
+            honorarios: suma("honorarios"),
+          },
+        };
+      });
+  }, [filtradas]);
 
   function alternar(clave) {
     setAbiertas((previas) => {
@@ -118,17 +142,19 @@ function PaginaPacientesPorObraSocial() {
   function descargarExcel() {
     const lineas = [
       [
-        "Obra social", "Paciente", "DNI", "Nº afiliado", "Fecha", "Prestación", "Código",
+        "Mes", "Obra social", "Paciente", "DNI", "Nº afiliado", "Fecha", "Prestación", "Código",
         "Cantidad", "Valor OS (c/u)", "Total OS", "Atendió", "Se liquida", "Honorarios", "Estado",
       ],
     ];
-    for (const g of grupos) {
-      for (const f of g.filas) {
-        lineas.push([
-          g.nombre, f.paciente, f.dni || "", f.numeroAfiliado || "", formatoFecha(f.fecha), f.prestacion,
+    for (const m of meses) {
+      for (const g of m.grupos) {
+        for (const f of g.filas) {
+          lineas.push([
+          nombreMes(m.clave), g.nombre, f.paciente, f.dni || "", f.numeroAfiliado || "", formatoFecha(f.fecha), f.prestacion,
           f.codigo || "", f.cantidad, f.valorOS, totalOS(f), f.profesional,
           f.sinHonorarios ? "No" : "Sí", Math.round(honorariosDe(f)), f.estado,
-        ]);
+          ]);
+        }
       }
     }
     // Punto y coma + BOM: así Excel en español lo abre directo en columnas y con tildes.
@@ -229,19 +255,16 @@ function PaginaPacientesPorObraSocial() {
 
       {cargando ? (
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>
-      ) : grupos.length === 0 ? (
+      ) : meses.length === 0 ? (
         <p className="mt-6 text-sm text-gray-500">No hay prestaciones de obras sociales para este filtro.</p>
       ) : (
         <>
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-700">
             <span>
-              <strong>{grupos.length}</strong> obra{grupos.length === 1 ? "" : "s"} social{grupos.length === 1 ? "" : "es"}
-            </span>
-            <span>
-              <strong>{totales.prestaciones}</strong> prestaciones
+              <strong>{meses.length}</strong> mes{meses.length === 1 ? "" : "es"}
             </span>
             <button
-              onClick={() => setAbiertas(new Set(grupos.map((g) => g.clave)))}
+              onClick={() => setAbiertas(new Set(meses.flatMap((m) => m.grupos.map((g) => `${m.clave}|${g.clave}`))))}
               className="text-brand-brown underline"
             >
               Abrir todas
@@ -257,9 +280,12 @@ function PaginaPacientesPorObraSocial() {
             </button>
           </div>
 
+          {meses.map((m) => (
+            <div key={m.clave} className="mt-8">
+              <h2 className="border-b-2 border-brand-brown pb-1 text-xl font-bold text-brand-brown">{nombreMes(m.clave)}</h2>
           <section className="mt-4 overflow-hidden rounded-lg border-2 border-brand-brown">
             <h2 className="bg-brand-tan/40 px-4 py-2 text-sm font-bold uppercase text-brand-brown">
-              💰 Resumen para liquidar
+              💰 Resumen para liquidar — {nombreMes(m.clave)}
             </h2>
             <div className="overflow-x-auto bg-white">
               <table className="w-full min-w-[640px] border-collapse text-sm">
@@ -274,7 +300,7 @@ function PaginaPacientesPorObraSocial() {
                   </tr>
                 </thead>
                 <tbody>
-                  {liquidacion.map((r) => (
+                  {m.liquidacion.map((r) => (
                     <tr key={r.id} className="border-t border-gray-100">
                       <td className="px-4 py-2 font-medium text-gray-900">{r.nombre}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.facturado)}</td>
@@ -289,13 +315,13 @@ function PaginaPacientesPorObraSocial() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-brand-brown bg-brand-tan/20 font-bold">
-                    <td className="px-4 py-2.5">TOTAL</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{formatoPesos(totales.facturado)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{formatoPesos(totales.sinLiquidar)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{formatoPesos(totales.baseLiquidable)}</td>
+                    <td className="px-4 py-2.5">TOTAL DE {nombreMes(m.clave).toUpperCase()}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{formatoPesos(m.totales.facturado)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{formatoPesos(m.totales.sinLiquidar)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{formatoPesos(m.totales.baseLiquidable)}</td>
                     <td className="px-3 py-2.5"></td>
                     <td className="px-4 py-2.5 text-right text-base tabular-nums text-brand-brown">
-                      {formatoPesos(totales.honorarios)}
+                      {formatoPesos(m.totales.honorarios)}
                     </td>
                   </tr>
                 </tfoot>
@@ -308,12 +334,13 @@ function PaginaPacientesPorObraSocial() {
           </section>
 
           <div className="mt-3 flex flex-col gap-3">
-            {grupos.map((g) => {
-              const abierta = abiertas.has(g.clave);
+            {m.grupos.map((g) => {
+              const claveAbierta = `${m.clave}|${g.clave}`;
+              const abierta = abiertas.has(claveAbierta);
               return (
-                <section key={g.clave} className="overflow-hidden rounded-lg border border-brand-brown/40 shadow-sm">
+                <section key={claveAbierta} className="overflow-hidden rounded-lg border border-brand-brown/40 shadow-sm">
                   <button
-                    onClick={() => alternar(g.clave)}
+                    onClick={() => alternar(claveAbierta)}
                     className="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-1 bg-brand-brown px-4 py-3 text-left text-white"
                   >
                     <span className="flex items-center gap-2 text-lg font-bold">
@@ -396,6 +423,8 @@ function PaginaPacientesPorObraSocial() {
               );
             })}
           </div>
+            </div>
+          ))}
         </>
       )}
     </main>
