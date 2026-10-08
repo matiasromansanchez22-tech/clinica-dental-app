@@ -23,6 +23,7 @@ function colorEstadoTrabajo(estado) {
   if (estado === "Entregado") return "text-emerald-600";
   if (estado === "Prueba con el paciente") return "text-sky-600";
   if (estado === "Ajuste pendiente") return "text-amber-600";
+  if (estado === "Listo para entregar") return "text-emerald-600";
   return "text-gray-400";
 }
 

@@ -68,6 +68,7 @@ const EVENTOS_RAPIDOS = [
   { tipo: "Recibido del mecánico", emoji: "📥", etiqueta: "Llegó del mecánico" },
   { tipo: "Prueba con el paciente", emoji: "🦷", etiqueta: "Prueba con el paciente" },
   { tipo: "Ajuste - reenviado", emoji: "🔁", etiqueta: "Reenviado (ajuste)" },
+  { tipo: "Prueba aprobada", emoji: "👍", etiqueta: "Prueba aprobada" },
   { tipo: "Alta / Entregado", emoji: "✅", etiqueta: "Entregado" },
 ];
 

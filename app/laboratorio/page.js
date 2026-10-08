@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import SoloConAccesoLaboratorio from "@/components/SoloConAccesoLaboratorio";
 import TrabajoLaboratorioModal from "@/components/TrabajoLaboratorioModal";
 import MarcarEnviadoModal from "@/components/MarcarEnviadoModal";
+import TableroLaboratorio from "@/components/TableroLaboratorio";
+import { calcularCircuito } from "@/lib/circuitoLaboratorio";
 import {
   calcularEstadoDemora,
   eliminarTrabajoLaboratorio,
   obtenerConfiguracionLaboratorio,
+  obtenerEventosPorTrabajo,
   obtenerTrabajosLaboratorio,
 } from "@/lib/data/laboratorio";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
@@ -18,6 +21,8 @@ import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios
 
 function PaginaLaboratorio() {
   const [trabajos, setTrabajos] = useState([]);
+  const [eventosPorTrabajo, setEventosPorTrabajo] = useState({});
+  const [vista, setVista] = useState("tablero"); // "tablero" | "lista"
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
@@ -32,7 +37,9 @@ function PaginaLaboratorio() {
   const [trabajoAMarcarEnviado, setTrabajoAMarcarEnviado] = useState(null);
 
   async function recargarTrabajos() {
-    setTrabajos(await obtenerTrabajosLaboratorio());
+    const [lista, eventos] = await Promise.all([obtenerTrabajosLaboratorio(), obtenerEventosPorTrabajo()]);
+    setTrabajos(lista);
+    setEventosPorTrabajo(eventos);
   }
 
   async function borrarTrabajo(id, e) {
@@ -48,8 +55,9 @@ function PaginaLaboratorio() {
   }
 
   async function recargarSinCerrar() {
-    const lista = await obtenerTrabajosLaboratorio();
+    const [lista, eventos] = await Promise.all([obtenerTrabajosLaboratorio(), obtenerEventosPorTrabajo()]);
     setTrabajos(lista);
+    setEventosPorTrabajo(eventos);
     setTrabajoEnDetalle((actual) => (actual ? lista.find((t) => t.id === actual.id) || actual : actual));
   }
 
@@ -63,15 +71,17 @@ function PaginaLaboratorio() {
       obtenerConfiguracionLaboratorio(),
       obtenerCatalogo(),
       obtenerNombresLaboratoriosMecanicos(),
-    ]).then(([t, pg, po, prof, conf, cat, labs]) => {
+      obtenerEventosPorTrabajo(),
+    ]).then(([t, pg, po, prof, conf, cat, labs, ev]) => {
       if (t.status === "fulfilled") setTrabajos(t.value);
+      if (ev.status === "fulfilled") setEventosPorTrabajo(ev.value);
       if (pg.status === "fulfilled") setPacientesGeneral(pg.value);
       if (po.status === "fulfilled") setPacientesOrtodoncia(po.value);
       if (prof.status === "fulfilled") setProfesionales(prof.value);
       if (conf.status === "fulfilled") setConfig(conf.value);
       if (cat.status === "fulfilled") setCatalogo(cat.value);
       if (labs.status === "fulfilled") setLaboratoriosSugeridos(labs.value);
-      const primerError = [t, pg, po, prof, conf, cat, labs].find((r) => r.status === "rejected");
+      const primerError = [t, pg, po, prof, conf, cat, labs, ev].find((r) => r.status === "rejected");
       if (primerError) setError(primerError.reason.message);
       setCargando(false);
     });
@@ -88,6 +98,13 @@ function PaginaLaboratorio() {
     }
     return conteo;
   }, [trabajos, config]);
+
+  // Trabajos que ya llegaron de vuelta del mecánico y esperan que el paciente venga
+  // a probarlos: es la lista de "falta dar turno de prueba" para la secretaria.
+  const paraDarTurnoDePrueba = useMemo(
+    () => trabajos.filter((t) => calcularCircuito(t, eventosPorTrabajo[t.id] || []).etapa === "en_clinica").length,
+    [trabajos, eventosPorTrabajo]
+  );
 
   const pendientesDeEnvio = useMemo(
     () => trabajos.filter((t) => t.estado === "Pendiente de envío").length,
@@ -126,16 +143,39 @@ function PaginaLaboratorio() {
             {cargando ? "Cargando..." : `${trabajosMostrados.length} trabajo${trabajosMostrados.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        <button
-          onClick={() => setMostrarNuevo(true)}
-          className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
-        >
-          + Nuevo trabajo
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-md border border-gray-300 text-sm">
+            {[
+              ["tablero", "Tablero"],
+              ["lista", "Lista"],
+            ].map(([clave, texto]) => (
+              <button
+                key={clave}
+                onClick={() => setVista(clave)}
+                className={`px-3 py-1.5 ${
+                  vista === clave ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setMostrarNuevo(true)}
+            className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
+          >
+            + Nuevo trabajo
+          </button>
+        </div>
       </div>
 
       {!cargando && (
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          {paraDarTurnoDePrueba > 0 && (
+            <span className="rounded-md bg-amber-100 px-3 py-1.5 font-medium text-amber-800">
+              📅 Para dar turno de prueba: {paraDarTurnoDePrueba}
+            </span>
+          )}
           {pendientesDeEnvio > 0 && (
             <span className="rounded-md bg-sky-50 px-3 py-1.5 font-medium text-sky-700">
               📤 Pendientes de envío: {pendientesDeEnvio}
@@ -166,7 +206,17 @@ function PaginaLaboratorio() {
         </div>
       )}
 
-      <div className="mt-4">
+      {vista === "tablero" && !cargando && (
+        <TableroLaboratorio
+          trabajos={trabajos}
+          eventosPorTrabajo={eventosPorTrabajo}
+          onAbrirTrabajo={setTrabajoEnDetalle}
+          onMarcarEnviado={setTrabajoAMarcarEnviado}
+          onCambio={recargarTrabajos}
+        />
+      )}
+
+      <div className={`mt-4 ${vista === "tablero" ? "hidden" : ""}`}>
         <label className="flex items-center gap-1.5 text-sm text-gray-700">
           <input type="checkbox" checked={soloActivos} onChange={(e) => setSoloActivos(e.target.checked)} />
           Mostrar solo trabajos activos (ocultar entregados)
@@ -175,7 +225,7 @@ function PaginaLaboratorio() {
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className={`mt-4 overflow-x-auto rounded-lg border border-gray-200 ${vista === "tablero" ? "hidden" : ""}`}>
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
