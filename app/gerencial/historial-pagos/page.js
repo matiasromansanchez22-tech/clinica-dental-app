@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
+import { obtenerSaldosPersonales } from "@/lib/data/finanzasPersonales";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   fechaHoraArgentina,
   obtenerHistorialGastos,
   obtenerHistorialPagos,
+  obtenerHistorialReserva,
 } from "@/lib/data/historialPagos";
 
 const NOMBRES_MES = [
@@ -397,9 +399,164 @@ function Gastos() {
   );
 }
 
+function Reserva() {
+  const p = usePeriodo(obtenerHistorialReserva);
+  const [saldos, setSaldos] = useState(null);
+  const [cuentaElegida, setCuentaElegida] = useState("todas");
+  const [tipoElegido, setTipoElegido] = useState("todos");
+  const [busqueda, setBusqueda] = useState("");
+
+  useEffect(() => {
+    obtenerSaldosPersonales("Consultorio").then(setSaldos).catch(() => setSaldos(null));
+  }, []);
+
+  const filtrados = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    return p.filas.filter(
+      (f) =>
+        (cuentaElegida === "todas" || f.cuenta === cuentaElegida) &&
+        (tipoElegido === "todos" || f.tipo === tipoElegido) &&
+        (!texto || (f.descripcion || "").toLowerCase().includes(texto) || f.categoria.toLowerCase().includes(texto))
+    );
+  }, [p.filas, cuentaElegida, tipoElegido, busqueda]);
+
+  // Mes por mes: lo que entró, lo que salió y el resultado del mes.
+  const meses = useMemo(() => {
+    const porMes = new Map();
+    for (const f of filtrados) {
+      const clave = f.fecha.slice(0, 7);
+      if (!porMes.has(clave)) porMes.set(clave, []);
+      porMes.get(clave).push(f);
+    }
+    return [...porMes.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([clave, filas]) => {
+        const ingresos = filas.filter((f) => f.tipo === "Ingreso").reduce((s, f) => s + f.monto, 0);
+        const egresos = filas.filter((f) => f.tipo === "Egreso").reduce((s, f) => s + f.monto, 0);
+        return { clave, filas, ingresos, egresos };
+      });
+  }, [filtrados]);
+
+  function descargar() {
+    const lineas = [
+      ["Fecha", "Registrado (fecha y hora)", "Registró", "Cuenta", "Tipo", "Categoría", "Descripción", "Monto (con signo)"],
+    ];
+    for (const f of filtrados) {
+      lineas.push([
+        formatoFecha(f.fecha), fechaHoraArgentina(f.registradoEn), f.registradoPor || "", f.cuenta, f.tipo,
+        f.categoria, f.descripcion || "", f.tipo === "Ingreso" ? f.monto : -f.monto,
+      ]);
+    }
+    descargarCSV(`historial-reserva-${p.hoy}.csv`, lineas);
+  }
+
+  return (
+    <>
+      <p className="mt-0.5 text-sm text-gray-500">
+        Todo lo que entró y salió de la reserva del Consultorio: cuándo y quién lo registró, de qué cuenta (Efectivo o
+        Banco) y por qué. No incluye el panel Personal, que es privado de cada dueña.
+      </p>
+      {saldos && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
+            <p className="text-xs uppercase text-gray-400">💵 Efectivo hoy</p>
+            <p className="text-lg font-bold text-gray-900">{formatoPesos(saldos.Efectivo)}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
+            <p className="text-xs uppercase text-gray-400">🏦 Banco hoy</p>
+            <p className="text-lg font-bold text-gray-900">{formatoPesos(saldos.Banco)}</p>
+          </div>
+          <div className="rounded-lg bg-brand-brown px-4 py-2 text-white">
+            <p className="text-xs uppercase text-white/70">Total disponible</p>
+            <p className="text-lg font-bold">{formatoPesos(saldos.Efectivo + saldos.Banco)}</p>
+          </div>
+        </div>
+      )}
+      {p.error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{p.error}</div>}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <SelectorPeriodo p={p} />
+        <select value={cuentaElegida} onChange={(e) => setCuentaElegida(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+          <option value="todas">Efectivo y Banco</option>
+          <option value="Efectivo">Solo Efectivo</option>
+          <option value="Banco">Solo Banco</option>
+        </select>
+        <select value={tipoElegido} onChange={(e) => setTipoElegido(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+          <option value="todos">Ingresos y egresos</option>
+          <option value="Ingreso">Solo ingresos</option>
+          <option value="Egreso">Solo egresos</option>
+        </select>
+        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar categoría o descripción..." className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+        <button onClick={descargar} disabled={p.cargando || filtrados.length === 0} className="ml-auto rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+          ⬇ Descargar para Excel
+        </button>
+      </div>
+
+      {p.cargando ? (
+        <p className="mt-6 text-sm text-gray-500">Cargando...</p>
+      ) : meses.length === 0 ? (
+        <p className="mt-6 text-sm text-gray-500">No hay movimientos de la reserva para este filtro.</p>
+      ) : (
+        meses.map((m) => (
+          <section key={m.clave} className="mt-8">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-brand-brown pb-1">
+              <h2 className="text-xl font-bold text-brand-brown">{nombreMes(m.clave)}</h2>
+              <p className="text-sm text-gray-700">
+                Entró <strong className="text-emerald-700">{formatoPesos(m.ingresos)}</strong> · Salió{" "}
+                <strong className="text-red-700">{formatoPesos(m.egresos)}</strong> · Resultado del mes{" "}
+                <strong>
+                  {m.ingresos - m.egresos < 0 ? "-" : ""}
+                  {formatoPesos(Math.abs(m.ingresos - m.egresos))}
+                </strong>
+              </p>
+            </div>
+            <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full min-w-[860px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-brand-brown text-white">
+                    <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+                    <th className="px-3 py-2 text-left font-semibold">Registrado</th>
+                    <th className="px-3 py-2 text-left font-semibold">Registró</th>
+                    <th className="px-3 py-2 text-left font-semibold">Cuenta</th>
+                    <th className="px-3 py-2 text-left font-semibold">Categoría</th>
+                    <th className="px-3 py-2 text-left font-semibold">Descripción</th>
+                    <th className="px-3 py-2 text-right font-semibold">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.filas.map((f) => (
+                    <tr key={f.id} className="border-t border-gray-100 align-top">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-800">{formatoFecha(f.fecha)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-500">{fechaHoraArgentina(f.registradoEn)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-gray-600">{f.registradoPor || "—"}</td>
+                      <td className="px-3 py-2 text-gray-600">
+                        {f.cuenta === "Efectivo" ? "💵" : "🏦"} {f.cuenta}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-900">{f.categoria}</td>
+                      <td className="px-3 py-2 text-gray-700">{f.descripcion || "—"}</td>
+                      <td
+                        className={`whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums ${
+                          f.tipo === "Ingreso" ? "text-emerald-700" : "text-red-700"
+                        }`}
+                      >
+                        {f.tipo === "Ingreso" ? "+" : "-"}
+                        {formatoPesos(f.monto)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))
+      )}
+    </>
+  );
+}
+
 const PESTANAS = [
   { id: "profesionales", label: "👩‍⚕️ Pagos a profesionales" },
   { id: "gastos", label: "🧾 Gastos" },
+  { id: "reserva", label: "🏦 Reserva del Consultorio" },
 ];
 
 function PaginaHistorialPagos() {
@@ -420,7 +577,9 @@ function PaginaHistorialPagos() {
           </button>
         ))}
       </div>
-      {pestana === "profesionales" ? <PagosAProfesionales /> : <Gastos />}
+      {pestana === "profesionales" && <PagosAProfesionales />}
+      {pestana === "gastos" && <Gastos />}
+      {pestana === "reserva" && <Reserva />}
     </main>
   );
 }
