@@ -80,7 +80,7 @@ function TarjetaCierreTurno({ etiqueta, cierres, cantidadCobros }) {
                 )}
                 {c.efectivo_contado != null &&
                   (() => {
-                    const diferencia = Number(c.efectivo_contado) - Number(c.efectivo);
+                    const diferencia = Number(c.efectivo_contado) - Number(c.efectivo_esperado ?? c.efectivo);
                     const texto =
                       Math.round(diferencia) === 0
                         ? "coincide ✓"

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import ContadorBilletes from "@/components/ContadorBilletes";
+import DetalleEfectivoEsperado from "@/components/DetalleEfectivoEsperado";
+import { calcularMovimientosEfectivoDeCaja } from "@/lib/data/efectivoDeCaja";
 import { CONTEO_VACIO, conteoDesdeCierre, conteoParaGuardar } from "@/lib/billetes";
 import {
   calcularTotalesDelTurno,
@@ -32,6 +34,7 @@ function CierreTurnoPageContenido() {
   const [observaciones, setObservaciones] = useState("");
   const [conteo, setConteo] = useState(CONTEO_VACIO);
   const [cierresDelDia, setCierresDelDia] = useState([]);
+  const [movimientos, setMovimientos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -45,8 +48,10 @@ function CierreTurnoPageContenido() {
       calcularTotalesDelTurno(fecha, user.id),
       obtenerCierreTurno(fecha, user.id),
       obtenerCierresTurnoDelDia(fecha),
+      calcularMovimientosEfectivoDeCaja(fecha, "General"),
     ])
-      .then(([t, c, delDia]) => {
+      .then(([t, c, delDia, m]) => {
+        setMovimientos(m);
         setTotales(t);
         setCierreExistente(c);
         setObservaciones(c?.observaciones || "");
@@ -79,6 +84,15 @@ function CierreTurnoPageContenido() {
     }
   }
 
+  // Efectivo que tiene que haber: lo cobrado en efectivo, menos los pagos y gastos en
+  // efectivo del día de esta caja, más/menos las transferencias de efectivo entre cajas.
+  // Lo que ya descontó otro turno cerrado el mismo día no se descuenta dos veces.
+  const descontadoEnOtroCierre = cierresDelDia
+    .filter((x) => x.usuario_id !== user?.id)
+    .reduce((a, x) => a + Number(x.ajuste_efectivo || 0), 0);
+  const ajusteEfectivo = movimientos ? movimientos.neto - descontadoEnOtroCierre : 0;
+  const efectivoEsperado = totales ? Number(totales.efectivo) + ajusteEfectivo : 0;
+
   async function handleGuardar() {
     setGuardando(true);
     setError(null);
@@ -88,7 +102,7 @@ function CierreTurnoPageContenido() {
         fecha,
         user.id,
         perfil?.nombre || user.email,
-        totales,
+        movimientos ? { ...totales, efectivoEsperado, ajusteEfectivo } : totales,
         observaciones,
         conteoParaGuardar(conteo)
       );
@@ -177,7 +191,19 @@ function CierreTurnoPageContenido() {
           </div>
 
           <div className="mt-4">
-            <ContadorBilletes conteo={conteo} onChange={setConteo} esperado={Number(totales.efectivo)} />
+            {movimientos && (
+              <DetalleEfectivoEsperado
+                cobradoEfectivo={Number(totales.efectivo)}
+                movimientos={movimientos}
+                descontadoEnOtroCierre={descontadoEnOtroCierre}
+                esperado={efectivoEsperado}
+              />
+            )}
+            <div className="mt-3">
+              <ContadorBilletes conteo={conteo} onChange={setConteo} esperado={movimientos ? efectivoEsperado : Number(totales.efectivo)}
+                etiquetaEsperado={movimientos ? "Efectivo que tiene que haber" : undefined}
+              />
+            </div>
           </div>
 
           <label className="mt-4 flex flex-col gap-1 text-sm text-gray-700">
