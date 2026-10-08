@@ -132,7 +132,7 @@ function ContadorContenido() {
       <h1 className="text-2xl font-bold text-gray-900">💵 Contador de billetes</h1>
       <p className="mt-1 text-sm text-gray-500">
         Para contar el efectivo en cualquier momento. Lo que vas anotando se guarda solo en este dispositivo; con
-        &quot;Guardar conteo&quot; queda registrado para que lo vean los demás.
+        &quot;Guardar conteo&quot; queda registrado en tu historial, que ves solo vos y las Dueñas.
       </p>
 
       {idEditando && (
