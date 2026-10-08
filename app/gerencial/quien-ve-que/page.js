@@ -101,6 +101,7 @@ const SECCIONES = [
       ["Cierre Diario y Cierre de Mes", "ok", "no", "no", "no", "ro", "no"],
       ["Balance Mensual y Balance Anual", "ok", "no", "no", "no", "ro", "no"],
       ["Lo que queda limpio", "ok", "no", "no", "no", "ro", "no"],
+      ["Historial de pagos a profesionales", "ok", "no", "no", "no", "ro", "no"],
       ["Control de Obras Sociales y Fichas Entre Ríos", "ok", "no", "no", "no", "ro", "no"],
       ["Pagos ASOR", "ok", "no", "no", "no", "ro", "no"],
       ["Horarios y liquidación del personal", "ok", "no", "no", "no", "ro", "no"],
