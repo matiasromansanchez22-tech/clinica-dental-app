@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { actualizarGasto, crearGastoConReserva, MEDIOS_PAGO_GASTO } from "@/lib/data/gastos";
+import { useEffect, useMemo, useState } from "react";
+import {
+  actualizarGasto,
+  crearGastoConReserva,
+  MEDIOS_PAGO_GASTO,
+  obtenerTrabajosPendientesDePago,
+} from "@/lib/data/gastos";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { subirComprobante, obtenerUrlComprobante } from "@/lib/data/comprobantes";
 import LeerComprobanteIA from "@/components/LeerComprobanteIA";
@@ -40,7 +45,10 @@ export default function GastoFormModal({
   const [medioPago, setMedioPago] = useState(gasto?.medioPago || "Efectivo");
   const [observaciones, setObservaciones] = useState(gasto?.observaciones || "");
   const [mecanico, setMecanico] = useState(gasto?.mecanico || mecanicoInicial || "");
-  const [trabajosSeleccionados, setTrabajosSeleccionados] = useState(new Set());
+  // null = se usa la sugerencia automática (los trabajos más viejos sin pagar,
+  // hasta donde alcanza el monto); si se toca un casillero pasa a ser manual.
+  const [seleccionManual, setSeleccionManual] = useState(null);
+  const [pendientes, setPendientes] = useState(null);
   const [reservaManual, setReservaManual] = useState(null);
   const [comprobante, setComprobante] = useState(null);
   const [viendoComprobante, setViendoComprobante] = useState(false);
@@ -73,17 +81,55 @@ export default function GastoFormModal({
     }
   }
 
-  const sumaSeleccionada = trabajosMecanico
-    .filter((t) => trabajosSeleccionados.has(t.id))
+  const esPagoALaboratorio = !gasto && categoria === CATEGORIA_PAGO_LABORATORIO;
+
+  // Los trabajos sin pagar se buscan solos al elegir "Pagos a Laboratorio", sin
+  // depender de desde qué pantalla se abrió el formulario.
+  useEffect(() => {
+    if (!esPagoALaboratorio || pendientes !== null) return;
+    obtenerTrabajosPendientesDePago()
+      .then(setPendientes)
+      .catch(() => setPendientes([]));
+  }, [esPagoALaboratorio, pendientes]);
+
+  const nombreMecanico = mecanico.trim().toLowerCase();
+  const trabajosDelMecanico = useMemo(() => {
+    const base = pendientes ?? trabajosMecanico;
+    if (!nombreMecanico) return [];
+    return base.filter((t) => (t.laboratorio || "").trim().toLowerCase() === nombreMecanico);
+  }, [pendientes, trabajosMecanico, nombreMecanico]);
+
+  // Mario cobra la mitad en la prueba y el resto al entregar, así que sus
+  // trabajos "en prueba" no se tildan solos (se eligen a mano cuando
+  // corresponde): marcarlos como pagos taparía la otra mitad.
+  const enPruebaDeMario = (t) => nombreMecanico === "mario" && t.estado === "Prueba con el paciente";
+
+  // Del más viejo al más nuevo; se salta el que ya no entra en lo que queda del monto
+  // y sigue con los siguientes, para no dejar plata sin asignar.
+  const sugerencia = useMemo(() => {
+    let restante = Number(monto) || 0;
+    const ids = new Set();
+    for (const t of trabajosDelMecanico) {
+      if (enPruebaDeMario(t)) continue;
+      const valor = Number(t.valor) || 0;
+      if (valor > restante + 0.5) continue;
+      ids.add(t.id);
+      restante -= valor;
+    }
+    return { ids, sobran: Math.max(restante, 0) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabajosDelMecanico, monto]);
+
+  const seleccion = seleccionManual ?? sugerencia.ids;
+  const sumaSeleccionada = trabajosDelMecanico
+    .filter((t) => seleccion.has(t.id))
     .reduce((a, t) => a + (Number(t.valor) || 0), 0);
 
   function alternarTrabajo(id) {
-    setTrabajosSeleccionados((actual) => {
-      const nuevo = new Set(actual);
-      if (nuevo.has(id)) nuevo.delete(id);
-      else nuevo.add(id);
-      return nuevo;
-    });
+    const nuevo = new Set(seleccion);
+    if (nuevo.has(id)) nuevo.delete(id);
+    else nuevo.add(id);
+    setSeleccionManual(nuevo);
   }
 
   async function handleSubmit(e) {
@@ -110,9 +156,7 @@ export default function GastoFormModal({
         observaciones,
         mecanico: categoria === CATEGORIA_PAGO_LABORATORIO ? mecanico.trim() : null,
         trabajoIds:
-          !gasto && categoria === CATEGORIA_PAGO_LABORATORIO && trabajosSeleccionados.size > 0
-            ? Array.from(trabajosSeleccionados)
-            : undefined,
+          esPagoALaboratorio && seleccion.size > 0 ? Array.from(seleccion) : undefined,
         ...(comprobantePath ? { comprobantePath } : {}),
         desdeReserva,
       };
@@ -193,7 +237,10 @@ export default function GastoFormModal({
               <input
                 list="mecanicos-sugeridos-gasto"
                 value={mecanico}
-                onChange={(e) => setMecanico(e.target.value)}
+                onChange={(e) => {
+                  setMecanico(e.target.value);
+                  setSeleccionManual(null);
+                }}
                 placeholder="Ej. Mario"
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
@@ -206,16 +253,18 @@ export default function GastoFormModal({
             </label>
           )}
 
-          {!gasto && categoria === CATEGORIA_PAGO_LABORATORIO && trabajosMecanico.length > 0 && (
+          {esPagoALaboratorio && trabajosDelMecanico.length > 0 && (
             <div className="flex flex-col gap-1 text-sm text-gray-700">
-              ¿A qué trabajos corresponde este pago? (opcional)
+              ¿A qué trabajos corresponde este pago?
+              <span className="text-[11px] text-gray-400">
+                Se tildan solos los más viejos sin pagar, hasta donde alcanza el monto. Podés cambiarlo.
+              </span>
               <div className="max-h-40 overflow-y-auto rounded-md border border-gray-300">
-                {trabajosMecanico.map((t) => {
+                {trabajosDelMecanico.map((t) => {
                   // Mario cobra la mitad en el momento de traer para probar
                   // (el resto recién al entregar) — se aclara acá para no
                   // pagarle de más creyendo que ese trabajo ya está completo.
-                  const enPruebaDeMario =
-                    mecanico.trim().toLowerCase() === "mario" && t.estado === "Prueba con el paciente" && t.valor;
+                  const enPrueba = enPruebaDeMario(t) && t.valor;
                   return (
                     <label
                       key={t.id}
@@ -224,7 +273,7 @@ export default function GastoFormModal({
                       <span className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={trabajosSeleccionados.has(t.id)}
+                          checked={seleccion.has(t.id)}
                           onChange={() => alternarTrabajo(t.id)}
                         />
                         <span className="flex flex-col">
@@ -237,7 +286,7 @@ export default function GastoFormModal({
                       </span>
                       <span className="flex flex-col items-end whitespace-nowrap">
                         <span className="text-gray-500">{t.valor ? formatoPesos(t.valor) : "sin valor"}</span>
-                        {enPruebaDeMario && (
+                        {enPrueba && (
                           <span className="text-[10px] font-medium text-amber-600">
                             en prueba — 50%: {formatoPesos(t.valor / 2)}
                           </span>
@@ -247,21 +296,31 @@ export default function GastoFormModal({
                   );
                 })}
               </div>
-              {trabajosSeleccionados.size > 0 && (
+              {Number(monto) > 0 && (
                 <p
                   className={`text-xs ${
-                    Number(monto) && Math.abs(Number(monto) - sumaSeleccionada) > 0.5
-                      ? "font-medium text-amber-700"
-                      : "text-gray-500"
+                    Math.abs(Number(monto) - sumaSeleccionada) > 0.5 ? "font-medium text-amber-700" : "text-gray-500"
                   }`}
                 >
-                  Estos {trabajosSeleccionados.size} trabajo{trabajosSeleccionados.size === 1 ? "" : "s"} valen{" "}
-                  {formatoPesos(sumaSeleccionada)} según el sistema
-                  {Number(monto) && Math.abs(Number(monto) - sumaSeleccionada) > 0.5
-                    ? ` — estás pagando ${formatoPesos(Number(monto))}, una diferencia de ${formatoPesos(Math.abs(Number(monto) - sumaSeleccionada))}`
+                  {seleccion.size === 0
+                    ? "Este pago no cubre ningún trabajo entero: queda a cuenta del saldo."
+                    : `Este pago cubre ${seleccion.size} trabajo${seleccion.size === 1 ? "" : "s"} por ${formatoPesos(sumaSeleccionada)}`}
+                  {seleccion.size > 0 && Number(monto) - sumaSeleccionada > 0.5
+                    ? ` — sobran ${formatoPesos(Number(monto) - sumaSeleccionada)} a cuenta (igual se descuentan del saldo).`
                     : ""}
-                  .
+                  {seleccion.size > 0 && sumaSeleccionada - Number(monto) > 0.5
+                    ? ` — faltan ${formatoPesos(sumaSeleccionada - Number(monto))} para pagarlos completos.`
+                    : ""}
                 </p>
+              )}
+              {seleccionManual && (
+                <button
+                  type="button"
+                  onClick={() => setSeleccionManual(null)}
+                  className="self-start text-xs font-medium text-brand-brown hover:underline"
+                >
+                  Volver a la sugerencia automática
+                </button>
               )}
             </div>
           )}
