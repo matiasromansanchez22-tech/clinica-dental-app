@@ -397,7 +397,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                     min={0}
                     value={precioElegido}
                     onChange={(e) => setPrecioElegido(e.target.value)}
-                    placeholder="Precio por unidad (opcional)"
+                    placeholder={
+                      !planActivo && turno.cobertura === "Particular"
+                        ? `Vacío = precio del catálogo (${pesos(catalogo?.find((c) => c.id === catalogoIdElegido)?.valor_efectivo ?? 0)})`
+                        : "Precio por unidad (opcional)"
+                    }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   />
                 )}
@@ -405,7 +409,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                   <p className="text-[11px] text-gray-400">
                     {planActivo
                       ? "Viene el precio de lista del catálogo — podés cambiarlo."
-                      : "Dejalo vacío para usar el precio del catálogo (o el de la obra social)."}
+                      : turno.cobertura === "Particular"
+                        ? "Dejalo vacío: se cobra el precio del catálogo. Solo completalo si querés cobrar otro monto."
+                        : "Dejalo vacío para usar el precio del catálogo (o el de la obra social)."}
                   </p>
                 )}
                 <button
