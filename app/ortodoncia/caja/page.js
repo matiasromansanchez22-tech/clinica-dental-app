@@ -489,6 +489,7 @@ function CajaOrtodonciaPageContenido() {
       {mostrarNuevoPagoProfesional && (
         <PagoProfesionalCajaModal
           fecha={fecha}
+          disponible={totalesDisponible}
           profesionales={ortodoncistas}
           onClose={() => setMostrarNuevoPagoProfesional(false)}
           onGuardado={async () => {

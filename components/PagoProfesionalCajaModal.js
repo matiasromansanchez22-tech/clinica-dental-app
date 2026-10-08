@@ -6,15 +6,22 @@ import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const TIPOS = ["Copago/Particular", "Particular", "Copago"];
 
-export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose, onGuardado }) {
+// `disponible` es lo que hay en la caja del día por medio de pago (ya descontados
+// los pagos y gastos de ese día). Si el pago es más grande que eso, la
+// diferencia se propone como "sale de la reserva" (se puede cambiar a mano).
+export default function PagoProfesionalCajaModal({ fecha, profesionales, disponible = {}, onClose, onGuardado }) {
   const [profesionalId, setProfesionalId] = useState("");
   const [tipo, setTipo] = useState("Copago/Particular");
   const [monto, setMonto] = useState("");
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
-  const [montoReserva, setMontoReserva] = useState("");
+  const [montoReservaManual, setMontoReservaManual] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  const disponibleDelMedio = Math.max(0, Number(disponible[medioPago]) || 0);
+  const faltante = Math.max(0, (Number(monto) || 0) - disponibleDelMedio);
+  const montoReserva = montoReservaManual !== null ? montoReservaManual : faltante > 0 ? String(faltante) : "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -131,12 +138,16 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, onClose
           </label>
 
           <label className="flex flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            ¿Cuánto de ese total sale de la reserva del Consultorio? (opcional)
+            ¿Cuánto de ese total sale de la reserva del Consultorio?
+            <span className="text-xs text-amber-800">
+              En la caja hay <strong>${disponibleDelMedio.toLocaleString("es-AR")}</strong> disponibles en {medioPago}.{" "}
+              {faltante > 0 ? "Lo que falta se propone de la reserva (podés cambiarlo)." : "Si alcanza, no hace falta usar la reserva."}
+            </span>
             <input
               type="number"
               min={0}
               value={montoReserva}
-              onChange={(e) => setMontoReserva(e.target.value)}
+              onChange={(e) => setMontoReservaManual(e.target.value)}
               placeholder="0"
               className="rounded-md border border-gray-300 bg-white px-2 py-1.5"
             />
