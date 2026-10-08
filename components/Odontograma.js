@@ -12,6 +12,11 @@ import { obtenerHistorialOdontograma } from "@/lib/data/historialClinicoGeneral"
 const PIEZAS_SUPERIOR = ["18", "17", "16", "15", "14", "13", "12", "11", "21", "22", "23", "24", "25", "26", "27", "28"];
 const PIEZAS_INFERIOR = ["48", "47", "46", "45", "44", "43", "42", "41", "31", "32", "33", "34", "35", "36", "37", "38"];
 
+// Dientes de leche (FDI 51-85) — solo se ven si se elige "Niño" arriba del
+// diagrama; por defecto el odontograma es el de adulto.
+const PIEZAS_SUPERIOR_LECHE = ["55", "54", "53", "52", "51", "61", "62", "63", "64", "65"];
+const PIEZAS_INFERIOR_LECHE = ["85", "84", "83", "82", "81", "71", "72", "73", "74", "75"];
+
 // Convención de colores: azul = falta hacerlo, rojo = ya está hecho. Sano
 // es la excepción (verde) — no es un "a realizar/hecho", es una
 // confirmación de que se revisó y no tiene nada.
@@ -141,7 +146,7 @@ function Diente({ pieza, esInferior, estados, seleccion, onClick }) {
   // revés. Sin este ajuste, mesial/distal quedaban del mismo lado de la
   // pantalla en toda la fila en vez de mirar hacia el medio de la boca.
   const cuadrante = pieza[0];
-  const ladoInvertido = cuadrante === "1" || cuadrante === "4";
+  const ladoInvertido = cuadrante === "1" || cuadrante === "4" || cuadrante === "5" || cuadrante === "8";
   const izquierda = ladoInvertido ? "distal" : "mesial";
   const derecha = ladoInvertido ? "mesial" : "distal";
 
@@ -204,6 +209,8 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   const [estadoProtesisForm, setEstadoProtesisForm] = useState("");
   const [historialOdonto, setHistorialOdonto] = useState([]);
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
+  // "adulto" por defecto; "nino" muestra los dientes de leche.
+  const [denticion, setDenticion] = useState("adulto");
 
   async function cargar() {
     setCargando(true);
@@ -305,7 +312,24 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
   }
 
   const seleccion = piezaForm && caraForm ? { pieza: piezaForm, cara: caraForm } : null;
-  const todasLasPiezas = [...PIEZAS_SUPERIOR, ...PIEZAS_INFERIOR];
+  const esNino = denticion === "nino";
+  const piezasSuperior = esNino ? PIEZAS_SUPERIOR_LECHE : PIEZAS_SUPERIOR;
+  const piezasInferior = esNino ? PIEZAS_INFERIOR_LECHE : PIEZAS_INFERIOR;
+  const todasLasPiezas = [...piezasSuperior, ...piezasInferior];
+  // Aviso discreto en el botón de "Niño" si el paciente ya tiene dientes de
+  // leche cargados (y viceversa), para no pasar por alto lo que hay del otro lado.
+  const hayDeLeche = Object.keys(estadoPorPieza).some((p) => /^[5-8]/.test(p));
+  const hayPermanentes = Object.keys(estadoPorPieza).some((p) => /^[1-4]/.test(p));
+
+  function cambiarDenticion(nueva) {
+    if (nueva === denticion) return;
+    setDenticion(nueva);
+    setPiezaForm("");
+    setCaraForm("");
+    setEstadoForm("");
+    setPiezaDesdeForm("");
+    setPiezaHastaForm("");
+  }
 
   return (
     <div>
@@ -341,6 +365,28 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
         </label>
       </div>
 
+      <div className="mb-2 flex items-center gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => cambiarDenticion("adulto")}
+          className={`rounded-md px-2.5 py-1 font-medium ${
+            !esNino ? "bg-brand-brown text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          Adulto{hayPermanentes && esNino ? " •" : ""}
+        </button>
+        <button
+          type="button"
+          onClick={() => cambiarDenticion("nino")}
+          className={`rounded-md px-2.5 py-1 font-medium ${
+            esNino ? "bg-brand-brown text-white" : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          Niño (dientes de leche){hayDeLeche && !esNino ? " •" : ""}
+        </button>
+        {esNino && <span className="text-[11px] text-gray-400">Para dentición mixta, alterná entre los dos.</span>}
+      </div>
+
       {cargando ? (
         <p className="text-xs text-gray-500">Cargando odontograma...</p>
       ) : (
@@ -353,9 +399,9 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
             aria-hidden="true"
             className="pointer-events-none absolute inset-y-3 left-1/2 w-0 -translate-x-1/2 border-l-2 border-dashed border-gray-400"
           />
-          <FilaProtesis piezas={PIEZAS_SUPERIOR} estadoPorPieza={estadoPorPieza} />
+          <FilaProtesis piezas={piezasSuperior} estadoPorPieza={estadoPorPieza} />
           <div className="flex justify-center gap-1 overflow-x-auto pb-2">
-            {PIEZAS_SUPERIOR.map((pieza) => (
+            {piezasSuperior.map((pieza) => (
               <Diente
                 key={pieza}
                 pieza={pieza}
@@ -368,7 +414,7 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
           </div>
           <hr className="my-2 border-gray-300" />
           <div className="flex justify-center gap-1 overflow-x-auto pt-2">
-            {PIEZAS_INFERIOR.map((pieza) => (
+            {piezasInferior.map((pieza) => (
               <Diente
                 key={pieza}
                 pieza={pieza}
@@ -379,7 +425,7 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
               />
             ))}
           </div>
-          <FilaProtesis piezas={PIEZAS_INFERIOR} estadoPorPieza={estadoPorPieza} />
+          <FilaProtesis piezas={piezasInferior} estadoPorPieza={estadoPorPieza} />
         </div>
       )}
 
