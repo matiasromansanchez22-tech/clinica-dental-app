@@ -1,5 +1,6 @@
 "use client";
 
+import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useState } from "react";
 import CobroOrtodonciaFormModal from "@/components/CobroOrtodonciaFormModal";
 import GastoFormModal from "@/components/GastoFormModal";
@@ -20,7 +21,7 @@ import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios
 import { eliminarTransferenciaCaja, obtenerTransferenciasCajaPorFecha } from "@/lib/data/transferenciasCaja";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function CajaOrtodonciaPage() {
+function CajaOrtodonciaPageContenido() {
   const { perfil } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -509,5 +510,13 @@ export default function CajaOrtodonciaPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function CajaOrtodonciaPage() {
+  return (
+    <NoOdontologoNiLaboratorio>
+      <CajaOrtodonciaPageContenido />
+    </NoOdontologoNiLaboratorio>
   );
 }

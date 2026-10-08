@@ -1,5 +1,6 @@
 "use client";
 
+import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useState } from "react";
 import { marcarSaldoCobrado, obtenerCobrosConSaldoPendiente } from "@/lib/data/caja";
 import PromesasDePago from "@/components/PromesasDePago";
@@ -13,7 +14,7 @@ function formatoFecha(fechaISO) {
   return `${dia}/${mes}/${anio}`;
 }
 
-export default function CuentasPorCobrarPage() {
+function CuentasPorCobrarPageContenido() {
   const [filas, setFilas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -132,5 +133,13 @@ export default function CuentasPorCobrarPage() {
         después tocá "✓ Ya se cobró" en esta fila.
       </p>
     </main>
+  );
+}
+
+export default function CuentasPorCobrarPage() {
+  return (
+    <NoOdontologoNiLaboratorio>
+      <CuentasPorCobrarPageContenido />
+    </NoOdontologoNiLaboratorio>
   );
 }

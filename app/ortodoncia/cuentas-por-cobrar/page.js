@@ -1,5 +1,6 @@
 "use client";
 
+import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
@@ -22,7 +23,7 @@ function colorEstadoGestion(estado) {
   return "text-red-600";
 }
 
-export default function CuentasPorCobrarOrtodonciaPage() {
+function CuentasPorCobrarOrtodonciaPageContenido() {
   const [anio, setAnio] = useState(2026);
   const [pacientes, setPacientes] = useState([]);
   const [controles, setControles] = useState({});
@@ -263,5 +264,13 @@ export default function CuentasPorCobrarOrtodonciaPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function CuentasPorCobrarOrtodonciaPage() {
+  return (
+    <NoOdontologoNiLaboratorio>
+      <CuentasPorCobrarOrtodonciaPageContenido />
+    </NoOdontologoNiLaboratorio>
   );
 }

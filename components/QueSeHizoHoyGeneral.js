@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { calcularSugerenciaPago, obtenerPlanActivoPaciente } from "@/lib/data/caja";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
 import {
@@ -28,6 +29,10 @@ function pesos(n) {
 // propio estado del turno sincronizado (ej. para repintar la grilla), se le
 // avisa acá cada vez que el turno pasa a "Finalizado".
 export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catalogo, onTurnoActualizado }) {
+  const { perfil } = useAuth();
+  // El saldo del plan y el atajo a Caja son para quien cobra: no se le muestran
+  // al Odontólogo, Laboratorio ni Marketing.
+  const puedeVerCobros = !["Odontologo", "Laboratorio", "CM"].includes(perfil?.rol);
   const [profesionalId, setProfesionalId] = useState(turno.profesionalDeTurnoId || "");
   const [planActivo, setPlanActivo] = useState(null);
   const [pasos, setPasos] = useState([]);
@@ -244,7 +249,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         </div>
       )}
 
-      {!cargando && planActivo && sugerenciaPago && sugerenciaPago.pagoSugerido > 0 && (
+      {puedeVerCobros && !cargando && planActivo && sugerenciaPago && sugerenciaPago.pagoSugerido > 0 && (
         <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2">
           <p className="text-xs text-emerald-800">
             💰 Plan activo — {sugerenciaPago.numeroCuota === "Anticipo" ? "anticipo" : `cuota ${sugerenciaPago.numeroCuota}`}:{" "}

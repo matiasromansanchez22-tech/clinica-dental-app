@@ -56,21 +56,21 @@ const SECCIONES = [
         "Caja General y Caja Ortodoncia",
         "ok",
         "ok",
-        "aviso",
-        "aviso",
+        "no",
+        "no",
         "ro",
         "no",
-        "El Odontólogo y Laboratorio la ven en su menú: nada se las bloquea.",
+        "Desde el 7/10 el Odontólogo y Laboratorio no la ven en el menú y la pantalla les dice \"Acceso restringido\".",
       ],
       [
         "Cuentas por cobrar y Cierre de Turno",
         "ok",
         "ok",
-        "aviso",
-        "aviso",
         "no",
         "no",
-        "Mismo caso: el menú se las muestra al Odontólogo y a Laboratorio.",
+        "no",
+        "no",
+        "Mismo caso: bloqueadas para el Odontólogo y Laboratorio.",
       ],
       ["Contador de billetes", "ok", "ok", "no", "no", "ok", "no", "La secretaria lo usa dentro de su Cierre de Turno."],
     ],
@@ -131,9 +131,9 @@ const SECCIONES = [
 
 const AVISOS = [
   {
-    titulo: "El Odontólogo y Laboratorio ven la plata en el menú",
+    titulo: "Las cajas ya están ocultas para el Odontólogo y Laboratorio",
     texto:
-      "En Sistema General y Sistema Ortodoncia, el menú les muestra Caja, Cuentas por cobrar y Cierre de Turno, y ninguna de esas pantallas los bloquea. Lo más simple sería ocultárselas, como ya pasa con el Contador y Marketing.",
+      "Desde el 7/10, Caja, Cuentas por cobrar y Cierre de Turno (General y Ortodoncia) no aparecen en su menú y, si entran por dirección, ven \"Acceso restringido\". Quedan por revisar Presupuestos y Planes de Financiación, que sí ven y muestran importes.",
   },
   {
     titulo: "La base de datos permite más de lo que muestra el menú",

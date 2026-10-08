@@ -1,5 +1,6 @@
 "use client";
 
+import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useState } from "react";
 import CobroFormModal from "@/components/CobroFormModal";
 import EditarCobroModal from "@/components/EditarCobroModal";
@@ -17,7 +18,7 @@ import { eliminarPagoProfesional, obtenerPagosProfesionales } from "@/lib/data/p
 import { eliminarTransferenciaCaja, obtenerTransferenciasCajaPorFecha } from "@/lib/data/transferenciasCaja";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function CajaPage() {
+function CajaPageContenido() {
   const { perfil } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -532,5 +533,13 @@ export default function CajaPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function CajaPage() {
+  return (
+    <NoOdontologoNiLaboratorio>
+      <CajaPageContenido />
+    </NoOdontologoNiLaboratorio>
   );
 }

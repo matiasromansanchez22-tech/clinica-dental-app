@@ -1,5 +1,6 @@
 "use client";
 
+import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
@@ -22,7 +23,7 @@ const ETIQUETAS = [
   { clave: "qr", label: "QR" },
 ];
 
-export default function CierreTurnoPage() {
+function CierreTurnoPageContenido() {
   const { user, perfil } = useAuth();
   const esDuena = perfil?.rol === "Duena";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
@@ -248,5 +249,13 @@ export default function CierreTurnoPage() {
         </p>
       )}
     </main>
+  );
+}
+
+export default function CierreTurnoPage() {
+  return (
+    <NoOdontologoNiLaboratorio>
+      <CierreTurnoPageContenido />
+    </NoOdontologoNiLaboratorio>
   );
 }

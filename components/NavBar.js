@@ -51,9 +51,9 @@ const GRUPOS = [
       { href: "/catalogo", label: "Catálogo" },
       { href: "/presupuestos", label: "Presupuestos", badgeKey: "presupuestosPendientesConPago" },
       { href: "/planes", label: "Planes de Financiación" },
-      { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarGeneral" },
-      { href: "/caja", label: "Caja", badgeKey: "porCobrarAgendaGeneral" },
-      { href: "/cierre-turno", label: "Cierre de Turno" },
+      { href: "/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarGeneral", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/caja", label: "Caja", badgeKey: "porCobrarAgendaGeneral", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/cierre-turno", label: "Cierre de Turno", ocultarRoles: ["Odontologo", "Laboratorio"] },
     ],
   },
   {
@@ -68,9 +68,9 @@ const GRUPOS = [
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/catalogo", label: "Catálogo" },
       { href: "/ortodoncia/controles", label: "Controles" },
-      { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia" },
-      { href: "/ortodoncia/caja", label: "Caja", badgeKey: "porCobrarAgendaOrtodoncia" },
-      { href: "/ortodoncia/cierre-turno", label: "Cierre de Turno" },
+      { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/caja", label: "Caja", badgeKey: "porCobrarAgendaOrtodoncia", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/cierre-turno", label: "Cierre de Turno", ocultarRoles: ["Odontologo", "Laboratorio"] },
     ],
   },
   {
@@ -154,7 +154,7 @@ function BadgeCantidad({ cantidad }) {
   );
 }
 
-function MenuDesplegable({ grupo, activo, badges }) {
+function MenuDesplegable({ grupo, activo, badges, rol }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
 
@@ -166,7 +166,8 @@ function MenuDesplegable({ grupo, activo, badges }) {
     return () => document.removeEventListener("mousedown", alClickearAfuera);
   }, []);
 
-  const tieneAviso = grupo.items.some((item) => item.badgeKey && badges[item.badgeKey] > 0);
+  const itemsVisibles = grupo.items.filter((item) => !(item.ocultarRoles || []).includes(rol));
+  const tieneAviso = itemsVisibles.some((item) => item.badgeKey && badges[item.badgeKey] > 0);
 
   return (
     <div ref={ref} className="relative">
@@ -182,7 +183,7 @@ function MenuDesplegable({ grupo, activo, badges }) {
       </button>
       {abierto && (
         <div className="absolute left-0 z-10 mt-1 w-56 rounded-md border border-brand-tan bg-brand-cream py-1 shadow-lg">
-          {grupo.items.map((item) => (
+          {itemsVisibles.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -294,7 +295,7 @@ export default function NavBar() {
             );
           }
           const activo = g.items.some((i) => i.href === pathname);
-          return <MenuDesplegable key={g.label} grupo={g} activo={activo} badges={badges} />;
+          return <MenuDesplegable key={g.label} grupo={g} activo={activo} badges={badges} rol={perfil?.rol} />;
         })}
         <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
           <ActivarAvisosBoton />
