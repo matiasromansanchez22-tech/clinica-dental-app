@@ -27,7 +27,11 @@ function CajaOrtodonciaPageContenido() {
   const searchParams = useSearchParams();
   const esDuena = perfil?.rol === "Duena";
   const esContador = perfil?.rol === "Contador";
-  const [fecha, setFecha] = useState(fechaDeHoyISO());
+  // "Ver día" desde Buscar cobros abre la caja en esa fecha (?fecha=AAAA-MM-DD).
+  const [fecha, setFecha] = useState(() => {
+    const pedida = searchParams.get("fecha");
+    return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(pedida || "") ? pedida : fechaDeHoyISO();
+  });
   const [pacienteParaCobrar, setPacienteParaCobrar] = useState(null);
   const [profesionalParaCobrar, setProfesionalParaCobrar] = useState(null);
   const [cobros, setCobros] = useState([]);
@@ -274,6 +278,12 @@ function CajaOrtodonciaPageContenido() {
         >
           Hoy
         </button>
+        <a
+          href="/caja/buscar?caja=ortodoncia"
+          className="ml-2 rounded-md border border-brand-brown/40 px-3 py-1 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+        >
+          🔎 Buscar cobros
+        </a>
       </div>
 
       {error && (
