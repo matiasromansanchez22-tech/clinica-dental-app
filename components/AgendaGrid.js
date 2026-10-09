@@ -92,6 +92,14 @@ export default function AgendaGrid({
                           👤 Responsable: {turno.profesionalResponsable}
                         </div>
                       )}
+                      {turno.observaciones?.trim() && (
+                        <div
+                          className="mt-0.5 line-clamp-3 whitespace-pre-line rounded bg-white/60 px-1 py-0.5 text-[11px] font-medium leading-tight text-gray-900"
+                          title={turno.observaciones}
+                        >
+                          📝 {turno.observaciones.trim()}
+                        </div>
+                      )}
                       <div className="text-[11px] opacity-80 leading-tight">
                         {color.etiqueta}
                         {turno.confirmacion === "Confirmado" && color.etiqueta !== "Confirmado" && " · ✓ Confirmado"}
