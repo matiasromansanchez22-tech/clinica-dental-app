@@ -10,11 +10,19 @@ export default function RequireAuth({ children }) {
   const router = useRouter();
   const esLogin = pathname === "/login";
 
+  // La Asistente solo puede estar en Inicio, Mi horario y Cambiar contraseña:
+  // si entra a cualquier otra dirección, se la lleva a su horario.
+  const esAsistenteFueraDeSuLugar =
+    perfil?.rol === "Asistente" && !["/", "/horario", "/cambiar-password"].includes(pathname);
+
   useEffect(() => {
     if (!cargando && !user && !esLogin) {
       router.replace("/login");
     }
-  }, [cargando, user, esLogin, router]);
+    if (esAsistenteFueraDeSuLugar) {
+      router.replace("/horario");
+    }
+  }, [cargando, user, esLogin, esAsistenteFueraDeSuLugar, router]);
 
   if (esLogin) return children;
 
@@ -46,6 +54,8 @@ export default function RequireAuth({ children }) {
       </div>
     );
   }
+
+  if (esAsistenteFueraDeSuLugar) return null;
 
   return children;
 }

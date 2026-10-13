@@ -34,7 +34,16 @@ const SECCIONES = [
       ["Inicio y cambiar contraseña", "ok", "ok", "ok", "ok", "ok", "ok"],
       ["Chat interno", "ok", "ok", "ok", "ok", "no", "ok"],
       ["Panorámicas y fotos", "ok", "ok", "ok", "ok", "no", "ok"],
-      ["Mi horario (marcar entrada y salida)", "ok", "ok", "no", "ok", "no", "no"],
+      [
+        "Mi horario (marcar entrada y salida)",
+        "ok",
+        "ok",
+        "no",
+        "ok",
+        "no",
+        "no",
+        "Karen (rol Asistente) solo ve esto: Inicio, Mi horario y Cambiar contraseña. No ve pacientes, agenda ni plata.",
+      ],
     ],
   },
   {

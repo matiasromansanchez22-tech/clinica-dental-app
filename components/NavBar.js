@@ -26,7 +26,7 @@ import {
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
   { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
-  { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Laboratorio", "Duena"] },
+  { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Laboratorio", "Duena", "Asistente"] },
   { tipo: "link", href: "/contador-billetes", label: "💵 Contador de billetes", soloRoles: ["Duena", "Contador"] },
   { tipo: "link", href: "/gerencial/produccion", label: "💰 Producción", soloRoles: ["Secretaria"] },
   {
@@ -213,7 +213,7 @@ export default function NavBar() {
   const [badges, setBadges] = useState({});
 
   useEffect(() => {
-    if (!user || perfil?.rol === "Contador" || perfil?.rol === "CM") return;
+    if (!user || perfil?.rol === "Contador" || perfil?.rol === "CM" || perfil?.rol === "Asistente") return;
 
     Promise.all([
       obtenerCantidadTurnosAReprogramar(),
@@ -268,12 +268,19 @@ export default function NavBar() {
   if (!user) return null;
 
   const esDuena = perfil?.rol === "Duena";
+  // La Asistente solo ve Inicio y Mi horario: no se le muestran avisos de
+  // pacientes ni de dinero.
+  const esAsistente = perfil?.rol === "Asistente";
 
   return (
     <>
-      <AvisoPresupuestoNuevo />
-      <AvisoPrestacionRealizada />
-      <CelebracionVenta />
+      {!esAsistente && (
+        <>
+          <AvisoPresupuestoNuevo />
+          <AvisoPrestacionRealizada />
+          <CelebracionVenta />
+        </>
+      )}
       <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-6 py-3">
         <Link href="/" className="mr-4 flex items-center gap-2">
@@ -282,6 +289,7 @@ export default function NavBar() {
         </Link>
         {GRUPOS.filter(
           (g) =>
+            (!esAsistente || g.href === "/" || g.href === "/horario") &&
             (!g.soloDuena || esDuena) &&
             (!g.soloRoles || g.soloRoles.includes(perfil?.rol)) &&
             !(g.ocultarRoles || []).includes(perfil?.rol)
@@ -305,7 +313,7 @@ export default function NavBar() {
           return <MenuDesplegable key={g.label} grupo={g} activo={activo} badges={badges} rol={perfil?.rol} />;
         })}
         <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
-          <ActivarAvisosBoton />
+          {!esAsistente && <ActivarAvisosBoton />}
           <InstalarAppBoton />
           {perfil?.nombre || user.email}
           <Link href="/cambiar-password" className="hover:underline">

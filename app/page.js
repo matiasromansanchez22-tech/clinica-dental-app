@@ -69,6 +69,7 @@ const ACCESOS_POR_ROL = {
     { href: "/gerencial/balance-mensual", icon: "📊", label: "Balance Mensual" },
     { href: "/gerencial/balance-anual", icon: "📈", label: "Balance Anual" },
   ],
+  Asistente: [{ href: "/horario", icon: "🕐", label: "Mi horario" }],
   CM: [
     { href: "/calendario-contenido", icon: "📅", label: "Calendario de Contenido" },
     { href: "/biblioteca-marca", icon: "🎨", label: "Biblioteca de marca" },

@@ -37,6 +37,7 @@ function FilaPersona({ persona, registros, soloLectura, onCambiarValorHora, onEd
 
   const totalHoras = registros.reduce((acc, r) => acc + (horasTrabajadas(r) || 0), 0);
   const totalPagar = persona.valorHora ? totalHoras * persona.valorHora : null;
+  const diasTrabajados = registros.filter((r) => (horasTrabajadas(r) || 0) > 0).length;
 
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
@@ -48,6 +49,9 @@ function FilaPersona({ persona, registros, soloLectura, onCambiarValorHora, onEd
           {abierto ? "▾" : "▸"} {persona.nombre} <span className="text-xs font-normal text-gray-400">({persona.rol})</span>
         </span>
         <span className="flex items-center gap-3 text-sm">
+          <span className="text-xs text-gray-400">
+            {diasTrabajados} día{diasTrabajados === 1 ? "" : "s"}
+          </span>
           <span className="text-gray-600">{formatoHoras(totalHoras)}</span>
           {totalPagar !== null && <span className="font-semibold text-brand-brown">{formatoPesos(totalPagar)}</span>}
         </span>
@@ -187,10 +191,10 @@ function HorariosContenido() {
     return mapa;
   }, [registros]);
 
-  // Esto es para el personal que marca entrada/salida (secretarias y
-  // laboratorio) — a un odontólogo no le corresponde liquidarse por hora,
-  // ya se les liquida por producción u honorarios.
-  const personalSecretarias = personal.filter((p) => p.rol === "Secretaria" || p.rol === "Laboratorio");
+  // Esto es para el personal que marca entrada/salida (secretarias,
+  // laboratorio y asistente) — a un odontólogo no le corresponde liquidarse
+  // por hora, ya se les liquida por producción u honorarios.
+  const personalSecretarias = personal.filter((p) => ["Secretaria", "Laboratorio", "Asistente"].includes(p.rol));
 
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -221,7 +225,7 @@ function HorariosContenido() {
       {cargando && <p className="mt-4 text-sm text-gray-500">Cargando...</p>}
 
       {!cargando && personalSecretarias.length === 0 && (
-        <p className="mt-4 text-sm text-gray-500">No hay personal con rol Secretaria o Laboratorio cargado.</p>
+        <p className="mt-4 text-sm text-gray-500">No hay personal con rol Secretaria, Laboratorio o Asistente cargado.</p>
       )}
 
       {!cargando &&
