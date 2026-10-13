@@ -7,6 +7,7 @@ import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import ContadorBilletes from "@/components/ContadorBilletes";
 import DetalleEfectivoEsperado from "@/components/DetalleEfectivoEsperado";
 import { calcularMovimientosEfectivoDeCaja } from "@/lib/data/efectivoDeCaja";
+import { calcularTotalesDelDia } from "@/lib/data/cierres";
 import { CONTEO_VACIO, conteoDesdeCierre, conteoParaGuardar } from "@/lib/billetes";
 import {
   calcularTotalesDelTurno,
@@ -35,6 +36,7 @@ function CierreTurnoPageContenido() {
   const [conteo, setConteo] = useState(CONTEO_VACIO);
   const [cierresDelDia, setCierresDelDia] = useState([]);
   const [movimientos, setMovimientos] = useState(null);
+  const [efectivoDelDia, setEfectivoDelDia] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -49,9 +51,11 @@ function CierreTurnoPageContenido() {
       obtenerCierreTurno(fecha, user.id),
       obtenerCierresTurnoDelDia(fecha),
       calcularMovimientosEfectivoDeCaja(fecha, "General"),
+      calcularTotalesDelDia(fecha),
     ])
-      .then(([t, c, delDia, m]) => {
+      .then(([t, c, delDia, m, totalDia]) => {
         setMovimientos(m);
+        setEfectivoDelDia(Number(totalDia.efectivo));
         setTotales(t);
         setCierreExistente(c);
         setObservaciones(c?.observaciones || "");
@@ -84,14 +88,13 @@ function CierreTurnoPageContenido() {
     }
   }
 
-  // Efectivo que tiene que haber: lo cobrado en efectivo, menos los pagos y gastos en
-  // efectivo del día de esta caja, más/menos las transferencias de efectivo entre cajas.
-  // Lo que ya descontó otro turno cerrado el mismo día no se descuenta dos veces.
-  const descontadoEnOtroCierre = cierresDelDia
-    .filter((x) => x.usuario_id !== user?.id)
-    .reduce((a, x) => a + Number(x.ajuste_efectivo || 0), 0);
-  const ajusteEfectivo = movimientos ? movimientos.neto - descontadoEnOtroCierre : 0;
-  const efectivoEsperado = totales ? Number(totales.efectivo) + ajusteEfectivo : 0;
+  // Efectivo que tiene que haber en la caja: todo el efectivo cobrado hoy (tuyo y de los
+  // otros turnos, que sigue en la misma caja), menos los pagos y gastos en efectivo del
+  // día, más/menos las transferencias de efectivo entre cajas. Es la misma cifra que
+  // muestra Caja como "Disponible después de pagos".
+  const efectivoDeOtrosTurnos = totales ? Math.max(0, efectivoDelDia - Number(totales.efectivo)) : 0;
+  const ajusteEfectivo = movimientos ? movimientos.neto : 0;
+  const efectivoEsperado = totales ? Number(totales.efectivo) + efectivoDeOtrosTurnos + ajusteEfectivo : 0;
 
   async function handleGuardar() {
     setGuardando(true);
@@ -195,7 +198,7 @@ function CierreTurnoPageContenido() {
               <DetalleEfectivoEsperado
                 cobradoEfectivo={Number(totales.efectivo)}
                 movimientos={movimientos}
-                descontadoEnOtroCierre={descontadoEnOtroCierre}
+                efectivoDeOtrosTurnos={efectivoDeOtrosTurnos}
                 esperado={efectivoEsperado}
               />
             )}

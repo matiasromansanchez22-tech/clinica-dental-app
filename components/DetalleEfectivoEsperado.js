@@ -33,10 +33,11 @@ function Renglon({ titulo, monto, signo, color, detalle }) {
 }
 
 // Explica de dónde sale el efectivo que TIENE QUE HABER en la caja al cerrar el turno, en
-// pocos renglones: lo cobrado en efectivo, menos lo pagado en efectivo (pagos a
-// profesionales y gastos), más/menos las transferencias de efectivo entre cajas. El detalle
-// de cada uno se ve tocando el renglón.
-export default function DetalleEfectivoEsperado({ cobradoEfectivo, movimientos, descontadoEnOtroCierre = 0, esperado }) {
+// pocos renglones: lo cobrado en efectivo (en este turno y en los otros del día, que sigue
+// en la misma caja), menos lo pagado en efectivo (pagos a profesionales y gastos),
+// más/menos las transferencias de efectivo entre cajas. El detalle de cada uno se ve
+// tocando el renglón.
+export default function DetalleEfectivoEsperado({ cobradoEfectivo, movimientos, efectivoDeOtrosTurnos = 0, esperado }) {
   const pagosYGastos = (movimientos?.salidas || []).filter((s) => s.tipo !== "transferencia");
   const transferencias = [
     ...(movimientos?.entradas || []).map((e) => ({ ...e, monto: e.monto })),
@@ -49,7 +50,10 @@ export default function DetalleEfectivoEsperado({ cobradoEfectivo, movimientos, 
     <div className="mt-4 rounded-md border border-brand-brown/30 bg-brand-tan/20 px-4 py-3 text-sm">
       <p className="text-xs font-semibold uppercase text-brand-brown">💵 Efectivo que tiene que haber en la caja</p>
       <div className="mt-2 flex flex-col gap-1">
-        <Renglon titulo="Cobrado en efectivo" signo="" monto={cobradoEfectivo} color="text-gray-900" />
+        <Renglon titulo="Cobrado en efectivo en tu turno" signo="" monto={cobradoEfectivo} color="text-gray-900" />
+        {efectivoDeOtrosTurnos > 0 && (
+          <Renglon titulo="Efectivo de otros turnos de hoy (sigue en la caja)" signo="+" monto={efectivoDeOtrosTurnos} color="text-emerald-700" />
+        )}
         {totalPagosYGastos > 0 && (
           <Renglon titulo="Pagos y gastos en efectivo" signo="−" monto={totalPagosYGastos} color="text-red-700" detalle={pagosYGastos} />
         )}
@@ -61,12 +65,6 @@ export default function DetalleEfectivoEsperado({ cobradoEfectivo, movimientos, 
             color={totalTransferencias >= 0 ? "text-emerald-700" : "text-red-700"}
             detalle={transferencias.map((t) => ({ etiqueta: t.etiqueta, monto: Math.abs(t.monto) }))}
           />
-        )}
-        {descontadoEnOtroCierre !== 0 && (
-          <div className="flex justify-between text-gray-500">
-            <span>Ya contado en el cierre de otro turno de hoy</span>
-            <span className="tabular-nums">{pesos(-descontadoEnOtroCierre)}</span>
-          </div>
         )}
         <div className="mt-1 flex justify-between border-t-2 border-brand-brown/40 pt-1.5 text-base font-bold text-gray-900">
           <span>= Tiene que haber</span>
