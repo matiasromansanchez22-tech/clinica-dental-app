@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AgendaGrid from "@/components/AgendaGrid";
 import AgendaSemanalGrid from "@/components/AgendaSemanalGrid";
 import BuscarTurnoPacienteBox from "@/components/BuscarTurnoPacienteBox";
+import RecordatoriosDelDia from "@/components/RecordatoriosDelDia";
 import NuevoTurnoModal from "@/components/NuevoTurnoModal";
 import TurnoDetalleModal from "@/components/TurnoDetalleModal";
 import {
@@ -140,6 +141,12 @@ export default function AgendaPage() {
           {vista === "semana" ? `Semana del ${inicioSemana} al ${finSemana}` : nombreDia}
         </span>
       </div>
+
+      <RecordatoriosDelDia
+        agenda="General"
+        desde={vista === "semana" ? inicioSemana : fecha}
+        hasta={vista === "semana" ? finSemana : fecha}
+      />
 
       {error && (
         <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

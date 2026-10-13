@@ -10,6 +10,7 @@ import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
 import AvisoPrestacionRealizada from "@/components/AvisoPrestacionRealizada";
 import CelebracionVenta from "@/components/CelebracionVenta";
+import AvisoRecordatorios from "@/components/AvisoRecordatorios";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
 import { obtenerCantidadTurnosOrtodonciaAReprogramar } from "@/lib/data/turnosOrtodoncia";
 import { obtenerCantidadCobrosConSaldoPendiente } from "@/lib/data/caja";
@@ -279,6 +280,7 @@ export default function NavBar() {
           <AvisoPresupuestoNuevo />
           <AvisoPrestacionRealizada />
           <CelebracionVenta />
+          <AvisoRecordatorios />
         </>
       )}
       <nav className="border-b border-brand-tan bg-brand-cream print:hidden">
