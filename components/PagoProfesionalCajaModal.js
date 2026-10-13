@@ -19,6 +19,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
   const [observaciones, setObservaciones] = useState("");
   const [montoReservaManual, setMontoReservaManual] = useState(null);
   const [cobrosElegidos, setCobrosElegidos] = useState([]);
+  const [tratamientoSaldado, setTratamientoSaldado] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -61,7 +62,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
       // si todo salió de ahí). Si esto falla el pago ya está registrado: se avisa.
       if (cobrosElegidos.length > 0) {
         try {
-          await marcarCobrosLiquidados((pagoCaja || pagoReserva).id, cobrosElegidos);
+          await marcarCobrosLiquidados((pagoCaja || pagoReserva).id, cobrosElegidos, { tratamientoSaldado });
         } catch (errMarca) {
           window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
         }
@@ -102,6 +103,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
               onChange={(e) => {
                 setProfesionalId(e.target.value);
                 setCobrosElegidos([]);
+                setTratamientoSaldado(false);
               }}
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
             >
@@ -188,7 +190,13 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
             />
           </label>
 
-          <SelectorCobrosALiquidar profesionalId={profesionalId} seleccion={cobrosElegidos} onChange={setCobrosElegidos} />
+          <SelectorCobrosALiquidar
+            profesionalId={profesionalId}
+            seleccion={cobrosElegidos}
+            onChange={setCobrosElegidos}
+            tratamientoSaldado={tratamientoSaldado}
+            onTratamientoSaldadoChange={setTratamientoSaldado}
+          />
 
           <div className="col-span-2 mt-1 flex justify-end gap-2">
             <button

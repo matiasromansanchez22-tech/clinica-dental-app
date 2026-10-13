@@ -69,7 +69,9 @@ function BuscarCobros() {
     for (const c of filtrados)
       lineas.push([
         formatoFecha(c.fecha), c.paciente, c.cobertura, c.detalle, c.atendio, c.monto, c.medioTexto,
-        c.liquidacion ? `Sí${c.liquidacion.fecha ? ` (${formatoFecha(c.liquidacion.fecha)})` : ""}` : "No",
+        c.liquidacion
+          ? `${c.liquidacion.tratamientoSaldado ? "Tratamiento saldado" : "Sí"}${c.liquidacion.fecha ? ` (${formatoFecha(c.liquidacion.fecha)})` : ""}`
+          : "No",
       ]);
     const contenido = "﻿" + lineas.map((l) => l.map(celdaCSV).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" }));

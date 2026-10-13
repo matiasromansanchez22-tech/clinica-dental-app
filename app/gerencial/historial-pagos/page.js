@@ -275,7 +275,7 @@ function PagosAProfesionales() {
                         {f.observaciones && <span className="block text-[11px] font-normal text-gray-500">{f.observaciones}</span>}
                         {f.cobrosCubiertos?.length > 0 && (
                           <span className="mt-1 block rounded bg-emerald-50 px-2 py-1 text-[11px] font-normal text-emerald-900">
-                            <strong>Liquidó ✓</strong> a:
+                            <strong>{f.cobrosCubiertos.some((c) => c.tratamientoSaldado) ? "Tratamiento saldado ✓" : "Liquidó ✓"}</strong> a:
                             {f.cobrosCubiertos.map((c, i) => (
                               <span key={i} className="block">
                                 {c.paciente} — {c.detalle} ({formatoFecha(c.fecha)}, {formatoPesos(c.monto)})

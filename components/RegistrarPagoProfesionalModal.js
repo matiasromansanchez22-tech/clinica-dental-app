@@ -15,6 +15,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
   const [observaciones, setObservaciones] = useState("");
   const [desdeReserva, setDesdeReserva] = useState(false);
   const [cobrosElegidos, setCobrosElegidos] = useState([]);
+  const [tratamientoSaldado, setTratamientoSaldado] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -38,7 +39,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
       });
       if (cobrosElegidos.length > 0) {
         try {
-          await marcarCobrosLiquidados(pago.id, cobrosElegidos);
+          await marcarCobrosLiquidados(pago.id, cobrosElegidos, { tratamientoSaldado });
         } catch (errMarca) {
           window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
         }
@@ -131,7 +132,13 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
 
           {tipo !== "Obra Social" && (
             <div className="grid">
-              <SelectorCobrosALiquidar profesionalId={profesional.profesionalId} seleccion={cobrosElegidos} onChange={setCobrosElegidos} />
+              <SelectorCobrosALiquidar
+                profesionalId={profesional.profesionalId}
+                seleccion={cobrosElegidos}
+                onChange={setCobrosElegidos}
+                tratamientoSaldado={tratamientoSaldado}
+                onTratamientoSaldadoChange={setTratamientoSaldado}
+              />
             </div>
           )}
 
