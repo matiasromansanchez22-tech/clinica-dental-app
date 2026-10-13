@@ -1,0 +1,27 @@
+"use client";
+
+function formatoFecha(fechaISO) {
+  if (!fechaISO) return "";
+  const [, mes, dia] = fechaISO.split("-");
+  return `${dia}/${mes}`;
+}
+
+// "Liquidado ✓" de un cobro: ya se le pagó al profesional lo que corresponde a este
+// paciente. `liquidacion` viene de obtenerLiquidacionesDeCobros ({ fecha, profesional }).
+// Si se pasa `onQuitar`, aparece una ✕ para sacar la marca (por si se tildó por error).
+export default function MarcaLiquidado({ liquidacion, onQuitar }) {
+  if (!liquidacion) return null;
+  return (
+    <span
+      className="ml-1.5 inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800"
+      title={`Ya se le liquidó${liquidacion.profesional ? ` a ${liquidacion.profesional}` : ""}${liquidacion.fecha ? ` el ${formatoFecha(liquidacion.fecha)}` : ""}`}
+    >
+      Liquidado ✓{liquidacion.fecha && ` ${formatoFecha(liquidacion.fecha)}`}
+      {onQuitar && (
+        <button onClick={onQuitar} aria-label="Quitar marca de liquidado" className="text-emerald-600 hover:text-red-600">
+          ✕
+        </button>
+      )}
+    </span>
+  );
+}

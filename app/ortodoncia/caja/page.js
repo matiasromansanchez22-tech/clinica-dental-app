@@ -4,7 +4,9 @@ import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useState } from "react";
 import CobroOrtodonciaFormModal from "@/components/CobroOrtodonciaFormModal";
 import GastoFormModal from "@/components/GastoFormModal";
+import MarcaLiquidado from "@/components/MarcaLiquidado";
 import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
+import { desmarcarCobroLiquidado, obtenerLiquidacionesDeCobros } from "@/lib/data/cobrosLiquidados";
 import TransferenciaCajaModal from "@/components/TransferenciaCajaModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
@@ -48,6 +50,17 @@ function CajaOrtodonciaPageContenido() {
   const [mostrarNuevoPagoProfesional, setMostrarNuevoPagoProfesional] = useState(false);
   const [mostrarNuevaTransferencia, setMostrarNuevaTransferencia] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
+  const [liquidaciones, setLiquidaciones] = useState({});
+
+  // Qué cobros del día ya se le liquidaron al profesional ("Liquidado ✓").
+  const cargarLiquidaciones = (lista) =>
+    obtenerLiquidacionesDeCobros("ortodoncia", lista.map((c) => c.id))
+      .then(setLiquidaciones)
+      .catch(() => setLiquidaciones({}));
+
+  useEffect(() => {
+    cargarLiquidaciones(cobros);
+  }, [cobros, mostrarNuevoPagoProfesional]);
 
   // Los sueldos (Registrar sueldo, en Consultorio) y las categorías
   // marcadas "sale de la reserva" (alquiler, impuestos, proveedores) no
@@ -426,7 +439,21 @@ function CajaOrtodonciaPageContenido() {
             )}
             {cobros.map((c) => (
               <tr key={c.id} className="border-t border-gray-100">
-                <td className="px-3 py-2 font-medium text-gray-900">{c.paciente}</td>
+                <td className="px-3 py-2 font-medium text-gray-900">
+                  {c.paciente}
+                  <MarcaLiquidado
+                    liquidacion={liquidaciones[c.id]}
+                    onQuitar={
+                      esDuena
+                        ? async () => {
+                            if (!window.confirm(`¿Quitar la marca de liquidado del cobro de ${c.paciente}?`)) return;
+                            await desmarcarCobroLiquidado("ortodoncia", c.id);
+                            cargarLiquidaciones(cobros);
+                          }
+                        : undefined
+                    }
+                  />
+                </td>
                 <td className="px-3 py-2 text-gray-600">
                   {c.concepto}
                   {c.concepto === "Control" && c.cantidadControlesAbonados > 1 && ` (${c.cantidadControlesAbonados} controles)`}

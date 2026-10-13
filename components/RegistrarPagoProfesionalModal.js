@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import SelectorCobrosALiquidar from "@/components/SelectorCobrosALiquidar";
+import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -12,6 +14,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
   const [desdeReserva, setDesdeReserva] = useState(false);
+  const [cobrosElegidos, setCobrosElegidos] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -24,7 +27,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
     }
     setGuardando(true);
     try {
-      await crearPagoProfesional({
+      const pago = await crearPagoProfesional({
         fecha,
         profesionalId: profesional.profesionalId,
         tipo,
@@ -33,6 +36,13 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
         observaciones,
         desdeReserva,
       });
+      if (cobrosElegidos.length > 0) {
+        try {
+          await marcarCobrosLiquidados(pago.id, cobrosElegidos);
+        } catch (errMarca) {
+          window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
+        }
+      }
       onGuardado();
     } catch (err) {
       setError(err.message);
@@ -118,6 +128,12 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
               className="rounded-md border border-gray-300 px-2 py-1.5"
             />
           </label>
+
+          {tipo !== "Obra Social" && (
+            <div className="grid">
+              <SelectorCobrosALiquidar profesionalId={profesional.profesionalId} seleccion={cobrosElegidos} onChange={setCobrosElegidos} />
+            </div>
+          )}
 
           <div className="mt-2 flex justify-end gap-2">
             <button

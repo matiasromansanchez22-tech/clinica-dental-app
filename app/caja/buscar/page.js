@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import MarcaLiquidado from "@/components/MarcaLiquidado";
 import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { filtrarCobros, obtenerCobrosParaBuscador } from "@/lib/data/buscadorCobros";
@@ -31,6 +32,7 @@ function BuscarCobros() {
   const [hasta, setHasta] = useState(hoy);
   const [texto, setTexto] = useState("");
   const [medio, setMedio] = useState("todos");
+  const [liquidacion, setLiquidacion] = useState("todos");
   const [cobros, setCobros] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -52,7 +54,7 @@ function BuscarCobros() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caja, dias, desde, hasta]);
 
-  const filtrados = useMemo(() => filtrarCobros(cobros, texto, medio), [cobros, texto, medio]);
+  const filtrados = useMemo(() => filtrarCobros(cobros, texto, medio, liquidacion), [cobros, texto, medio, liquidacion]);
   const total = filtrados.reduce((s, c) => s + c.monto, 0);
   const porMedio = useMemo(() => {
     const mapa = {};
@@ -63,8 +65,12 @@ function BuscarCobros() {
   const rutaDia = caja === "Ortodoncia" ? "/ortodoncia/caja" : "/caja";
 
   function descargar() {
-    const lineas = [["Fecha", "Paciente", "Cobertura", "Detalle", "Atendió", "Monto", "Medio"]];
-    for (const c of filtrados) lineas.push([formatoFecha(c.fecha), c.paciente, c.cobertura, c.detalle, c.atendio, c.monto, c.medioTexto]);
+    const lineas = [["Fecha", "Paciente", "Cobertura", "Detalle", "Atendió", "Monto", "Medio", "Liquidado al profesional"]];
+    for (const c of filtrados)
+      lineas.push([
+        formatoFecha(c.fecha), c.paciente, c.cobertura, c.detalle, c.atendio, c.monto, c.medioTexto,
+        c.liquidacion ? `Sí${c.liquidacion.fecha ? ` (${formatoFecha(c.liquidacion.fecha)})` : ""}` : "No",
+      ]);
     const contenido = "﻿" + lineas.map((l) => l.map(celdaCSV).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -136,6 +142,11 @@ function BuscarCobros() {
             </option>
           ))}
         </select>
+        <select value={liquidacion} onChange={(e) => setLiquidacion(e.target.value)} className="rounded-md border border-gray-300 px-2 py-2 text-sm">
+          <option value="todos">Liquidados y sin liquidar</option>
+          <option value="sin_liquidar">Solo sin liquidar al profesional</option>
+          <option value="liquidados">Solo liquidados ✓</option>
+        </select>
         <button
           onClick={descargar}
           disabled={cargando || filtrados.length === 0}
@@ -192,7 +203,10 @@ function BuscarCobros() {
             {filtrados.map((c) => (
               <tr key={c.id} className="border-t border-gray-100 align-top">
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-800">{formatoFecha(c.fecha)}</td>
-                <td className="px-3 py-2 font-medium text-gray-900">{c.paciente}</td>
+                <td className="px-3 py-2 font-medium text-gray-900">
+                  {c.paciente}
+                  <MarcaLiquidado liquidacion={c.liquidacion} />
+                </td>
                 <td className="px-3 py-2 text-gray-600">{c.cobertura}</td>
                 <td className="px-3 py-2 text-gray-600">{c.detalle}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-gray-600">{c.atendio}</td>

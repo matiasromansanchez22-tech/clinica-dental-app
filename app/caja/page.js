@@ -4,6 +4,8 @@ import NoOdontologoNiLaboratorio from "@/components/NoOdontologoNiLaboratorio";
 import { useEffect, useState } from "react";
 import CobroFormModal from "@/components/CobroFormModal";
 import EditarCobroModal from "@/components/EditarCobroModal";
+import MarcaLiquidado from "@/components/MarcaLiquidado";
+import { desmarcarCobroLiquidado, obtenerLiquidacionesDeCobros } from "@/lib/data/cobrosLiquidados";
 import GastoFormModal from "@/components/GastoFormModal";
 import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
 import TransferenciaCajaModal from "@/components/TransferenciaCajaModal";
@@ -46,6 +48,17 @@ function CajaPageContenido() {
   const [mostrarNuevaTransferencia, setMostrarNuevaTransferencia] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
   const [cobroEnEdicion, setCobroEnEdicion] = useState(null);
+  const [liquidaciones, setLiquidaciones] = useState({});
+
+  // Qué cobros del día ya se le liquidaron al profesional ("Liquidado ✓").
+  const cargarLiquidaciones = (lista) =>
+    obtenerLiquidacionesDeCobros("general", lista.map((c) => c.id))
+      .then(setLiquidaciones)
+      .catch(() => setLiquidaciones({}));
+
+  useEffect(() => {
+    cargarLiquidaciones(cobros);
+  }, [cobros, mostrarNuevoPagoProfesional]);
 
   // Los sueldos (Registrar sueldo, en Consultorio) y las categorías
   // marcadas "sale de la reserva" (alquiler, impuestos, proveedores) no
@@ -428,6 +441,18 @@ function CajaPageContenido() {
               <tr key={c.id} className="border-t border-gray-100">
                 <td className="px-3 py-2 font-medium text-gray-900">
                   {c.paciente}
+                  <MarcaLiquidado
+                    liquidacion={liquidaciones[c.id]}
+                    onQuitar={
+                      esDuena
+                        ? async () => {
+                            if (!window.confirm(`¿Quitar la marca de liquidado del cobro de ${c.paciente}?`)) return;
+                            await desmarcarCobroLiquidado("general", c.id);
+                            cargarLiquidaciones(cobros);
+                          }
+                        : undefined
+                    }
+                  />
                   {c.precioAnterior && (
                     <span className="ml-1.5 text-xs font-normal text-amber-600" title="Cobrado con precio anterior: se liquida por lo cobrado, no por catálogo">
                       🕰️ precio anterior

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import SelectorCobrosALiquidar from "@/components/SelectorCobrosALiquidar";
+import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -16,6 +18,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
   const [montoReservaManual, setMontoReservaManual] = useState(null);
+  const [cobrosElegidos, setCobrosElegidos] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -44,13 +47,24 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
     try {
       // El pago se parte en dos: lo que sale de la caja (descuenta del disponible
       // del día) y lo que sale de la reserva (no toca la caja ni lo limpio).
+      let pagoCaja = null;
+      let pagoReserva = null;
       if (deCaja > 0) {
-        await crearPagoProfesional({ fecha, profesionalId, tipo, monto: deCaja, medioPago, observaciones, origen: "Caja" });
+        pagoCaja = await crearPagoProfesional({ fecha, profesionalId, tipo, monto: deCaja, medioPago, observaciones, origen: "Caja" });
       }
       if (deReserva > 0) {
-        await crearPagoProfesional({
+        pagoReserva = await crearPagoProfesional({
           fecha, profesionalId, tipo, monto: deReserva, medioPago, observaciones, origen: "Produccion", desdeReserva: true,
         });
+      }
+      // Los pacientes tildados quedan atados al pago (al de la caja, o al de la reserva
+      // si todo salió de ahí). Si esto falla el pago ya está registrado: se avisa.
+      if (cobrosElegidos.length > 0) {
+        try {
+          await marcarCobrosLiquidados((pagoCaja || pagoReserva).id, cobrosElegidos);
+        } catch (errMarca) {
+          window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
+        }
       }
       onGuardado();
     } catch (err) {
@@ -85,7 +99,10 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
             Profesional
             <select
               value={profesionalId}
-              onChange={(e) => setProfesionalId(e.target.value)}
+              onChange={(e) => {
+                setProfesionalId(e.target.value);
+                setCobrosElegidos([]);
+              }}
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
             >
               <option value="">Elegir...</option>
@@ -170,6 +187,8 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
             />
           </label>
+
+          <SelectorCobrosALiquidar profesionalId={profesionalId} seleccion={cobrosElegidos} onChange={setCobrosElegidos} />
 
           <div className="col-span-2 mt-1 flex justify-end gap-2">
             <button
