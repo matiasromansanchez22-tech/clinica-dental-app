@@ -115,6 +115,7 @@ const SECCIONES = [
       ["Historial de pagos (profesionales, gastos y reserva)", "ok", "no", "no", "no", "ro", "no"],
       ["Control de Obras Sociales y Fichas Entre Ríos", "ok", "no", "no", "no", "ro", "no"],
       ["Pagos ASOR", "ok", "no", "no", "no", "ro", "no"],
+      ["Otros ingresos (Scanner, etc.)", "ok", "no", "no", "no", "ok", "no", "Ane también los carga y borra."],
       ["Horarios y liquidación del personal", "ok", "no", "no", "no", "ro", "no"],
       [
         "Producción y liquidación",
