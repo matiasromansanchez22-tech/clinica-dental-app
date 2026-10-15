@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import CasaListaNegocio from "@/components/CasaListaNegocio";
 import CatalogoProductosCasaModal from "@/components/CatalogoProductosCasaModal";
 import ItemCasaFormModal from "@/components/ItemCasaFormModal";
 import ItemListaCompraCasaFormModal from "@/components/ItemListaCompraCasaFormModal";
@@ -534,27 +535,29 @@ function CasaContenido() {
         Inventario privado de la casa — solo lo ven Matías y Marianela. No tiene nada que ver con la clínica.
       </p>
 
-      <div className="mt-4 flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setPestana("stock")}
-          className={`px-3 py-2 text-sm font-medium ${
-            pestana === "stock" ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          📦 Stock
-        </button>
-        <button
-          onClick={() => setPestana("lista")}
-          className={`px-3 py-2 text-sm font-medium ${
-            pestana === "lista" ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          🛒 Lista de súper
-        </button>
+      <div className="mt-4 flex flex-wrap gap-2 border-b border-gray-200">
+        {[
+          ["stock", "📦 Stock"],
+          ["lista", "🛒 Lista de súper"],
+          ["verduleria", "🥬 Verdulería"],
+          ["carniceria", "🥩 Carnicería"],
+        ].map(([clave, etiqueta]) => (
+          <button
+            key={clave}
+            onClick={() => setPestana(clave)}
+            className={`px-3 py-2 text-sm font-medium ${
+              pestana === clave ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
       </div>
 
       {pestana === "stock" && <SeccionStockCasa />}
       {pestana === "lista" && <SeccionListaComprasCasa />}
+      {pestana === "verduleria" && <CasaListaNegocio grupo="Frutas y verduras" titulo="Verdulería" />}
+      {pestana === "carniceria" && <CasaListaNegocio grupo="Carnes, pollo y pescado" titulo="Carnicería" />}
     </main>
   );
 }
