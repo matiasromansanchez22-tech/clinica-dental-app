@@ -47,6 +47,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [proximaPrestacionCatalogoId, setProximaPrestacionCatalogoId] = useState("");
+  // El profesional puede indicar que el paciente queda de alta y no se hace nada más: entonces
+  // no hace falta elegir la prestación del próximo turno.
+  const [altaPaciente, setAltaPaciente] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [mensaje, setMensaje] = useState(null);
@@ -151,13 +154,13 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setError("Elegí qué hiciste hoy antes de enviar a caja.");
       return;
     }
-    if (catalogo?.length > 0 && !proximaPrestacionCatalogoId) {
-      setError("Elegí la prestación para el próximo turno (paso 2) antes de enviar a caja.");
+    if (catalogo?.length > 0 && !proximaPrestacionCatalogoId && !altaPaciente) {
+      setError("Elegí la prestación para el próximo turno (paso 2), o marcá que el paciente está de alta, antes de enviar a caja.");
       return;
     }
     setGuardando(true);
     try {
-      const proximoItem = catalogo?.find((c) => c.id === proximaPrestacionCatalogoId);
+      const proximoItem = altaPaciente ? null : catalogo?.find((c) => c.id === proximaPrestacionCatalogoId);
       // La nota, el cargo extra y la próxima prestación son por visita, no
       // por cada cosa: se guardan en la primera y no se repiten.
       let primero = true;
@@ -173,6 +176,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           cargoExtraMonto: primero && cargoExtraMonto ? Number(cargoExtraMonto) : null,
           proximaPrestacionCatalogoId: primero ? proximoItem?.id : undefined,
           proximaPrestacionNombre: primero ? proximoItem?.prestacion : undefined,
+          alta: primero ? altaPaciente : false,
           fecha,
         });
         primero = false;
@@ -190,6 +194,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           notaProximoTurno: primero ? notaProximoTurno.trim() || null : null,
           proximaPrestacionCatalogoId: primero ? proximoItem?.id : undefined,
           proximaPrestacionNombre: primero ? proximoItem?.prestacion : undefined,
+          alta: primero ? altaPaciente : false,
           fecha,
         });
         primero = false;
@@ -200,6 +205,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setCargoExtraDescripcion("");
       setCargoExtraMonto("");
       setProximaPrestacionCatalogoId("");
+      setAltaPaciente(false);
       await recargar();
       setMensaje("✓ Enviado a caja. La secretaria ya lo ve para cobrar.");
     } catch (e) {
@@ -454,7 +460,21 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           <div className="mt-4 border-t border-gray-100 pt-3">
             <p className="mb-1 text-xs font-semibold text-gray-700">2. ¿Qué vas a realizar la próxima vez?</p>
 
-            {hayCatalogo && (
+            <label
+              className={`mb-2 flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                altaPaciente ? "border-emerald-400 bg-emerald-50 text-emerald-900" : "border-gray-200 bg-gray-50 text-gray-700"
+              }`}
+            >
+              <input type="checkbox" checked={altaPaciente} onChange={(e) => setAltaPaciente(e.target.checked)} className="mt-0.5" />
+              <span>
+                <strong>🏁 Paciente de alta: no se realiza nada más.</strong>
+                <span className="block text-[11px] text-gray-500">
+                  No hace falta elegir una prestación para el próximo turno. Si después le quieren dar un turno, se les avisa que figura de alta.
+                </span>
+              </span>
+            </label>
+
+            {hayCatalogo && !altaPaciente && (
               <label className="mb-2 flex flex-col gap-1 text-xs text-gray-600">
                 Prestación para el próximo turno <span className="text-red-600">*</span>
                 <select
@@ -477,7 +497,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
             )}
 
             {planActivo ? (
-              pasosSinMarcar.length > 0 && (
+              pasosSinMarcar.length > 0 &&
+              !altaPaciente && (
                 <label className="flex flex-col gap-1 text-xs text-gray-600">
                   ¿Cuál paso del presupuesto sigue? (opcional)
                   <select

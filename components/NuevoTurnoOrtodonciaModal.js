@@ -14,7 +14,11 @@ import { atiendeEseDia, obtenerDisponibilidadProfesional } from "@/lib/data/prof
 import { buscarProximosHorariosLibresOrtodoncia } from "@/lib/data/buscadorHorarioOrtodoncia";
 import { buscarParecidoEnLista, crearPacienteOrtodoncia, marcarInicioTratamiento } from "@/lib/data/pacientesOrtodoncia";
 import { crearTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
-import { marcarProximaPrestacionUsada, obtenerProximaPrestacionPendiente } from "@/lib/data/prestacionesRealizadas";
+import {
+  marcarProximaPrestacionUsada,
+  obtenerAltaDelPaciente,
+  obtenerProximaPrestacionPendiente,
+} from "@/lib/data/prestacionesRealizadas";
 
 const CONSULTORIOS_ORTO = [2, 3];
 const CONCEPTOS = CONCEPTOS_TURNO_ORTODONCIA;
@@ -47,6 +51,8 @@ export default function NuevoTurnoOrtodonciaModal({
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [proximaPrestacionPendiente, setProximaPrestacionPendiente] = useState(null);
+  // Si en la última visita marcada en la Agenda se indicó que el paciente está de alta.
+  const [altaDelPaciente, setAltaDelPaciente] = useState(null); // { pacienteId, fecha, profesional }
 
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [preferenciaBusqueda, setPreferenciaBusqueda] = useState("");
@@ -149,7 +155,12 @@ export default function NuevoTurnoOrtodonciaModal({
     // El ortodoncista dejó anotado, al marcar un turno anterior como
     // hecho, para qué viene la próxima vez — si el valor coincide con
     // alguno de los conceptos de este modal, se pre-carga solo.
-    obtenerProximaPrestacionPendiente(pacienteExistente.id, true)
+    obtenerAltaDelPaciente(pacienteExistente.id, true)
+      .then((alta) => {
+        setAltaDelPaciente(alta ? { pacienteId: pacienteExistente.id, ...alta } : null);
+        // Si figura de alta, no se pre-carga ningún concepto anterior.
+        return alta ? null : obtenerProximaPrestacionPendiente(pacienteExistente.id, true);
+      })
       .then((pendiente) => {
         if (!pendiente?.proxima_prestacion_nombre) return;
         setProximaPrestacionPendiente(pendiente);
@@ -397,6 +408,14 @@ export default function NuevoTurnoOrtodonciaModal({
               ⚠ Posible duplicado: ya existe {posiblesDuplicados.map((d) => d.nombre).join(", ")} con un nombre
               parecido. Si es la misma persona, escribí el nombre tal cual está cargado (elegilo de la lista) en
               vez de crear una ficha nueva.
+            </p>
+          )}
+
+          {pacienteExistente && altaDelPaciente?.pacienteId === pacienteExistente.id && (
+            <p className="rounded-md border border-emerald-400 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+              🏁 Este paciente figura <strong>de alta</strong> desde el {altaDelPaciente.fecha.split("-").reverse().join("/")}
+              {altaDelPaciente.profesional ? ` (${altaDelPaciente.profesional})` : ""}: no se iba a realizar nada más. Confirmá
+              que es un turno nuevo (control, urgencia o tratamiento nuevo) antes de agendarlo.
             </p>
           )}
 

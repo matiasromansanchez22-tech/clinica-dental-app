@@ -18,7 +18,11 @@ import { buscarPacientesParecidos, crearPaciente } from "@/lib/data/pacientes";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { calcularEdad } from "@/lib/pacientes";
 import { crearTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
-import { marcarProximaPrestacionUsada, obtenerProximaPrestacionPendiente } from "@/lib/data/prestacionesRealizadas";
+import {
+  marcarProximaPrestacionUsada,
+  obtenerAltaDelPaciente,
+  obtenerProximaPrestacionPendiente,
+} from "@/lib/data/prestacionesRealizadas";
 
 const TIPOS_ATENCION = [
   "Primera consulta",
@@ -58,6 +62,8 @@ export default function NuevoTurnoModal({
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [proximaPrestacionPendiente, setProximaPrestacionPendiente] = useState(null);
+  // Si en la última visita marcada en la Agenda se indicó que el paciente está de alta.
+  const [altaDelPaciente, setAltaDelPaciente] = useState(null); // { pacienteId, fecha, profesional }
 
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [preferenciaBusqueda, setPreferenciaBusqueda] = useState("");
@@ -137,7 +143,12 @@ export default function NuevoTurnoModal({
     // antes) para que no se pierda mientras el catálogo/nomenclador
     // todavía está terminando de cargar.
     if (pacienteExistente) {
-      obtenerProximaPrestacionPendiente(pacienteExistente.id, false)
+      obtenerAltaDelPaciente(pacienteExistente.id, false)
+        .then((alta) => {
+          setAltaDelPaciente(alta ? { pacienteId: pacienteExistente.id, ...alta } : null);
+          // Si figura de alta, no se pre-carga ninguna prestación anterior.
+          return alta ? null : obtenerProximaPrestacionPendiente(pacienteExistente.id, false);
+        })
         .then((pendiente) => {
           if (!pendiente?.proxima_prestacion_nombre) return;
           setProximaPrestacionPendiente(pendiente);
@@ -558,6 +569,14 @@ export default function NuevoTurnoModal({
               ))
             )}
           </label>
+
+          {pacienteExistente && altaDelPaciente?.pacienteId === pacienteExistente.id && (
+            <p className="rounded-md border border-emerald-400 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+              🏁 Este paciente figura <strong>de alta</strong> desde el {altaDelPaciente.fecha.split("-").reverse().join("/")}
+              {altaDelPaciente.profesional ? ` (${altaDelPaciente.profesional})` : ""}: no se iba a realizar nada más. Confirmá
+              que es un turno nuevo (control, urgencia o tratamiento nuevo) antes de agendarlo.
+            </p>
+          )}
 
           {proximaPrestacionPendiente?.proxima_prestacion_nombre && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">

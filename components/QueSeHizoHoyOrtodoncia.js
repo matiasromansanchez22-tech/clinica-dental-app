@@ -34,6 +34,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [proximaPrestacion, setProximaPrestacion] = useState("");
   const [tiempoProximoTurno, setTiempoProximoTurno] = useState("");
+  // Alta: el paciente termina el tratamiento y no se realiza nada más (no hace falta elegir
+  // la prestación del próximo turno).
+  const [altaPaciente, setAltaPaciente] = useState(false);
   // Para la continuación: tipo de brackets ("Metalicos"/"Porcelana", como en la
   // ficha) y los precios del catálogo para mostrar cuánto se cobra.
   const [tipoBracketsContinuacion, setTipoBracketsContinuacion] = useState("");
@@ -63,8 +66,8 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
 
   async function marcarRealizado() {
     setError(null);
-    if (!proximaPrestacion) {
-      setError("Elegí la prestación para el próximo turno antes de marcar como hecho.");
+    if (!proximaPrestacion && !altaPaciente) {
+      setError("Elegí la prestación para el próximo turno, o marcá que el paciente está de alta, antes de marcar como hecho.");
       return;
     }
     const esContinuacion = concepto === CONCEPTO_CONTINUACION;
@@ -85,8 +88,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         notaProximoTurno: notaProximoTurno.trim() || null,
         cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
         cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
-        proximaPrestacionNombre: proximaPrestacion || null,
-        proximaPrestacionTiempoMin: tiempoProximoTurno ? Number(tiempoProximoTurno) : null,
+        proximaPrestacionNombre: altaPaciente ? null : proximaPrestacion || null,
+        proximaPrestacionTiempoMin: !altaPaciente && tiempoProximoTurno ? Number(tiempoProximoTurno) : null,
+        alta: altaPaciente,
         precioManual: esContinuacion ? precioContinuacionSugerido(tipoBracketsContinuacion, preciosCatalogo) : null,
         fecha,
       });
@@ -99,6 +103,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       setCargoExtraMonto("");
       setProximaPrestacion("");
       setTiempoProximoTurno("");
+      setAltaPaciente(false);
       const pendienteNuevo = await obtenerPendienteCobroOrtodoncia(turno.pacienteId);
       setPendiente(pendienteNuevo);
     } catch (e) {
@@ -259,6 +264,21 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
           <div className="mt-2 border-t border-gray-100 pt-3">
             <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué vas a realizar la próxima vez?</p>
 
+            <label
+              className={`mb-2 flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                altaPaciente ? "border-emerald-400 bg-emerald-50 text-emerald-900" : "border-gray-200 bg-gray-50 text-gray-700"
+              }`}
+            >
+              <input type="checkbox" checked={altaPaciente} onChange={(e) => setAltaPaciente(e.target.checked)} className="mt-0.5" />
+              <span>
+                <strong>🏁 Paciente de alta: no se realiza nada más.</strong>
+                <span className="block text-[11px] text-gray-500">
+                  No hace falta elegir una prestación para el próximo turno. Si después le quieren dar un turno, se les avisa que figura de alta.
+                </span>
+              </span>
+            </label>
+
+            {!altaPaciente && (
             <label className="flex flex-col gap-1 text-xs text-gray-600">
               Prestación para el próximo turno <span className="text-red-600">*</span>
               <select
@@ -274,11 +294,13 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
                 ))}
               </select>
               <span className="text-[11px] text-gray-400">
-                Obligatorio: hasta que no elijas esto no se puede marcar como hecho ni mandar a cobrar. Cuando le
-                den el próximo turno a este paciente, va a venir pre-cargado con esto.
+                Obligatorio: hasta que no elijas esto (o marques el alta) no se puede marcar como hecho ni mandar a cobrar.
+                Cuando le den el próximo turno a este paciente, va a venir pre-cargado con esto.
               </span>
             </label>
+            )}
 
+            {!altaPaciente && (
             <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
               ¿Cuánto tiempo necesitás para el próximo turno?
               <select
@@ -297,6 +319,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
                 Cuando le den el turno, el secretario lo va a ver cargado con este tiempo.
               </span>
             </label>
+            )}
 
             <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
               Nota para el próximo turno (opcional)
@@ -313,7 +336,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
           <button
             type="button"
             onClick={marcarRealizado}
-            disabled={guardando || !proximaPrestacion}
+            disabled={guardando || (!proximaPrestacion && !altaPaciente)}
             className="mt-1 w-full rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
           >
             ✓ Marcar hecho
