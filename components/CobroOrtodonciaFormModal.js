@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { crearCobroOrtodoncia, obtenerCobrosInstalacion } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import {
@@ -38,6 +39,8 @@ export default function CobroOrtodonciaFormModal({
   onClose,
   onCreado,
 }) {
+  const { perfil } = useAuth();
+  const esDuena = perfil?.rol === "Duena";
   const [pacienteId, setPacienteId] = useState(pacienteIdInicial || "");
   const [ortodoncistaAtencionId, setOrtodoncistaAtencionId] = useState(profesionalIdInicial || "");
   // No resetear el ortodoncista mientras el paciente no cambió realmente —
@@ -149,8 +152,9 @@ export default function CobroOrtodonciaFormModal({
   const precioContinuacion =
     concepto === CONCEPTO_CONTINUACION ? precioContinuacionSugerido(paciente?.tipoBrackets, precios) : null;
 
-  useEffect(() => {
-    if (!paciente) return;
+  // El importe que corresponde cobrar con lo que está cargado en el formulario.
+  function calcularImporteSugerido() {
+    if (!paciente) return 0;
     let base = 0;
     if (concepto === "Control") {
       const valorControlUsado =
@@ -163,7 +167,17 @@ export default function CobroOrtodonciaFormModal({
     } else if (concepto === CONCEPTO_CONTINUACION) {
       base = precioContinuacion || 0;
     }
-    setImporte(Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado));
+    return Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado);
+  }
+
+  // Cuando a un paciente le toca el aumento, el monto del Control queda fijado en la cuota nueva:
+  // las secretarias no lo pueden cambiar (ni escribiéndolo, ni repartiéndolo en un pago mixto
+  // que sume otra cosa). Una dueña sí puede, por si hay un descuento autorizado.
+  const bloqueoAumento = !esDuena && debeConfirmarAumento && concepto === "Control";
+
+  useEffect(() => {
+    if (!paciente) return;
+    setImporte(calcularImporteSugerido());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pacienteId,
@@ -233,6 +247,19 @@ export default function CobroOrtodonciaFormModal({
     if (debeConfirmarAumento && !aumentoConfirmado) {
       setError("Este paciente tiene la cuota vencida para aumentar — tildá la confirmación de arriba antes de cobrar.");
       return;
+    }
+    if (bloqueoAumento) {
+      const esperado = Math.round(calcularImporteSugerido());
+      if (Number(cargoExtraMonto || 0) < 0) {
+        setError("El cargo extra no puede ser negativo.");
+        return;
+      }
+      if (Math.round(Number(importe)) !== esperado) {
+        setError(
+          `Este paciente tiene aumento: el monto a cobrar es $${esperado.toLocaleString("es-AR")} y no se puede cambiar. Si hay un descuento autorizado, lo carga una dueña.`
+        );
+        return;
+      }
     }
     if (!importe || Number(importe) <= 0) {
       setError("El importe tiene que ser mayor a cero.");
@@ -721,6 +748,11 @@ export default function CobroOrtodonciaFormModal({
               <p className="text-right text-sm font-semibold text-gray-900">
                 Total pago mixto: ${totalDesglosado.toLocaleString("es-AR")}
               </p>
+              {bloqueoAumento && (
+                <p className="text-right text-[11px] text-red-700">
+                  🔒 Las partes tienen que sumar ${Math.round(calcularImporteSugerido()).toLocaleString("es-AR")} (monto fijado por el aumento).
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
@@ -730,8 +762,13 @@ export default function CobroOrtodonciaFormModal({
                   type="number"
                   value={importe}
                   onChange={(e) => setImporte(e.target.value)}
-                  className="rounded-md border border-gray-300 px-2 py-1.5"
+                  readOnly={bloqueoAumento}
+                  title={bloqueoAumento ? "Monto fijado por el aumento: solo una dueña puede cambiarlo" : undefined}
+                  className={`rounded-md border border-gray-300 px-2 py-1.5 ${bloqueoAumento ? "cursor-not-allowed bg-gray-100 text-gray-700" : ""}`}
                 />
+                {bloqueoAumento && (
+                  <span className="text-[11px] text-red-700">🔒 Monto fijado por el aumento. Solo una dueña puede cambiarlo.</span>
+                )}
               </label>
               <label className="flex flex-col gap-1 text-sm text-gray-700">
                 Medio de pago
