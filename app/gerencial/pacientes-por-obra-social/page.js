@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import {
@@ -300,18 +300,76 @@ function PaginaPacientesPorObraSocial() {
                   </tr>
                 </thead>
                 <tbody>
-                  {m.liquidacion.map((r) => (
-                    <tr key={r.id} className="border-t border-gray-100">
-                      <td className="px-4 py-2 font-medium text-gray-900">{r.nombre}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.facturado)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{formatoPesos(r.sinLiquidar)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.baseLiquidable)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{r.porcentaje}%</td>
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums text-brand-brown">
-                        {formatoPesos(r.honorarios)}
-                      </td>
-                    </tr>
-                  ))}
+                  {m.liquidacion.map((r) => {
+                    const claveProf = `prof|${m.clave}|${r.id}`;
+                    const abierto = abiertas.has(claveProf);
+                    return (
+                      <Fragment key={r.id}>
+                        <tr onClick={() => alternar(claveProf)} className="cursor-pointer border-t border-gray-100 hover:bg-brand-tan/20">
+                          <td className="px-4 py-2 font-medium text-gray-900">
+                            <span className="mr-1.5 text-xs text-brand-brown">{abierto ? "▼" : "▶"}</span>
+                            {r.nombre}
+                            <span className="ml-2 text-xs font-normal text-gray-400">
+                              {r.pacientes} paciente{r.pacientes === 1 ? "" : "s"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.facturado)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-gray-500">{formatoPesos(r.sinLiquidar)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(r.baseLiquidable)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-gray-500">{r.porcentaje}%</td>
+                          <td className="px-4 py-2 text-right font-semibold tabular-nums text-brand-brown">
+                            {formatoPesos(r.honorarios)}
+                          </td>
+                        </tr>
+                        {abierto && (
+                          <tr className="bg-gray-50">
+                            <td colSpan={6} className="px-4 pb-3 pt-1">
+                              <p className="mb-1 text-xs font-semibold uppercase text-gray-500">
+                                Pacientes que atendió {r.nombre} en {nombreMes(m.clave)}
+                              </p>
+                              <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
+                                <table className="w-full min-w-[620px] border-collapse text-xs">
+                                  <thead>
+                                    <tr className="text-gray-500">
+                                      <th className="px-3 py-1.5 text-left font-semibold">Paciente</th>
+                                      <th className="px-3 py-1.5 text-left font-semibold">Obra social</th>
+                                      <th className="px-3 py-1.5 text-left font-semibold">Fecha</th>
+                                      <th className="px-3 py-1.5 text-left font-semibold">Qué se le hizo</th>
+                                      <th className="px-3 py-1.5 text-right font-semibold">Cant.</th>
+                                      <th className="px-3 py-1.5 text-right font-semibold">Total OS</th>
+                                      <th className="px-3 py-1.5 text-right font-semibold">Honorarios</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {r.filas.map((f, i) => {
+                                      const mismoPaciente = i > 0 && r.filas[i - 1].paciente === f.paciente;
+                                      return (
+                                        <tr key={f.id} className={mismoPaciente ? "" : "border-t border-gray-200"}>
+                                          <td className="px-3 py-1.5 font-medium text-gray-900">{mismoPaciente ? "" : f.paciente}</td>
+                                          <td className="px-3 py-1.5 text-gray-600">{f.obraSocial}</td>
+                                          <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-gray-600">{formatoFecha(f.fecha)}</td>
+                                          <td className="px-3 py-1.5 text-gray-700">{f.prestacion}</td>
+                                          <td className="px-3 py-1.5 text-right tabular-nums text-gray-600">{f.cantidad}</td>
+                                          <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">{formatoPesos(totalOS(f))}</td>
+                                          <td className="px-3 py-1.5 text-right tabular-nums">
+                                            {f.sinHonorarios ? (
+                                              <span className="text-gray-400">no se liquida</span>
+                                            ) : (
+                                              <span className="font-medium text-brand-brown">{formatoPesos(honorariosDe(f))}</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-brand-brown bg-brand-tan/20 font-bold">
@@ -329,7 +387,8 @@ function PaginaPacientesPorObraSocial() {
             </div>
             <p className="bg-white px-4 pb-3 text-xs text-gray-500">
               Las estampillas se cobran a la obra social pero no se liquidan. Los honorarios son el % de obra social de
-              cada profesional sobre la base a liquidar (valor de cada prestación × cantidad).
+              cada profesional sobre la base a liquidar (valor de cada prestación × cantidad). Tocá el nombre de un
+              profesional para ver los pacientes que atendió.
             </p>
           </section>
 
