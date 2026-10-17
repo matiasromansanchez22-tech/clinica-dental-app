@@ -20,6 +20,8 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
   const [leyendo, setLeyendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+  // Por defecto, las líneas que ya estaban cargadas se saltean (para no duplicar).
+  const [omitirRepetidas, setOmitirRepetidas] = useState(true);
   const inputRef = useRef(null);
 
   async function handlePrevisualizar() {
@@ -53,10 +55,15 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
       setError("Elegí a qué obra social corresponde este PDF.");
       return;
     }
+    const aGuardar = omitirRepetidas ? lineasNuevas : lineas;
+    if (aGuardar.length === 0) {
+      setError("Todas las líneas de este PDF ya están cargadas: no hay nada nuevo para guardar.");
+      return;
+    }
     setGuardando(true);
     setError(null);
     try {
-      await crearFacturacionAsorPacientesMasivo(obraSocial.trim(), lineas);
+      await crearFacturacionAsorPacientesMasivo(obraSocial.trim(), aGuardar);
       onGuardado();
     } catch (err) {
       setError(err.message);
@@ -65,28 +72,41 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
     }
   }
 
+  // Compara contra lo ya cargado para esa obra social — para detectar si este PDF (o parte de él)
+  // ya se importó antes. Cada línea ya cargada se "gasta" una sola vez: si el PDF trae la misma
+  // línea dos veces de verdad y solo una estaba cargada, la otra se considera nueva.
+  const existentesDeEstaObraSocial = (facturacionExistente || []).filter(
+    (f) => f.obraSocial.trim().toUpperCase() === obraSocial.trim().toUpperCase()
+  );
+  const indicesRepetidos = new Set();
+  if (lineas && obraSocial.trim() && existentesDeEstaObraSocial.length > 0) {
+    const disponibles = [...existentesDeEstaObraSocial];
+    lineas.forEach((l, i) => {
+      const pos = disponibles.findIndex((e) => esMismaLinea(l, e));
+      if (pos >= 0) {
+        indicesRepetidos.add(i);
+        disponibles.splice(pos, 1);
+      }
+    });
+  }
+  const lineasDuplicadas = lineas ? lineas.filter((_, i) => indicesRepetidos.has(i)) : [];
+  const lineasNuevas = lineas ? lineas.filter((_, i) => !indicesRepetidos.has(i)) : [];
+  const pacientesDuplicados = [...new Set(lineasDuplicadas.map((l) => l.paciente))];
+
   const pacientes = lineas
     ? Object.values(
-        lineas.reduce((acc, l) => {
+        lineas.reduce((acc, l, i) => {
           const clave = `${l.nroPresupuesto}|${l.paciente}`;
-          if (!acc[clave]) acc[clave] = { nroPresupuesto: l.nroPresupuesto, paciente: l.paciente, nroDoc: l.nroDoc, items: [] };
+          if (!acc[clave]) acc[clave] = { nroPresupuesto: l.nroPresupuesto, paciente: l.paciente, nroDoc: l.nroDoc, items: [], repetidas: 0 };
           acc[clave].items.push(l);
+          if (indicesRepetidos.has(i)) acc[clave].repetidas += 1;
           return acc;
         }, {})
       )
     : [];
+  const lineasAGuardar = omitirRepetidas ? lineasNuevas : lineas || [];
   const totalGeneral = lineas ? lineas.reduce((acc, l) => acc + l.pendiente, 0) : 0;
-
-  // Compara contra lo ya cargado para esa obra social — para avisar si este
-  // PDF (o parte de él) parece que ya se importó antes.
-  const existentesDeEstaObraSocial = (facturacionExistente || []).filter(
-    (f) => f.obraSocial.trim().toUpperCase() === obraSocial.trim().toUpperCase()
-  );
-  const lineasDuplicadas =
-    lineas && obraSocial.trim() && existentesDeEstaObraSocial.length > 0
-      ? lineas.filter((l) => existentesDeEstaObraSocial.some((e) => esMismaLinea(l, e)))
-      : [];
-  const pacientesDuplicados = [...new Set(lineasDuplicadas.map((l) => l.paciente))];
+  const totalAGuardar = lineasAGuardar.reduce((acc, l) => acc + l.pendiente, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -149,13 +169,33 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
             <div className="rounded-md bg-brand-tan/20 px-3 py-2 text-sm font-semibold text-brand-brown">
               {pacientes.length} paciente{pacientes.length === 1 ? "" : "s"} — {lineas.length} líneas — Total
               pendiente: ${totalGeneral.toLocaleString("es-AR")}
+              {lineasDuplicadas.length > 0 && omitirRepetidas && (
+                <span className="mt-0.5 block text-xs font-medium text-emerald-800">
+                  Se van a cargar {lineasNuevas.length} líneas nuevas por ${totalAGuardar.toLocaleString("es-AR")}
+                </span>
+              )}
             </div>
 
             {lineasDuplicadas.length > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                ⚠️ {lineasDuplicadas.length} de {lineas.length} líneas ya están cargadas para "{obraSocial}" — parece
-                que este PDF (o parte) ya se importó antes. Pacientes repetidos: {pacientesDuplicados.join(", ")}.
-                Revisá antes de confirmar para no duplicar.
+                <p>
+                  ⚠️ {lineasDuplicadas.length} de {lineas.length} líneas ya están cargadas para "{obraSocial}" — parece
+                  que este PDF (o parte) ya se importó antes. Pacientes repetidos: {pacientesDuplicados.join(", ")}.
+                </p>
+                <label className="mt-2 flex cursor-pointer items-start gap-2 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={omitirRepetidas}
+                    onChange={(e) => setOmitirRepetidas(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>
+                    Saltear las {lineasDuplicadas.length} líneas repetidas y cargar solo las {lineasNuevas.length} nuevas
+                    <span className="block text-xs font-normal text-amber-800">
+                      Recomendado. Si lo destildás, se cargan todas las líneas y las repetidas quedan duplicadas.
+                    </span>
+                  </span>
+                </label>
               </div>
             )}
 
@@ -168,6 +208,7 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
                     <th className="px-3 py-2 text-left font-semibold">N° Presup.</th>
                     <th className="px-3 py-2 text-right font-semibold">Líneas</th>
                     <th className="px-3 py-2 text-right font-semibold">Subtotal</th>
+                    <th className="px-3 py-2 text-left font-semibold">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -180,6 +221,17 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
                         <td className="px-3 py-2 text-gray-600">{p.nroPresupuesto}</td>
                         <td className="px-3 py-2 text-right text-gray-600">{p.items.length}</td>
                         <td className="px-3 py-2 text-right text-gray-900">${subtotal.toLocaleString("es-AR")}</td>
+                        <td className="px-3 py-2 text-xs">
+                          {p.repetidas === 0 ? (
+                            <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800">nuevo</span>
+                          ) : p.repetidas === p.items.length ? (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900">ya cargado</span>
+                          ) : (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900">
+                              {p.repetidas} de {p.items.length} ya cargadas
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -204,7 +256,11 @@ export default function ImportarPdfAsorModal({ obrasSocialesExistentes, facturac
                 disabled={guardando}
                 className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
               >
-                {guardando ? "Guardando..." : "Confirmar carga"}
+                {guardando
+                  ? "Guardando..."
+                  : lineasDuplicadas.length > 0 && omitirRepetidas
+                    ? `Cargar solo las ${lineasNuevas.length} nuevas`
+                    : "Confirmar carga"}
               </button>
             </div>
           </div>
