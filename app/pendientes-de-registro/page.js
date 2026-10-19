@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import TurnoDetalleModal from "@/components/TurnoDetalleModal";
+import CompletarVisitaOrtodoncia from "@/components/CompletarVisitaOrtodoncia";
+import { avisarVisitasPorCompletarCambiaron } from "@/components/AvisoVisitasPorCompletar";
+import { obtenerVisitasPorCompletarOrtodoncia } from "@/lib/data/prestacionesRealizadas";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { obtenerPrestacionesParticular } from "@/lib/data/caja";
@@ -24,12 +27,24 @@ function PaginaPendientes() {
   const [catalogoParticular, setCatalogoParticular] = useState([]);
   const [profesionalElegido, setProfesionalElegido] = useState("todos");
   const [turnoAbierto, setTurnoAbierto] = useState(null);
+  // Ortodoncia: visitas que la secretaria ya cobró y falta que el ortodoncista complete.
+  const [porCompletar, setPorCompletar] = useState([]);
+  const [visitaAbierta, setVisitaAbierta] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
   const esDuena = perfil?.rol === "Duena";
   // Cada odontólogo ve solo lo suyo; las dueñas ven a todos.
   const propioId = perfil?.rol === "Odontologo" ? perfil.profesional_id : null;
+
+  async function recargarPorCompletar() {
+    setPorCompletar(await obtenerVisitasPorCompletarOrtodoncia(propioId));
+    avisarVisitasPorCompletarCambiaron();
+  }
+
+  useEffect(() => {
+    if (perfil) obtenerVisitasPorCompletarOrtodoncia(propioId).then(setPorCompletar);
+  }, [perfil, propioId]);
 
   async function recargar() {
     setPendientes(await obtenerPendientesDeRegistro(sumarDias(hoy, -dias), hoy));
@@ -122,6 +137,36 @@ function PaginaPendientes() {
         </div>
       )}
 
+      {porCompletar.length > 0 && (
+        <div className="mt-4 rounded-lg border-2 border-amber-400 bg-amber-50 p-4">
+          <p className="text-sm font-bold text-amber-900">
+            💰 Ortodoncia: ya cobradas por secretaría, falta completar ({porCompletar.length})
+          </p>
+          <p className="mt-0.5 text-xs text-amber-800">
+            Tocá <strong>Completar</strong> para indicar qué se hace la próxima vez (o el alta) y si se despegó algún bracket.
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {porCompletar.map((v) => (
+              <li key={v.id} className="flex items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-sm shadow-sm">
+                <span className="text-gray-800">
+                  <strong>{v.paciente}</strong>
+                  <span className="ml-2 text-xs text-gray-500">
+                    {textoFecha(v.fecha)} · {v.prestacion}
+                    {!propioId && ` · ${v.profesional}`}
+                  </span>
+                </span>
+                <button
+                  onClick={() => setVisitaAbierta(v)}
+                  className="rounded-md border border-brand-brown/40 px-3 py-1 text-xs font-medium text-brand-brown hover:bg-brand-tan/30"
+                >
+                  Completar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {cargando ? (
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>
       ) : visibles.length === 0 ? (
@@ -180,6 +225,26 @@ function PaginaPendientes() {
             </table>
           </div>
         </>
+      )}
+
+      {visitaAbierta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">{visitaAbierta.paciente}</h2>
+              <button onClick={() => setVisitaAbierta(null)} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
+                ✕
+              </button>
+            </div>
+            <CompletarVisitaOrtodoncia
+              visita={visitaAbierta}
+              onCompletado={() => {
+                setVisitaAbierta(null);
+                recargarPorCompletar();
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {turnoAbierto && (

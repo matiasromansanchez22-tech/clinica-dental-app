@@ -9,6 +9,7 @@ import InstalarAppBoton from "@/components/InstalarAppBoton";
 import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
 import AvisoPrestacionRealizada from "@/components/AvisoPrestacionRealizada";
+import AvisoVisitasPorCompletar from "@/components/AvisoVisitasPorCompletar";
 import CelebracionVenta from "@/components/CelebracionVenta";
 import AvisoRecordatorios from "@/components/AvisoRecordatorios";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
@@ -22,6 +23,7 @@ import { obtenerCantidadMesesPendientesAprobar } from "@/lib/data/cierresMes";
 import {
   obtenerCantidadPacientesConPendientesDeCobro,
   obtenerCantidadPacientesOrtodonciaConPendientesDeCobro,
+  obtenerVisitasPorCompletarOrtodoncia,
 } from "@/lib/data/prestacionesRealizadas";
 
 const GRUPOS = [
@@ -45,7 +47,7 @@ const GRUPOS = [
     items: [
       { href: "/agenda", label: "Agenda" },
       { href: "/agenda/ver", label: "Ver Agenda del Día (solo lectura)" },
-      { href: "/pendientes-de-registro", label: "📝 Pendientes de registro", ocultarRoles: ["Secretaria", "Laboratorio"] },
+      { href: "/pendientes-de-registro", label: "📝 Pendientes de registro", badgeKey: "porCompletarOrtodoncia", ocultarRoles: ["Secretaria", "Laboratorio"] },
       { href: "/reprogramar", label: "Turnos a reprogramar", badgeKey: "general" },
       { href: "/cancelados", label: "Turnos cancelados" },
       { href: "/pacientes", label: "Pacientes" },
@@ -258,6 +260,14 @@ export default function NavBar() {
         .catch(() => {});
     }
 
+    // Visitas de Ortodoncia que la secretaria ya cobró y esperan que el ortodoncista las complete
+    // (cada odontólogo cuenta solo las suyas; las dueñas, todas).
+    if (perfil?.rol === "Duena" || perfil?.rol === "Odontologo") {
+      obtenerVisitasPorCompletarOrtodoncia(perfil.rol === "Odontologo" ? perfil.profesional_id : null)
+        .then((visitas) => setBadges((b) => ({ ...b, porCompletarOrtodoncia: visitas.length })))
+        .catch(() => {});
+    }
+
     // Cierre Diario y Cierre de Mes solo los ve la Dueña — no hace falta
     // (ni conviene, por los permisos) pedirlos para los demás roles.
     if (perfil?.rol === "Duena") {
@@ -281,6 +291,7 @@ export default function NavBar() {
         <>
           <AvisoPresupuestoNuevo />
           <AvisoPrestacionRealizada />
+          <AvisoVisitasPorCompletar />
           <CelebracionVenta />
           <AvisoRecordatorios />
         </>

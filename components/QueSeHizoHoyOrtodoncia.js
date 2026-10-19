@@ -13,8 +13,14 @@ import {
   obtenerConfiguracionOrtodoncia,
   obtenerPacienteOrtodonciaPorId,
 } from "@/lib/data/pacientesOrtodoncia";
-import { marcarTurnoOrtodonciaRealizado, obtenerPendienteCobroOrtodoncia } from "@/lib/data/prestacionesRealizadas";
+import {
+  marcarTurnoOrtodonciaRealizado,
+  obtenerPendienteCobroOrtodoncia,
+  obtenerVisitaPorCompletarDePaciente,
+} from "@/lib/data/prestacionesRealizadas";
 import { actualizarEstadoTurnoOrtodoncia } from "@/lib/data/turnosOrtodoncia";
+import CompletarVisitaOrtodoncia from "@/components/CompletarVisitaOrtodoncia";
+import { avisarVisitasPorCompletarCambiaron } from "@/components/AvisoVisitasPorCompletar";
 
 // Se usa tanto en la Agenda normal (secretaria) como en "Ver Agenda del
 // Día" (solo lectura) de Ortodoncia.
@@ -42,6 +48,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [tipoBracketsContinuacion, setTipoBracketsContinuacion] = useState("");
   const [preciosCatalogo, setPreciosCatalogo] = useState({});
   const [pendiente, setPendiente] = useState(null);
+  // La secretaria ya cobró esta visita antes de que se marcara qué se hizo.
+  const [visitaPorCompletar, setVisitaPorCompletar] = useState(null);
+  const [visitaCompletada, setVisitaCompletada] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -55,6 +64,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       .then(setPendiente)
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
+    obtenerVisitaPorCompletarDePaciente(turno.pacienteId).then((v) => setVisitaPorCompletar(v?.fecha === fecha ? v : null));
     obtenerConfiguracionOrtodoncia()
       .then(setPreciosCatalogo)
       .catch(() => {});
@@ -113,7 +123,31 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
     }
   }
 
+  async function alCompletarVisita() {
+    setVisitaPorCompletar(null);
+    setVisitaCompletada(true);
+    avisarVisitasPorCompletarCambiaron();
+    if (turno.presencia !== "Finalizado") {
+      try {
+        const actualizado = await actualizarEstadoTurnoOrtodoncia(turno.id, { presencia: "Finalizado" });
+        onTurnoActualizado?.(actualizado);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+    setPendiente(await obtenerPendienteCobroOrtodoncia(turno.pacienteId).catch(() => null));
+  }
+
   if (!turno.pacienteId) return null;
+
+  if (visitaPorCompletar) {
+    return (
+      <div className="mt-4 border-t border-gray-200 pt-3">
+        <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">Actividad de hoy</p>
+        <CompletarVisitaOrtodoncia visita={visitaPorCompletar} onCompletado={alCompletarVisita} />
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4 border-t border-gray-200 pt-3">
@@ -123,6 +157,8 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       )}
       {cargando ? (
         <p className="text-xs text-gray-500">Buscando...</p>
+      ) : visitaCompletada && !pendiente ? (
+        <p className="text-sm text-emerald-700">✓ Visita completada: ya estaba cobrada y quedó registrado qué sigue.</p>
       ) : pendiente ? (
         <div className="text-sm text-emerald-700">
           <p>

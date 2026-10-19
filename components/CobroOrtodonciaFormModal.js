@@ -17,7 +17,9 @@ import {
 import {
   marcarPendientesOrtodonciaComoCobrados,
   obtenerPendientesCobroOrtodoncia,
+  registrarVisitaCobradaPorCompletar,
 } from "@/lib/data/prestacionesRealizadas";
+import { obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 import { marcarControlesPagados } from "@/lib/data/controlesOrtodoncia";
 import { registrarContinuacionEnFicha } from "@/lib/data/pacientesOrtodoncia";
@@ -162,6 +164,8 @@ export default function CobroOrtodonciaFormModal({
       const valorControles = valorControlUsado * Number(cantidadControlesAbonados || 1);
       const valorBrackets = seDespegoBracket ? Number(cantidadBrackets || 0) * precioPorBracket : 0;
       base = valorControles + valorBrackets;
+    } else if (concepto === "Reposición de bracket") {
+      base = Number(cantidadBrackets || 0) * Number(precioPorBracket || 0);
     } else if (concepto === "Instalación (contado)" || concepto === "Instalación (2 cuotas)") {
       base = precioInstalacion || 0;
     } else if (concepto === CONCEPTO_CONTINUACION) {
@@ -310,6 +314,34 @@ export default function CobroOrtodonciaFormModal({
           pendientesRealizados.map((p) => p.id),
           cobro.id
         );
+      }
+      // Si cobran sin que el ortodoncista haya marcado nada y el paciente tenía turno ese día, le
+      // queda un aviso al ortodoncista para completar qué sigue y si se despegó algún bracket.
+      // Si falla no se frena el cobro (que ya quedó registrado).
+      if (pendientesRealizados.length === 0) {
+        try {
+          const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fecha);
+          const turnoDelPaciente = turnosDelDia.find(
+            (t) => t.pacienteId === pacienteId && t.estado === "Agendado" && t.asistencia !== "No asistió"
+          );
+          if (turnoDelPaciente) {
+            await registrarVisitaCobradaPorCompletar({
+              fecha,
+              pacienteOrtodonciaId: pacienteId,
+              ortodoncistaId: turnoDelPaciente.profesionalDeTurnoId || ortodoncistaAtencionId,
+              turnoOrtodonciaId: turnoDelPaciente.id,
+              concepto,
+              bracketReposicion:
+                concepto === "Reposición de bracket" || (concepto === "Control" && seDespegoBracket)
+                  ? bracketReposicion
+                  : null,
+              cantidadBrackets: Number(cantidadBrackets) || 1,
+              cajaOrtodonciaId: cobro.id,
+            });
+          }
+        } catch (errAviso) {
+          console.error("No se pudo avisar al ortodoncista", errAviso);
+        }
       }
       // Si era un Control, la grilla de Controles se completa sola. Si falla
       // no se frena el cobro (que ya quedó registrado): se puede marcar a mano.
