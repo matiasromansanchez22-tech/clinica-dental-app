@@ -37,6 +37,10 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
   const [nuevaDuracion, setNuevaDuracion] = useState(turno.duracionMin);
   const [cambiandoDuracion, setCambiandoDuracion] = useState(false);
 
+  const [mostrarOrtodoncista, setMostrarOrtodoncista] = useState(false);
+  const [nuevoOrtodoncistaId, setNuevoOrtodoncistaId] = useState(turno.profesionalDeTurnoId || "");
+  const [cambiandoOrtodoncista, setCambiandoOrtodoncista] = useState(false);
+
   async function aplicarCambio(nombreAccion, cambios) {
     setError(null);
     setGuardando(nombreAccion);
@@ -104,6 +108,41 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     }
   }
 
+  // Corregir el ortodoncista de un turno (por ejemplo, se cargó con otro por error): se fija
+  // que ese ortodoncista no tenga otro turno a la misma hora.
+  async function confirmarCambioOrtodoncista() {
+    setError(null);
+    if (!nuevoOrtodoncistaId) return;
+    if (nuevoOrtodoncistaId === turnoActual.profesionalDeTurnoId) {
+      setMostrarOrtodoncista(false);
+      return;
+    }
+    setCambiandoOrtodoncista(true);
+    try {
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha);
+      const conflicto = hayConflictoDeHorario({
+        turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
+        consultorio: turnoActual.consultorio,
+        profesionalDeTurnoId: nuevoOrtodoncistaId,
+        horaInicio: turnoActual.horaInicio,
+        duracionMin: turnoActual.duracionMin,
+        idExcluido: turnoActual.id,
+      });
+      if (conflicto) {
+        setError("Ese ortodoncista ya tiene otro turno a esa hora.");
+        return;
+      }
+      const actualizado = await actualizarEstadoTurnoOrtodoncia(turnoActual.id, { ortodoncista_id: nuevoOrtodoncistaId });
+      setTurnoActual(actualizado);
+      setMostrarOrtodoncista(false);
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCambiandoOrtodoncista(false);
+    }
+  }
+
   // Cambiar cuánto dura un turno ya cargado (ej. alargarlo a media hora):
   // se fija que no pise a otro turno del mismo consultorio u ortodoncista.
   async function confirmarDuracion() {
@@ -154,6 +193,50 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           {fecha} · {turnoActual.horaInicio} ({turnoActual.duracionMin} min) · Consultorio {turnoActual.consultorio} ·{" "}
           {turnoActual.concepto} · {turnoActual.profesionalDeTurno}
         </p>
+
+        {!mostrarOrtodoncista ? (
+          <button
+            onClick={() => {
+              setNuevoOrtodoncistaId(turnoActual.profesionalDeTurnoId || "");
+              setMostrarOrtodoncista(true);
+            }}
+            className="mb-4 w-fit text-xs text-blue-600 hover:underline"
+          >
+            Cambiar ortodoncista del turno
+          </button>
+        ) : (
+          <div className="mb-4 rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase text-brand-green">Ortodoncista del turno</p>
+            <select
+              value={nuevoOrtodoncistaId}
+              onChange={(e) => setNuevoOrtodoncistaId(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">Elegí un ortodoncista...</option>
+              {ortodoncistas.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nombre}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={confirmarCambioOrtodoncista}
+                disabled={cambiandoOrtodoncista || !nuevoOrtodoncistaId}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {cambiandoOrtodoncista ? "Guardando..." : "Confirmar cambio"}
+              </button>
+              <button
+                onClick={() => setMostrarOrtodoncista(false)}
+                disabled={cambiandoOrtodoncista}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
