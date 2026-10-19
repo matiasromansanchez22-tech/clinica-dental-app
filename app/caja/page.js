@@ -7,6 +7,7 @@ import EditarCobroModal from "@/components/EditarCobroModal";
 import MarcaLiquidado from "@/components/MarcaLiquidado";
 import { desmarcarCobroLiquidado, obtenerLiquidacionesDeCobros } from "@/lib/data/cobrosLiquidados";
 import GastoFormModal from "@/components/GastoFormModal";
+import PagoAdelantadoModal from "@/components/PagoAdelantadoModal";
 import PagoProfesionalCajaModal from "@/components/PagoProfesionalCajaModal";
 import TransferenciaCajaModal from "@/components/TransferenciaCajaModal";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -43,6 +44,7 @@ function CajaPageContenido() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [mostrarPagoAdelantado, setMostrarPagoAdelantado] = useState(false);
   const [mostrarNuevoPago, setMostrarNuevoPago] = useState(false);
   const [mostrarNuevoPagoProfesional, setMostrarNuevoPagoProfesional] = useState(false);
   const [mostrarNuevaTransferencia, setMostrarNuevaTransferencia] = useState(false);
@@ -256,6 +258,13 @@ function CajaPageContenido() {
               💸 Registrar gasto
             </button>
             <button
+              onClick={() => setMostrarPagoAdelantado(true)}
+              title="El paciente paga una parte antes del turno; el resto lo abona ese día"
+              className="rounded-md border border-brand-brown/40 px-4 py-2 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
+            >
+              💵 Pago adelantado
+            </button>
+            <button
               onClick={() => setMostrarNuevo(true)}
               className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark"
             >
@@ -463,7 +472,9 @@ function CajaPageContenido() {
                 <td className="px-3 py-2 text-gray-600">
                   {c.modalidad === "Plan de financiación"
                     ? `Plan ${c.idDocumento} · ${c.numeroCuota === "Anticipo" ? "Anticipo" : `Cuota ${c.numeroCuota}`}`
-                    : c.prestaciones.map((p) => p.prestacion).join(", ")}
+                    : c.modalidad === "Pago adelantado"
+                      ? "💵 Pago adelantado"
+                      : c.prestaciones.map((p) => p.prestacion).join(", ")}
                 </td>
                 <td className="px-3 py-2 text-gray-500">{c.profesionalResponsable || "—"}</td>
                 <td className="px-3 py-2 text-gray-600">{c.profesionalAtencion}</td>
@@ -498,6 +509,19 @@ function CajaPageContenido() {
           </tbody>
         </table>
       </div>
+
+      {mostrarPagoAdelantado && (
+        <PagoAdelantadoModal
+          fecha={fecha}
+          pacientes={pacientes}
+          profesionales={profesionales}
+          onClose={() => setMostrarPagoAdelantado(false)}
+          onCreado={async () => {
+            await recargar();
+            setMostrarPagoAdelantado(false);
+          }}
+        />
+      )}
 
       {mostrarNuevo && (
         <CobroFormModal
