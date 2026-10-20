@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SoloDuenaYSecretaria from "@/components/SoloDuenaYSecretaria";
+import RegistroRetomar from "@/components/RegistroRetomar";
 import { linkWhatsApp } from "@/lib/whatsapp";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { marcarAltaPaciente } from "@/lib/data/altasOrtodoncia";
@@ -406,6 +407,8 @@ function PaginaRetomar() {
             Pacientes activos que <strong>no tienen turno ni vinieron en {nombreMes(mesActual)}</strong>. Escribiles para agendarles
             el control (a los que vinieron hace poco) o para ver si quieren retomar (a los que se alejaron), y anotá qué contestaron.
           </>
+        ) : criterio === "registro" ? (
+          <>Registro de los pacientes a los que se les escribió: cuántos ya tienen turno o ya vinieron.</>
         ) : criterio === "retomar" ? (
           <>
             <strong>Pacientes para retomar tratamiento:</strong> fichas activas que empezaron hace tiempo y de las que no hay ningún cobro,
@@ -414,7 +417,11 @@ function PaginaRetomar() {
         ) : (
           <>Pacientes activos que no vienen hace más de un mes y no tienen turno a futuro. Escribiles para ver si quieren retomar y anotá qué contestaron.</>
         )}{" "}
-        El botón <strong>Escribirle</strong> abre WhatsApp con un mensaje ya armado (lo podés editar antes de enviarlo).
+        {criterio !== "registro" && (
+          <>
+            El botón <strong>Escribirle</strong> abre WhatsApp con un mensaje ya armado (lo podés editar antes de enviarlo).
+          </>
+        )}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap overflow-hidden rounded-md border border-gray-300 text-sm">
@@ -422,13 +429,15 @@ function PaginaRetomar() {
             ["mes", "Sin turno este mes"],
             ["alejados", "Alejados (más de un mes)"],
             ["retomar", "Para retomar tratamiento"],
+            ["registro", "📊 Registro de contactados"],
           ].map(([clave, etiqueta]) => (
             <button
               key={clave}
               onClick={() => setCriterio(clave)}
               className={`px-3 py-1.5 ${criterio === clave ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
             >
-              {etiqueta} ({conteoPestanas[clave]})
+              {etiqueta}
+              {conteoPestanas[clave] !== undefined ? ` (${conteoPestanas[clave]})` : ""}
             </button>
           ))}
         </div>
@@ -440,6 +449,10 @@ function PaginaRetomar() {
         )}
       </div>
 
+      {criterio === "registro" ? (
+        <RegistroRetomar />
+      ) : (
+        <>
       {!disponible && (
         <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Falta activar el seguimiento (migración 158). Mientras tanto la lista se ve, pero no se puede guardar a quién se le escribió.
@@ -570,6 +583,8 @@ function PaginaRetomar() {
               </tbody>
             </table>
           </div>
+        </>
+      )}
         </>
       )}
     </main>
