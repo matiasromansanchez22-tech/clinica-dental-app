@@ -9,8 +9,10 @@ import {
   SEGMENTOS,
   estadoEnElMes,
   obtenerAsistenciaTurnosOrtodoncia,
+  obtenerEvolucionMensualOrtodoncia,
   obtenerSeguimientoOrtodoncia,
 } from "@/lib/data/seguimientoOrtodoncia";
+import { esMesDePrueba } from "@/lib/mesesDePrueba";
 
 const NOMBRES_MES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -458,6 +460,125 @@ function VistaAsistencia() {
   );
 }
 
+function formatoPesos(n) {
+  return `$${Math.round(n).toLocaleString("es-AR")}`;
+}
+
+function VistaEvolucion() {
+  const [filas, setFilas] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    obtenerEvolucionMensualOrtodoncia()
+      .then(setFilas)
+      .catch((e) => setError(e.message))
+      .finally(() => setCargando(false));
+  }, []);
+
+  function etiquetaMes(f) {
+    const [anio, mes] = f.mes.split("-");
+    return `${NOMBRES_MES[Number(mes) - 1]} ${anio}`;
+  }
+
+  function exportar() {
+    descargarCSV("evolucion-mensual-ortodoncia.csv", [
+      ["Mes", "Pacientes con control pagado (cuaderno + app)", "Controles cobrados en la app", "Pacientes que pagaron control (app)", "Plata de controles", "Plata de instalaciones y continuaciones", "Otros cobros", "Total Ortodoncia", "Turnos asistidos", "No asistieron", "% asistencia", "Pacientes que vinieron"],
+      ...filas.map((f) => [
+        etiquetaMes(f) + (f.esParcial ? " (parcial)" : ""),
+        f.pacientesControlPagado,
+        f.tieneDatosApp ? f.controlesCobrados : "", f.tieneDatosApp ? f.pacientesQuePagaronControl : "",
+        f.tieneDatosApp ? Math.round(f.plataControles) : "", f.tieneDatosApp ? Math.round(f.plataInstalaciones) : "",
+        f.tieneDatosApp ? Math.round(f.plataOtros) : "", f.tieneDatosApp ? Math.round(f.plataTotal) : "",
+        f.tieneDatosApp ? f.asistieron : "", f.tieneDatosApp ? f.noAsistieron : "", f.tasaAsistencia ?? "",
+        f.tieneDatosApp ? f.pacientesQueVinieron : "",
+      ]),
+    ]);
+  }
+
+  if (cargando) return <p className="mt-6 text-sm text-gray-500">Calculando...</p>;
+  if (error) return <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>;
+
+  const maximo = Math.max(1, ...filas.map((f) => f.pacientesControlPagado));
+  const sinDato = <span className="text-gray-300">—</span>;
+
+  return (
+    <>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-gray-600">
+          Mes a mes: cuántos pacientes pagan el control, cuánta plata entra a Ortodoncia y cómo es la asistencia.
+        </p>
+        <button onClick={exportar} className="rounded-md border border-brand-brown/40 px-3 py-1.5 text-sm font-medium text-brand-brown hover:bg-brand-tan/30">
+          ⬇️ Descargar Excel (CSV)
+        </button>
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full min-w-[1000px] border-collapse text-sm">
+          <thead>
+            <tr className="bg-brand-brown text-white">
+              <th className="px-3 py-2 text-left font-semibold">Mes</th>
+              <th className="px-3 py-2 text-left font-semibold" title="Pacientes con el mes marcado como pago en la grilla de Controles (cuaderno + lo cobrado en la app)">
+                Pacientes con control pagado
+              </th>
+              <th className="px-3 py-2 text-right font-semibold">Controles cobrados (app)</th>
+              <th className="px-3 py-2 text-right font-semibold">Plata de controles</th>
+              <th className="px-3 py-2 text-right font-semibold">Instalaciones y continuaciones</th>
+              <th className="px-3 py-2 text-right font-semibold">Otros cobros</th>
+              <th className="px-3 py-2 text-right font-semibold">Total Ortodoncia</th>
+              <th className="px-3 py-2 text-right font-semibold">Turnos asistidos</th>
+              <th className="px-3 py-2 text-right font-semibold">No asistieron</th>
+              <th className="px-3 py-2 text-right font-semibold">% asistencia</th>
+              <th className="px-3 py-2 text-right font-semibold">Pacientes que vinieron</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.mes} className="border-t border-gray-100">
+                <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-900">
+                  {etiquetaMes(f)}
+                  {f.esParcial && <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-800">parcial</span>}
+                  {esMesDePrueba(Number(f.mes.slice(0, 4)), Number(f.mes.slice(5))) && (
+                    <span className="ml-1.5 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-700" title="Mes de prueba de la app">prueba</span>
+                  )}
+                  {f.mes === "2026-08" && <span className="ml-1.5 text-[10px] text-gray-500">(app desde 26/8)</span>}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 text-right font-semibold tabular-nums">{f.pacientesControlPagado}</span>
+                    <span className="h-2 rounded bg-brand-brown/60" style={{ width: `${Math.round((f.pacientesControlPagado / maximo) * 90)}px` }} />
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? f.controlesCobrados : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? formatoPesos(f.plataControles) : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? formatoPesos(f.plataInstalaciones) : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? formatoPesos(f.plataOtros) : sinDato}</td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums">{f.tieneDatosApp ? formatoPesos(f.plataTotal) : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? f.asistieron : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? f.noAsistieron : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tasaAsistencia !== null ? `${f.tasaAsistencia}%` : sinDato}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{f.tieneDatosApp ? f.pacientesQueVinieron : sinDato}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="mt-3 list-disc pl-5 text-xs text-gray-500">
+        <li>
+          <strong>Pacientes con control pagado</strong> sale de la grilla de Controles: incluye el cuaderno (junio y julio, agosto en parte)
+          y lo que se cobró en la app. Es la única columna que tiene historia antes del 26/8.
+        </li>
+        <li>La plata y los turnos son de la app: empiezan a fines de agosto, así que agosto está incompleto. Septiembre fue mes de prueba.</li>
+        <li>El mes en curso es parcial (hasta hoy), no se puede comparar de igual a igual con los meses cerrados.</li>
+        <li>
+          <strong>Total Ortodoncia</strong> incluye controles, instalaciones, continuaciones, consultas, reposiciones y pagos adelantados
+          (la plata que entró ese mes a la caja de Ortodoncia).
+        </li>
+      </ul>
+    </>
+  );
+}
+
 function PaginaSeguimiento() {
   const [vista, setVista] = useState("mes");
   return (
@@ -477,8 +598,14 @@ function PaginaSeguimiento() {
         >
           Asistencia a los turnos
         </button>
+        <button
+          onClick={() => setVista("evolucion")}
+          className={`px-4 py-1.5 ${vista === "evolucion" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+        >
+          Evolución mes a mes
+        </button>
       </div>
-      {vista === "mes" ? <VistaMes /> : <VistaAsistencia />}
+      {vista === "mes" ? <VistaMes /> : vista === "asistencia" ? <VistaAsistencia /> : <VistaEvolucion />}
     </main>
   );
 }
