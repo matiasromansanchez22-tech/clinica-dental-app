@@ -54,7 +54,10 @@ function tieneWhatsApp(p) {
   return Boolean(p.whatsapp && String(p.whatsapp).trim());
 }
 
-function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onElegir }) {
+function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, elegido, onElegir }) {
+  const [pidiendoAlta, setPidiendoAlta] = useState(false);
+  const [fechaAltaFila, setFechaAltaFila] = useState(fechaDeHoyISO());
+  const [dandoAlta, setDandoAlta] = useState(false);
   const estado = gestion?.estado || "Por contactar";
   const [nota, setNota] = useState(gestion?.nota || "");
   const [numero, setNumero] = useState("");
@@ -145,6 +148,38 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onEle
         {gestion?.fecha_ultimo_contacto && (
           <p className="mt-1 text-[11px] text-gray-500">Último contacto: {formatoFecha(gestion.fecha_ultimo_contacto)}</p>
         )}
+        {pidiendoAlta ? (
+          <div className="mt-2 flex flex-col gap-1 rounded-md border border-emerald-300 bg-emerald-50 p-2">
+            <label className="flex items-center gap-1 text-[11px] text-emerald-900">
+              Fecha del alta
+              <input type="date" value={fechaAltaFila} onChange={(e) => setFechaAltaFila(e.target.value)} className="rounded border border-gray-300 px-1 py-0.5 text-[11px]" />
+            </label>
+            <div className="flex gap-1">
+              <button
+                disabled={dandoAlta}
+                onClick={async () => {
+                  setDandoAlta(true);
+                  await onAlta(p.id, fechaAltaFila);
+                  setDandoAlta(false);
+                }}
+                className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {dandoAlta ? "..." : "Confirmar alta"}
+              </button>
+              <button onClick={() => setPidiendoAlta(false)} className="rounded border border-gray-300 px-2 py-0.5 text-[11px] text-gray-700 hover:bg-white">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setPidiendoAlta(true)}
+            title="Terminó el tratamiento: pasa a Altas y se le escribe cada 6 meses"
+            className="mt-2 rounded-md border border-emerald-400 px-2 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-50"
+          >
+            🏁 Ya tiene el alta
+          </button>
+        )}
       </td>
       <td className="px-3 py-2">
         <input
@@ -225,6 +260,16 @@ function PaginaRetomar() {
       setGestion((g) => ({ ...g, [pacienteId]: guardado }));
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  // Alta de un solo paciente desde su fila: queda Finalizado y sale de esta lista.
+  async function darDeAltaUno(pacienteId, fecha) {
+    try {
+      await marcarAltaPaciente(pacienteId, fecha);
+      setPacientes((lista) => lista.map((p) => (p.id === pacienteId ? { ...p, estado: "Finalizado" } : p)));
+    } catch (e) {
+      setError(`${e.message}${e.message?.includes("fecha_alta") ? " — falta correr la migración 159." : ""}`);
     }
   }
 
@@ -443,6 +488,7 @@ function PaginaRetomar() {
                     gestion={gestion[p.id]}
                     onGuardar={guardar}
                     onGuardarWhatsApp={guardarWhatsApp}
+                    onAlta={darDeAltaUno}
                     elegido={elegidos.has(p.id)}
                     onElegir={alternarElegido}
                   />
