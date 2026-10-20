@@ -5,12 +5,13 @@ import SoloDuenaYSecretaria from "@/components/SoloDuenaYSecretaria";
 import { linkWhatsApp } from "@/lib/whatsapp";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { marcarAltaPaciente } from "@/lib/data/altasOrtodoncia";
-import { SEGMENTOS, obtenerSeguimientoOrtodoncia } from "@/lib/data/seguimientoOrtodoncia";
+import { ESTADOS_MES, SEGMENTOS, estadoEnElMes, obtenerSeguimientoOrtodoncia } from "@/lib/data/seguimientoOrtodoncia";
 import {
   ESTADOS_RETOMAR,
   cambiosDeContacto,
   guardarGestionRetomar,
   guardarWhatsAppPacienteOrtodoncia,
+  mensajeAgendarControlOrtodoncia,
   mensajeRetomarOrtodoncia,
   obtenerGestionRetomar,
 } from "@/lib/data/retomarOrtodoncia";
@@ -41,10 +42,12 @@ const ESTILO_ESTADO = {
 
 // Los que se alejaron con algún rastro de tratamiento van primero; los "sin ningún movimiento"
 // (fichas del traspaso que nunca tuvieron registro) quedan aparte y se muestran si se pide.
+// En la lista "sin turno este mes", los que vinieron hace poco (al día) van primero: son los más fáciles de agendar.
 const ORDEN_SEGMENTO = {
-  [SEGMENTOS.SE_ALEJO]: 0,
-  [SEGMENTOS.SOLO_CUADERNO]: 1,
-  [SEGMENTOS.SIN_MOVIMIENTO]: 2,
+  [SEGMENTOS.AL_DIA]: 0,
+  [SEGMENTOS.SE_ALEJO]: 1,
+  [SEGMENTOS.SOLO_CUADERNO]: 2,
+  [SEGMENTOS.SIN_MOVIMIENTO]: 3,
 };
 
 function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onElegir }) {
@@ -52,7 +55,9 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onEle
   const [nota, setNota] = useState(gestion?.nota || "");
   const [numero, setNumero] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const link = linkWhatsApp(p.whatsapp, mensajeRetomarOrtodoncia(p.nombre));
+  // Si vino hace poco solo falta agendar el control; si se alejó, se le pregunta si quiere retomar.
+  const mensaje = p.segmento === SEGMENTOS.AL_DIA ? mensajeAgendarControlOrtodoncia(p.nombre) : mensajeRetomarOrtodoncia(p.nombre);
+  const link = linkWhatsApp(p.whatsapp, mensaje);
 
   async function escribir() {
     window.open(link, "_blank", "noopener,noreferrer");
@@ -82,6 +87,7 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onEle
       </td>
       <td className="px-3 py-2 text-xs text-gray-600">
         <p>{p.segmento}</p>
+        {p.proximoTurno && <p className="font-medium text-sky-700">Próximo turno: {formatoFecha(p.proximoTurno)}</p>}
         <p className="text-gray-500">
           {p.ultimaVisita ? `Última visita ${formatoFecha(p.ultimaVisita)}` : p.ultimoMesPago ? `Último pago: ${nombreMes(p.ultimoMesPago)}` : "Sin registros"}
         </p>
@@ -155,6 +161,9 @@ function PaginaRetomar() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [incluirSinMovimiento, setIncluirSinMovimiento] = useState(false);
+  // "mes": activos sin turno ni visita en el mes en curso. "alejados": no vienen hace más de un mes y no tienen turno a futuro.
+  const [criterio, setCriterio] = useState("mes");
+  const [sinNingunTurnoFuturo, setSinNingunTurnoFuturo] = useState(false);
   const [estadoElegido, setEstadoElegido] = useState("pendientes");
   const [ortodoncista, setOrtodoncista] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
@@ -222,10 +231,20 @@ function PaginaRetomar() {
     }
   }
 
-  // A quién escribirle: activos que no vinieron en el último mes y no tienen turno a futuro.
+  // A quién escribirle:
+  //  · "mes": activos que no vinieron ni tienen turno en el mes en curso (la misma lista de "Sin turno este mes").
+  //  · "alejados": activos que no vinieron en el último mes y no tienen turno a futuro.
+  const mesActual = fechaDeHoyISO().slice(0, 7);
   const candidatos = useMemo(
-    () => pacientes.filter((p) => p.estado === "Activo" && p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno),
-    [pacientes]
+    () =>
+      pacientes.filter((p) => {
+        if (p.estado !== "Activo") return false;
+        if (criterio === "mes") {
+          return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO && (!sinNingunTurnoFuturo || !p.proximoTurno);
+        }
+        return p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno;
+      }),
+    [pacientes, criterio, mesActual, sinNingunTurnoFuturo]
   );
   const estadoDe = (p) => gestion[p.id]?.estado || "Por contactar";
   const baseVisible = useMemo(
@@ -263,10 +282,38 @@ function PaginaRetomar() {
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">📲 Retomar tratamiento — Ortodoncia</h1>
       <p className="mt-0.5 text-sm text-gray-500">
-        Pacientes activos que no vienen hace más de un mes y no tienen turno a futuro. Escribiles para ver si quieren retomar y
-        anotá qué contestaron. El botón <strong>Escribirle</strong> abre WhatsApp con un mensaje ya armado (lo podés editar antes
-        de enviarlo).
+        {criterio === "mes" ? (
+          <>
+            Pacientes activos que <strong>no tienen turno ni vinieron en {nombreMes(mesActual)}</strong>. Escribiles para agendarles
+            el control (a los que vinieron hace poco) o para ver si quieren retomar (a los que se alejaron), y anotá qué contestaron.
+          </>
+        ) : (
+          <>Pacientes activos que no vienen hace más de un mes y no tienen turno a futuro. Escribiles para ver si quieren retomar y anotá qué contestaron.</>
+        )}{" "}
+        El botón <strong>Escribirle</strong> abre WhatsApp con un mensaje ya armado (lo podés editar antes de enviarlo).
       </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="flex overflow-hidden rounded-md border border-gray-300 text-sm">
+          <button
+            onClick={() => setCriterio("mes")}
+            className={`px-3 py-1.5 ${criterio === "mes" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+          >
+            Sin turno este mes
+          </button>
+          <button
+            onClick={() => setCriterio("alejados")}
+            className={`px-3 py-1.5 ${criterio === "alejados" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+          >
+            Alejados (más de un mes)
+          </button>
+        </div>
+        {criterio === "mes" && (
+          <label className="flex items-center gap-2 text-sm text-gray-700" title="Saca a los que ya tienen turno en un mes que viene">
+            <input type="checkbox" checked={sinNingunTurnoFuturo} onChange={(e) => setSinNingunTurnoFuturo(e.target.checked)} />
+            Ocultar los que ya tienen turno más adelante
+          </label>
+        )}
+      </div>
 
       {!disponible && (
         <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
