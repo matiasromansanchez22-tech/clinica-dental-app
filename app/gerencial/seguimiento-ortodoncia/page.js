@@ -5,7 +5,9 @@ import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import {
   ESTADOS_ASISTENCIA,
+  ESTADOS_MES,
   SEGMENTOS,
+  estadoEnElMes,
   obtenerAsistenciaTurnosOrtodoncia,
   obtenerSeguimientoOrtodoncia,
 } from "@/lib/data/seguimientoOrtodoncia";
@@ -16,6 +18,11 @@ function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
   const [anio, mes, dia] = fechaISO.split("-");
   return `${dia}/${mes}/${anio}`;
+}
+
+function formatoDiaMes(fechaISO) {
+  const [, mes, dia] = fechaISO.split("-");
+  return `${dia}/${mes}`;
 }
 
 function nombreMes(claveMes) {
@@ -46,6 +53,13 @@ const ESTILO_SEGMENTO = {
   [SEGMENTOS.SIN_MOVIMIENTO]: "bg-red-100 text-red-800",
 };
 
+const ESTILO_ESTADO_MES = {
+  [ESTADOS_MES.ASISTIO]: "bg-emerald-100 text-emerald-800",
+  [ESTADOS_MES.FALTA_ASISTIR]: "bg-sky-100 text-sky-800",
+  [ESTADOS_MES.TURNO_SIN_ASISTIR]: "bg-amber-100 text-amber-800",
+  [ESTADOS_MES.SIN_TURNO]: "bg-red-100 text-red-800",
+};
+
 const ESTILO_ASISTENCIA = {
   [ESTADOS_ASISTENCIA.ASISTIO]: "bg-emerald-100 text-emerald-800",
   [ESTADOS_ASISTENCIA.NO_ASISTIO]: "bg-red-100 text-red-800",
@@ -69,14 +83,15 @@ function Tarjeta({ titulo, valor, detalle, activa, onClick, color }) {
   );
 }
 
-function VistaSeguimiento() {
+function VistaMes() {
   const hoy = fechaDeHoyISO();
   const [pacientes, setPacientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [mes, setMes] = useState(hoy.slice(0, 7));
+  const [estadoElegido, setEstadoElegido] = useState("todos");
   const [segmento, setSegmento] = useState("todos");
   const [ortodoncista, setOrtodoncista] = useState("todos");
-  const [soloSinTurno, setSoloSinTurno] = useState(false);
   const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
@@ -86,17 +101,21 @@ function VistaSeguimiento() {
       .finally(() => setCargando(false));
   }, []);
 
-  const activos = useMemo(() => pacientes.filter((p) => p.estado === "Activo"), [pacientes]);
+  // Cada paciente activo, con su estado en el mes elegido.
+  const activos = useMemo(
+    () => pacientes.filter((p) => p.estado === "Activo").map((p) => ({ ...p, estadoMes: estadoEnElMes(p, mes) })),
+    [pacientes, mes]
+  );
   const otrosEstados = useMemo(() => {
     const m = {};
     for (const p of pacientes) if (p.estado !== "Activo") m[p.estado] = (m[p.estado] || 0) + 1;
     return Object.entries(m);
   }, [pacientes]);
-  const conteo = (s) => activos.filter((p) => p.segmento === s).length;
-  const sinTurnoFuturo = (s) => activos.filter((p) => p.segmento === s && !p.proximoTurno).length;
+  const conteo = (e) => activos.filter((p) => p.estadoMes === e).length;
+  const sinTurno = activos.filter((p) => p.estadoMes === ESTADOS_MES.SIN_TURNO);
+  const sinTurnoPorSegmento = (s) => sinTurno.filter((p) => p.segmento === s).length;
 
   const ortodoncistas = useMemo(() => [...new Set(activos.map((p) => p.ortodoncista))].sort((a, b) => a.localeCompare(b, "es")), [activos]);
-
   const porOrtodoncista = useMemo(
     () =>
       ortodoncistas.map((nombre) => {
@@ -104,7 +123,7 @@ function VistaSeguimiento() {
         return {
           nombre,
           total: suyos.length,
-          ...Object.fromEntries(Object.values(SEGMENTOS).map((s) => [s, suyos.filter((p) => p.segmento === s).length])),
+          ...Object.fromEntries(Object.values(ESTADOS_MES).map((e) => [e, suyos.filter((p) => p.estadoMes === e).length])),
         };
       }),
     [ortodoncistas, activos]
@@ -113,19 +132,31 @@ function VistaSeguimiento() {
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return activos
+      .filter((p) => estadoElegido === "todos" || p.estadoMes === estadoElegido)
       .filter((p) => segmento === "todos" || p.segmento === segmento)
       .filter((p) => ortodoncista === "todos" || p.ortodoncista === ortodoncista)
-      .filter((p) => !soloSinTurno || !p.proximoTurno)
       .filter((p) => !q || p.nombre.toLowerCase().includes(q))
-      .sort((a, b) => (a.ultimoMovimiento || "").localeCompare(b.ultimoMovimiento || "") || a.nombre.localeCompare(b.nombre, "es"));
-  }, [activos, segmento, ortodoncista, soloSinTurno, busqueda]);
+      .sort((a, b) => {
+        const ordenEstados = Object.values(ESTADOS_MES);
+        return (
+          ordenEstados.indexOf(a.estadoMes) - ordenEstados.indexOf(b.estadoMes) ||
+          (b.ultimoMovimiento || "").localeCompare(a.ultimoMovimiento || "") ||
+          a.nombre.localeCompare(b.nombre, "es")
+        );
+      });
+  }, [activos, estadoElegido, segmento, ortodoncista, busqueda]);
+
+  function turnosDelMes(p) {
+    return p.turnos.filter((t) => t.fecha.slice(0, 7) === mes).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }
 
   function exportar() {
-    descargarCSV(`seguimiento-ortodoncia-${hoy}.csv`, [
-      ["Paciente", "Ortodoncista", "Situación", "Última visita en la app", "Días desde la última visita", "Último mes pago (cuaderno)", "Próximo turno", "WhatsApp"],
+    descargarCSV(`ortodoncia-${mes}.csv`, [
+      ["Paciente", "Ortodoncista", `Estado en ${nombreMes(mes)}`, "Turnos del mes", "Última visita en la app", "Último mes pago (cuaderno)", "Situación general", "Próximo turno"],
       ...visibles.map((p) => [
-        p.nombre, p.ortodoncista, p.segmento, formatoFecha(p.ultimaVisita), p.diasDesdeUltimaVisita ?? "",
-        nombreMes(p.ultimoMesPago), formatoFecha(p.proximoTurno), p.whatsapp || "",
+        p.nombre, p.ortodoncista, p.estadoMes,
+        turnosDelMes(p).map((t) => `${formatoDiaMes(t.fecha)} (${t.situacion})`).join(" | "),
+        formatoFecha(p.ultimaVisita), nombreMes(p.ultimoMesPago), p.segmento, formatoFecha(p.proximoTurno),
       ]),
     ]);
   }
@@ -133,59 +164,69 @@ function VistaSeguimiento() {
   if (cargando) return <p className="mt-6 text-sm text-gray-500">Calculando...</p>;
   if (error) return <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>;
 
+  const alternar = (e) => setEstadoElegido(estadoElegido === e ? "todos" : e);
+
   return (
     <>
-      <p className="mt-3 text-sm text-gray-600">
-        <strong>{activos.length}</strong> pacientes activos
-        {otrosEstados.length > 0 && <> · además: {otrosEstados.map(([e, n]) => `${n} ${e.toLowerCase()}`).join(", ")}</>}. Una visita
-        cuenta si hay un cobro, un turno marcado como presente o un &quot;qué se hizo&quot; del ortodoncista. La app tiene visitas
-        desde el 26/8; antes de eso solo está el cuaderno (último mes marcado &quot;Pago&quot;).
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          Mes
+          <input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1 text-sm" />
+        </label>
+        <p className="text-sm text-gray-600">
+          <strong>{activos.length}</strong> pacientes activos
+          {otrosEstados.length > 0 && <> · además: {otrosEstados.map(([e, n]) => `${n} ${e.toLowerCase()}`).join(", ")}</>}
+        </p>
+      </div>
+      <p className="mt-1 text-xs text-gray-500">
+        Cada paciente cuenta en un solo grupo del mes. Una visita es un cobro, un turno marcado como presente o un &quot;qué se hizo&quot;
+        del ortodoncista. La app tiene visitas desde el 26/8; antes de eso solo está el cuaderno.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tarjeta
-          titulo={SEGMENTOS.AL_DIA}
-          valor={conteo(SEGMENTOS.AL_DIA)}
-          detalle="Vinieron o pagaron en los últimos 30 días"
+          titulo={ESTADOS_MES.ASISTIO}
+          valor={conteo(ESTADOS_MES.ASISTIO)}
+          detalle={`Vinieron o pagaron en ${nombreMes(mes)}`}
           color="text-emerald-700"
-          activa={segmento === SEGMENTOS.AL_DIA}
-          onClick={() => setSegmento(segmento === SEGMENTOS.AL_DIA ? "todos" : SEGMENTOS.AL_DIA)}
+          activa={estadoElegido === ESTADOS_MES.ASISTIO}
+          onClick={() => alternar(ESTADOS_MES.ASISTIO)}
         />
         <Tarjeta
-          titulo={SEGMENTOS.SE_ALEJO}
-          valor={conteo(SEGMENTOS.SE_ALEJO)}
-          detalle={`Última visita hace más de 30 días · ${sinTurnoFuturo(SEGMENTOS.SE_ALEJO)} sin turno`}
+          titulo={ESTADOS_MES.FALTA_ASISTIR}
+          valor={conteo(ESTADOS_MES.FALTA_ASISTIR)}
+          detalle="Turno de hoy o futuro, todavía no vinieron"
+          color="text-sky-700"
+          activa={estadoElegido === ESTADOS_MES.FALTA_ASISTIR}
+          onClick={() => alternar(ESTADOS_MES.FALTA_ASISTIR)}
+        />
+        <Tarjeta
+          titulo={ESTADOS_MES.TURNO_SIN_ASISTIR}
+          valor={conteo(ESTADOS_MES.TURNO_SIN_ASISTIR)}
+          detalle="Tenían turno en el mes y no figuran como presentes"
           color="text-amber-700"
-          activa={segmento === SEGMENTOS.SE_ALEJO}
-          onClick={() => setSegmento(segmento === SEGMENTOS.SE_ALEJO ? "todos" : SEGMENTOS.SE_ALEJO)}
+          activa={estadoElegido === ESTADOS_MES.TURNO_SIN_ASISTIR}
+          onClick={() => alternar(ESTADOS_MES.TURNO_SIN_ASISTIR)}
         />
         <Tarjeta
-          titulo={SEGMENTOS.SOLO_CUADERNO}
-          valor={conteo(SEGMENTOS.SOLO_CUADERNO)}
-          detalle={`Pagaron en el cuaderno, nada en la app · ${sinTurnoFuturo(SEGMENTOS.SOLO_CUADERNO)} sin turno`}
-          color="text-orange-700"
-          activa={segmento === SEGMENTOS.SOLO_CUADERNO}
-          onClick={() => setSegmento(segmento === SEGMENTOS.SOLO_CUADERNO ? "todos" : SEGMENTOS.SOLO_CUADERNO)}
-        />
-        <Tarjeta
-          titulo={SEGMENTOS.SIN_MOVIMIENTO}
-          valor={conteo(SEGMENTOS.SIN_MOVIMIENTO)}
-          detalle={`Ni cuaderno ni app · ${sinTurnoFuturo(SEGMENTOS.SIN_MOVIMIENTO)} sin turno`}
+          titulo={ESTADOS_MES.SIN_TURNO}
+          valor={conteo(ESTADOS_MES.SIN_TURNO)}
+          detalle={`${sinTurnoPorSegmento(SEGMENTOS.AL_DIA)} vinieron hace poco · ${sinTurnoPorSegmento(SEGMENTOS.SE_ALEJO)} se alejaron · ${sinTurnoPorSegmento(SEGMENTOS.SOLO_CUADERNO)} solo cuaderno · ${sinTurnoPorSegmento(SEGMENTOS.SIN_MOVIMIENTO)} sin movimiento`}
           color="text-red-700"
-          activa={segmento === SEGMENTOS.SIN_MOVIMIENTO}
-          onClick={() => setSegmento(segmento === SEGMENTOS.SIN_MOVIMIENTO ? "todos" : SEGMENTOS.SIN_MOVIMIENTO)}
+          activa={estadoElegido === ESTADOS_MES.SIN_TURNO}
+          onClick={() => alternar(ESTADOS_MES.SIN_TURNO)}
         />
       </div>
 
-      <h2 className="mt-6 text-sm font-semibold text-gray-700">Por ortodoncista</h2>
+      <h2 className="mt-6 text-sm font-semibold text-gray-700">Por ortodoncista — {nombreMes(mes)}</h2>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[600px] border-collapse text-sm">
+        <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
               <th className="px-3 py-2 text-right font-semibold">Activos</th>
-              {Object.values(SEGMENTOS).map((s) => (
-                <th key={s} className="px-3 py-2 text-right font-semibold">{s}</th>
+              {Object.values(ESTADOS_MES).map((e) => (
+                <th key={e} className="px-3 py-2 text-right font-semibold">{e}</th>
               ))}
             </tr>
           </thead>
@@ -194,8 +235,8 @@ function VistaSeguimiento() {
               <tr key={o.nombre} className="border-t border-gray-100">
                 <td className="px-3 py-2 font-medium text-gray-900">{o.nombre}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{o.total}</td>
-                {Object.values(SEGMENTOS).map((s) => (
-                  <td key={s} className="px-3 py-2 text-right tabular-nums text-gray-700">{o[s]}</td>
+                {Object.values(ESTADOS_MES).map((e) => (
+                  <td key={e} className="px-3 py-2 text-right tabular-nums text-gray-700">{o[e]}</td>
                 ))}
               </tr>
             ))}
@@ -204,17 +245,11 @@ function VistaSeguimiento() {
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar paciente..."
-          className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-        />
-        <select value={segmento} onChange={(e) => setSegmento(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
-          <option value="todos">Todas las situaciones</option>
-          {Object.values(SEGMENTOS).map((s) => (
-            <option key={s} value={s}>{s}</option>
+        <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar paciente..." className="rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
+        <select value={estadoElegido} onChange={(e) => setEstadoElegido(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+          <option value="todos">Todos los grupos</option>
+          {Object.values(ESTADOS_MES).map((e) => (
+            <option key={e} value={e}>{e}</option>
           ))}
         </select>
         <select value={ortodoncista} onChange={(e) => setOrtodoncista(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
@@ -223,29 +258,28 @@ function VistaSeguimiento() {
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={soloSinTurno} onChange={(e) => setSoloSinTurno(e.target.checked)} />
-          Solo sin turno a futuro
-        </label>
-        <button
-          onClick={exportar}
-          className="ml-auto rounded-md border border-brand-brown/40 px-3 py-1.5 text-sm font-medium text-brand-brown hover:bg-brand-tan/30"
-        >
+        <select value={segmento} onChange={(e) => setSegmento(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm" title="Hace cuánto no vienen">
+          <option value="todos">Cualquier antigüedad</option>
+          {Object.values(SEGMENTOS).map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <button onClick={exportar} className="ml-auto rounded-md border border-brand-brown/40 px-3 py-1.5 text-sm font-medium text-brand-brown hover:bg-brand-tan/30">
           ⬇️ Descargar Excel (CSV)
         </button>
       </div>
 
       <p className="mt-3 text-sm font-semibold text-gray-700">{visibles.length} paciente{visibles.length === 1 ? "" : "s"}</p>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Ortodoncista</th>
-              <th className="px-3 py-2 text-left font-semibold">Situación</th>
+              <th className="px-3 py-2 text-left font-semibold">En {nombreMes(mes)}</th>
+              <th className="px-3 py-2 text-left font-semibold">Turnos del mes</th>
               <th className="px-3 py-2 text-left font-semibold">Última visita (app)</th>
-              <th className="px-3 py-2 text-left font-semibold">Último mes pago (cuaderno)</th>
-              <th className="px-3 py-2 text-left font-semibold">Próximo turno</th>
+              <th className="px-3 py-2 text-left font-semibold">Antigüedad</th>
             </tr>
           </thead>
           <tbody>
@@ -254,13 +288,23 @@ function VistaSeguimiento() {
                 <td className="px-3 py-2 font-medium text-gray-900">{p.nombre}</td>
                 <td className="px-3 py-2 text-gray-600">{p.ortodoncista}</td>
                 <td className="px-3 py-2">
-                  <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_SEGMENTO[p.segmento]}`}>{p.segmento}</span>
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_ESTADO_MES[p.estadoMes]}`}>{p.estadoMes}</span>
+                </td>
+                <td className="px-3 py-2 text-xs text-gray-600">
+                  {turnosDelMes(p).length === 0
+                    ? "—"
+                    : turnosDelMes(p).map((t) => (
+                        <span key={t.fecha + t.situacion} className="mr-1 inline-block">
+                          {formatoDiaMes(t.fecha)} <span className={`rounded px-1 py-0.5 ${ESTILO_ASISTENCIA[t.situacion]}`}>{t.situacion}</span>
+                        </span>
+                      ))}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-600">
-                  {p.ultimaVisita ? `${formatoFecha(p.ultimaVisita)} (hace ${p.diasDesdeUltimaVisita} d)` : "—"}
+                  {p.ultimaVisita ? `${formatoFecha(p.ultimaVisita)} (hace ${p.diasDesdeUltimaVisita} d)` : p.ultimoMesPago ? `Cuaderno: ${nombreMes(p.ultimoMesPago)}` : "—"}
                 </td>
-                <td className="px-3 py-2 text-gray-600">{nombreMes(p.ultimoMesPago)}</td>
-                <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-600">{formatoFecha(p.proximoTurno)}</td>
+                <td className="px-3 py-2">
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_SEGMENTO[p.segmento]}`}>{p.segmento}</span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -415,17 +459,17 @@ function VistaAsistencia() {
 }
 
 function PaginaSeguimiento() {
-  const [vista, setVista] = useState("seguimiento");
+  const [vista, setVista] = useState("mes");
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🦷 Seguimiento de Ortodoncia</h1>
-      <p className="mt-0.5 text-sm text-gray-500">Solo para las dueñas: quién viene, quién se alejó y a qué turnos se asistió.</p>
+      <p className="mt-0.5 text-sm text-gray-500">Solo para las dueñas: quién ya vino este mes, a quién le falta venir y a quién hay que escribirle.</p>
       <div className="mt-4 flex overflow-hidden rounded-md border border-gray-300 text-sm sm:w-fit">
         <button
-          onClick={() => setVista("seguimiento")}
-          className={`px-4 py-1.5 ${vista === "seguimiento" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+          onClick={() => setVista("mes")}
+          className={`px-4 py-1.5 ${vista === "mes" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
         >
-          Pacientes activos
+          Pacientes del mes
         </button>
         <button
           onClick={() => setVista("asistencia")}
@@ -434,7 +478,7 @@ function PaginaSeguimiento() {
           Asistencia a los turnos
         </button>
       </div>
-      {vista === "seguimiento" ? <VistaSeguimiento /> : <VistaAsistencia />}
+      {vista === "mes" ? <VistaMes /> : <VistaAsistencia />}
     </main>
   );
 }
