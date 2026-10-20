@@ -11,6 +11,7 @@ import {
   cambiosDeContacto,
   guardarGestionRetomar,
   guardarWhatsAppPacienteOrtodoncia,
+  marcarComoConsulta,
   mensajeAgendarControlOrtodoncia,
   mensajeRetomarOrtodoncia,
   obtenerGestionRetomar,
@@ -54,7 +55,7 @@ function tieneWhatsApp(p) {
   return Boolean(p.whatsapp && String(p.whatsapp).trim());
 }
 
-function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, elegido, onElegir }) {
+function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, onConsulta, elegido, onElegir }) {
   const [pidiendoAlta, setPidiendoAlta] = useState(false);
   const [fechaAltaFila, setFechaAltaFila] = useState(fechaDeHoyISO());
   const [dandoAlta, setDandoAlta] = useState(false);
@@ -94,6 +95,13 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, elegid
       </td>
       <td className="px-3 py-2 text-xs text-gray-600">
         <p>{p.segmento}</p>
+        {p.posibleConsulta && (
+          <p className="mt-0.5">
+            <span className="rounded bg-violet-100 px-1.5 py-0.5 font-medium text-violet-800" title="No tiene instalación, brackets ni cuota cargados, o solo vino a una consulta">
+              posible consulta
+            </span>
+          </p>
+        )}
         {p.proximoTurno && <p className="font-medium text-sky-700">Próximo turno: {formatoFecha(p.proximoTurno)}</p>}
         {p.fechaInstalacion && p.segmento === SEGMENTOS.SIN_MOVIMIENTO && <p className="text-gray-500">Empezó el tratamiento: {nombreMes(p.fechaInstalacion.slice(0, 7))}</p>}
         <p className="text-gray-500">
@@ -172,6 +180,15 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, elegid
             </div>
           </div>
         ) : (
+          <div className="mt-2 flex flex-col items-start gap-1">
+          {p.posibleConsulta && (
+            <button
+              onClick={() => window.confirm(`¿${p.nombre} solo vino a una consulta? Pasa a "Consulta" y sale de esta lista.`) && onConsulta(p.id)}
+              className="rounded-md border border-violet-400 px-2 py-1 text-[11px] font-medium text-violet-800 hover:bg-violet-50"
+            >
+              💬 Es una consulta
+            </button>
+          )}
           <button
             onClick={() => setPidiendoAlta(true)}
             title="Terminó el tratamiento: pasa a Altas y se le escribe cada 6 meses"
@@ -179,6 +196,7 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, elegid
           >
             🏁 Ya tiene el alta
           </button>
+          </div>
         )}
       </td>
       <td className="px-3 py-2">
@@ -201,6 +219,7 @@ function PaginaRetomar() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [conWhatsApp, setConWhatsApp] = useState("todos"); // "todos" | "con" | "sin"
+  const [soloPosiblesConsultas, setSoloPosiblesConsultas] = useState(false);
   // "mes": activos sin turno ni visita en el mes en curso. "alejados": no vienen hace más de un mes y no tienen turno a futuro.
   // "retomar": fichas activas sin ningún movimiento (ni cobros, ni visitas, ni pagos en el cuaderno).
   const [criterio, setCriterio] = useState("mes");
@@ -273,6 +292,35 @@ function PaginaRetomar() {
     }
   }
 
+  // Pasar a "Consulta" (uno o varios): salen de las listas de pacientes en tratamiento.
+  async function pasarAConsultaUno(pacienteId) {
+    try {
+      await marcarComoConsulta(pacienteId);
+      setPacientes((lista) => lista.map((p) => (p.id === pacienteId ? { ...p, estado: "Consulta" } : p)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function pasarAConsultaElegidos() {
+    if (elegidos.size === 0) return;
+    if (!window.confirm(`¿Pasar a "Consulta" a ${elegidos.size} paciente${elegidos.size === 1 ? "" : "s"}? Salen de esta lista y de los pacientes en tratamiento.`)) return;
+    setDandoDeAlta(true);
+    const hechos = [];
+    try {
+      for (const id of elegidos) {
+        await marcarComoConsulta(id);
+        hechos.push(id);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setPacientes((lista) => lista.map((p) => (hechos.includes(p.id) ? { ...p, estado: "Consulta" } : p)));
+      setElegidos(new Set());
+      setDandoDeAlta(false);
+    }
+  }
+
   async function guardarWhatsApp(pacienteId, numero) {
     try {
       await guardarWhatsAppPacienteOrtodoncia(pacienteId, numero);
@@ -323,6 +371,7 @@ function PaginaRetomar() {
       })
       .filter((p) => ortodoncista === "todos" || p.ortodoncista === ortodoncista)
       .filter((p) => conWhatsApp === "todos" || (conWhatsApp === "con") === tieneWhatsApp(p))
+      .filter((p) => !soloPosiblesConsultas || p.posibleConsulta)
       .filter((p) => !q || p.nombre.toLowerCase().includes(q))
       .sort(
         (a, b) =>
@@ -333,7 +382,7 @@ function PaginaRetomar() {
           a.nombre.localeCompare(b.nombre, "es")
       );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseVisible, gestion, estadoElegido, ortodoncista, busqueda, conWhatsApp, criterio]);
+  }, [baseVisible, gestion, estadoElegido, ortodoncista, busqueda, conWhatsApp, criterio, soloPosiblesConsultas]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -428,6 +477,10 @@ function PaginaRetomar() {
                 </option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-sm text-gray-700" title="Fichas sin instalación, brackets ni cuota, o que solo vinieron a una consulta">
+              <input type="checkbox" checked={soloPosiblesConsultas} onChange={(e) => setSoloPosiblesConsultas(e.target.checked)} />
+              Ver solo las posibles consultas ({baseVisible.filter((p) => p.posibleConsulta).length})
+            </label>
             <select value={conWhatsApp} onChange={(e) => setConWhatsApp(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
               <option value="todos">Con y sin WhatsApp</option>
               <option value="con">Solo con WhatsApp</option>
@@ -465,6 +518,13 @@ function PaginaRetomar() {
                 >
                   {dandoDeAlta ? "Guardando..." : `🏁 Dar de alta a ${elegidos.size}`}
                 </button>
+                <button
+                  onClick={pasarAConsultaElegidos}
+                  disabled={dandoDeAlta}
+                  className="rounded-md border border-violet-400 px-3 py-1.5 text-xs font-medium text-violet-800 hover:bg-violet-50 disabled:opacity-50"
+                >
+                  💬 Pasar a consulta ({elegidos.size})
+                </button>
               </>
             )}
           </div>
@@ -489,6 +549,7 @@ function PaginaRetomar() {
                     onGuardar={guardar}
                     onGuardarWhatsApp={guardarWhatsApp}
                     onAlta={darDeAltaUno}
+                    onConsulta={pasarAConsultaUno}
                     elegido={elegidos.has(p.id)}
                     onElegir={alternarElegido}
                   />
