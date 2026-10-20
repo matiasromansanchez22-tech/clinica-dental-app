@@ -87,7 +87,12 @@ export default function AgendaGrid({
                       <div className="text-xs opacity-90 leading-tight">
                         {subtitulo} · {turno.profesionalDeTurno}
                       </div>
-                      {turno.profesionalResponsable && turno.profesionalResponsable !== turno.profesionalDeTurno && (
+                      {turno.prioridad && (
+                        <div className="text-[11px] font-semibold leading-tight">
+                          ⭐ Prioridad{turno.ortodoncistaHabitual ? ` — es paciente de ${turno.ortodoncistaHabitual}` : ""}
+                        </div>
+                      )}
+                      {!turno.prioridad && turno.profesionalResponsable && turno.profesionalResponsable !== turno.profesionalDeTurno && (
                         <div className="text-[11px] font-medium opacity-90 leading-tight">
                           👤 Responsable: {turno.profesionalResponsable}
                         </div>

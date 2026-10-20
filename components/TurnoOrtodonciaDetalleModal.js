@@ -193,6 +193,12 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           {fecha} · {turnoActual.horaInicio} ({turnoActual.duracionMin} min) · Consultorio {turnoActual.consultorio} ·{" "}
           {turnoActual.concepto} · {turnoActual.profesionalDeTurno}
         </p>
+        {turnoActual.prioridad && (
+          <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            ⭐ <strong>Prioridad:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y lo atiende {turnoActual.profesionalDeTurno}
+            {turnoActual.motivoPrioridad ? ` — ${turnoActual.motivoPrioridad}` : ""}. Después vuelve con {turnoActual.ortodoncistaHabitual || "su ortodoncista"}.
+          </div>
+        )}
 
         {!mostrarOrtodoncista ? (
           <button

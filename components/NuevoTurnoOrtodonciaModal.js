@@ -48,6 +48,9 @@ export default function NuevoTurnoOrtodonciaModal({
   const [ortodoncistaId, setOrtodoncistaId] = useState(ortodoncistas[0]?.id ?? "");
   const [valor, setValor] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  // Prioridad: el paciente es de otra ortodoncista y este turno lo atiende quien se elige abajo.
+  const [prioridadDesmarcada, setPrioridadDesmarcada] = useState(false);
+  const [motivoPrioridad, setMotivoPrioridad] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [proximaPrestacionPendiente, setProximaPrestacionPendiente] = useState(null);
@@ -263,6 +266,9 @@ export default function NuevoTurnoOrtodonciaModal({
         concepto,
         valor: valor ? Number(valor) : null,
         observaciones,
+        prioridad: esPrioridad,
+        ortodoncistaHabitualId: esPrioridad ? pacienteExistente.ortodoncistaId : null,
+        motivoPrioridad: esPrioridad ? motivoPrioridad.trim() : null,
       });
 
       if (proximaPrestacionPendiente) await marcarProximaPrestacionUsada(proximaPrestacionPendiente.id);
@@ -273,6 +279,13 @@ export default function NuevoTurnoOrtodonciaModal({
       setGuardando(false);
     }
   }
+
+  // Si se elige una ortodoncista distinta a la habitual del paciente, el turno es una prioridad: queda marcado
+  // (con quién es la habitual) y la ficha del paciente no se toca, así que después vuelve con su ortodoncista.
+  const esOtroOrtodoncista = Boolean(
+    pacienteExistente?.ortodoncistaId && ortodoncistaId && ortodoncistaId !== pacienteExistente.ortodoncistaId
+  );
+  const esPrioridad = esOtroOrtodoncista && !prioridadDesmarcada;
 
   const aumento = pacienteExistente?.proximoAumento ? calcularEstadoAumento(pacienteExistente.proximoAumento) : null;
 
@@ -484,6 +497,32 @@ export default function NuevoTurnoOrtodonciaModal({
               </span>
             )}
           </label>
+
+          {esOtroOrtodoncista && (
+            <div className={`rounded-md border px-3 py-2 text-sm ${esPrioridad ? "border-amber-400 bg-amber-50 text-amber-900" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
+              <label className="flex cursor-pointer items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={esPrioridad}
+                  onChange={(e) => setPrioridadDesmarcada(!e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <strong>⭐ Prioridad:</strong> {pacienteExistente.nombre} es paciente de <strong>{pacienteExistente.ortodoncista}</strong> y lo atiende{" "}
+                  <strong>{ortodoncistaSeleccionado?.nombre}</strong>. Queda marcado en la agenda y después vuelve con{" "}
+                  {pacienteExistente.ortodoncista} (su ficha no cambia).
+                </span>
+              </label>
+              {esPrioridad && (
+                <input
+                  value={motivoPrioridad}
+                  onChange={(e) => setMotivoPrioridad(e.target.value)}
+                  placeholder={`Motivo (ej: ${pacienteExistente.ortodoncista} sin disponibilidad esta semana)`}
+                  className="mt-2 w-full rounded-md border border-amber-300 bg-white px-2 py-1 text-sm"
+                />
+              )}
+            </div>
+          )}
 
           {ortodoncistaId && (
             <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
