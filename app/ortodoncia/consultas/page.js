@@ -73,6 +73,7 @@ function Fila({ c, gestion, onGuardar, onGuardarWhatsApp, onActivo }) {
         <span className={`rounded px-1.5 py-0.5 font-medium ${ESTILO_SITUACION[c.situacion]}`}>{c.situacion}</span>
         {c.fechaConsulta && (
           <p className="mt-1 text-gray-600">
+            {c.situacion === SITUACION_CONSULTA.AGENDADA ? "Consulta el " : c.situacion === SITUACION_CONSULTA.VINO ? "Vino el " : "Consulta del "}
             {formatoFecha(c.fechaConsulta)}
             {c.diasDesdeConsulta !== null && ` (hace ${c.diasDesdeConsulta} d)`}
           </p>
@@ -143,6 +144,49 @@ function Fila({ c, gestion, onGuardar, onGuardarWhatsApp, onActivo }) {
   );
 }
 
+function Tabla({ lista, gestion, onGuardar, onGuardarWhatsApp, onActivo }) {
+  return (
+    <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+      <table className="w-full min-w-[860px] border-collapse text-sm">
+        <thead>
+          <tr className="bg-brand-brown text-white">
+            <th className="px-3 py-2 text-left font-semibold">Paciente</th>
+            <th className="px-3 py-2 text-left font-semibold">Consulta</th>
+            <th className="px-3 py-2 text-left font-semibold">WhatsApp</th>
+            <th className="px-3 py-2 text-left font-semibold">Seguimiento</th>
+            <th className="px-3 py-2 text-left font-semibold">Nota</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lista.map((c) => (
+            <Fila key={c.id} c={c} gestion={gestion[c.id]} onGuardar={onGuardar} onGuardarWhatsApp={onGuardarWhatsApp} onActivo={onActivo} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Una sección con título, una línea que explica qué hacer y su tabla.
+function Seccion({ icono, titulo, queHacer, lista, abierta = true, ...resto }) {
+  return (
+    <details open={abierta} className="mt-6 rounded-lg border border-gray-200 bg-white p-4 [&>summary]:cursor-pointer">
+      <summary className="flex flex-wrap items-baseline gap-2 text-base font-bold text-gray-900">
+        <span>
+          {icono} {titulo}
+        </span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{lista.length}</span>
+      </summary>
+      <p className="mt-1 text-sm text-gray-600">{queHacer}</p>
+      {lista.length === 0 ? (
+        <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">✅ No hay nadie en este grupo.</p>
+      ) : (
+        <Tabla lista={lista} {...resto} />
+      )}
+    </details>
+  );
+}
+
 function PaginaConsultas() {
   const [consultas, setConsultas] = useState([]);
   const [gestion, setGestion] = useState({});
@@ -151,7 +195,6 @@ function PaginaConsultas() {
   const [error, setError] = useState(null);
   const [estadoElegido, setEstadoElegido] = useState("abiertos");
   const [ortodoncista, setOrtodoncista] = useState("todos");
-  const [situacion, setSituacion] = useState("todas");
   const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
@@ -196,14 +239,7 @@ function PaginaConsultas() {
   const estadoDe = (c) => gestion[c.id]?.estado || "Por contactar";
   // La lista de seguimiento: fichas todavía en "Consulta" (las que pasaron a Activo salen solas, salvo que ya tengan
   // seguimiento guardado: esas se siguen viendo para saber que terminaron agendando).
-  const base = useMemo(
-    () =>
-      consultas.filter((c) => {
-        if (c.estadoFicha === "Consulta") return true;
-        return Boolean(gestion[c.id]);
-      }),
-    [consultas, gestion]
-  );
+  const base = useMemo(() => consultas.filter((c) => c.estadoFicha === "Consulta" || Boolean(gestion[c.id])), [consultas, gestion]);
   const ortodoncistas = useMemo(() => [...new Set(base.map((c) => c.ortodoncista))].sort((a, b) => a.localeCompare(b, "es")), [base]);
   const conteo = useMemo(() => {
     const m = {};
@@ -221,20 +257,28 @@ function PaginaConsultas() {
         return estadoElegido === "todos" || e === estadoElegido;
       })
       .filter((c) => ortodoncista === "todos" || c.ortodoncista === ortodoncista)
-      .filter((c) => situacion === "todas" || c.situacion === situacion)
       .filter((c) => !q || c.nombre.toLowerCase().includes(q))
       .sort((a, b) => (b.fechaConsulta || "").localeCompare(a.fechaConsulta || "") || a.nombre.localeCompare(b.nombre, "es"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, gestion, estadoElegido, ortodoncista, situacion, busqueda]);
+  }, [base, gestion, estadoElegido, ortodoncista, busqueda]);
 
-  const porSituacion = (s) => base.filter((c) => c.situacion === s && c.estadoFicha === "Consulta").length;
+  // Tres grupos según qué hay que hacer con cada uno.
+  const escribirAhora = visibles.filter((c) => c.situacion === SITUACION_CONSULTA.VINO);
+  const revisar = visibles.filter((c) => c.situacion === SITUACION_CONSULTA.SIN_MARCAR || c.situacion === SITUACION_CONSULTA.CANCELO);
+  // Los sin marcar primero (hay que ver si vinieron), después los que cancelaron.
+  revisar.sort((a, b) => Number(b.situacion === SITUACION_CONSULTA.SIN_MARCAR) - Number(a.situacion === SITUACION_CONSULTA.SIN_MARCAR));
+  const esperando = visibles
+    .filter((c) => c.situacion === SITUACION_CONSULTA.AGENDADA)
+    .sort((a, b) => (a.fechaConsulta || "").localeCompare(b.fechaConsulta || ""));
+
+  const acciones = { gestion, onGuardar: guardar, onGuardarWhatsApp: guardarWhatsApp, onActivo: activar };
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🩺 Consultas de Ortodoncia — seguimiento hasta la instalación</h1>
       <p className="mt-0.5 text-sm text-gray-500">
-        Pacientes que vinieron (o tenían que venir) a una consulta y todavía no tienen turno de instalación. Escribiles para ver si quieren
-        avanzar y anotá qué contestaron. Cuando les cargan un turno de instalación, la ficha pasa sola a &quot;Activo&quot; y sale de esta lista.
+        Pacientes que vinieron (o tenían que venir) a una consulta y todavía no tienen turno de instalación. Cuando les cargan un turno de
+        instalación, la ficha pasa sola a &quot;Activo&quot; y sale de esta lista.
       </p>
 
       {!disponible && (
@@ -248,19 +292,6 @@ function PaginaConsultas() {
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>
       ) : (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {Object.values(SITUACION_CONSULTA).map((s) => (
-              <button
-                key={s}
-                onClick={() => setSituacion(situacion === s ? "todas" : s)}
-                className={`rounded-lg border px-3 py-2 text-left ${situacion === s ? "border-brand-brown bg-brand-tan/30" : "border-gray-200 bg-white hover:bg-gray-50"}`}
-              >
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{s}</p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">{porSituacion(s)}</p>
-              </button>
-            ))}
-          </div>
-
           <div className="mt-4 flex flex-wrap gap-2 text-xs">
             {ESTADOS_CONSULTA.map((e) => (
               <button
@@ -294,27 +325,28 @@ function PaginaConsultas() {
             </select>
           </div>
 
-          <p className="mt-3 text-sm font-semibold text-gray-700">
-            {visibles.length} paciente{visibles.length === 1 ? "" : "s"}
-          </p>
-          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[860px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-brand-brown text-white">
-                  <th className="px-3 py-2 text-left font-semibold">Paciente</th>
-                  <th className="px-3 py-2 text-left font-semibold">Consulta</th>
-                  <th className="px-3 py-2 text-left font-semibold">WhatsApp</th>
-                  <th className="px-3 py-2 text-left font-semibold">Seguimiento</th>
-                  <th className="px-3 py-2 text-left font-semibold">Nota</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((c) => (
-                  <Fila key={c.id} c={c} gestion={gestion[c.id]} onGuardar={guardar} onGuardarWhatsApp={guardarWhatsApp} onActivo={activar} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Seccion
+            icono="💬"
+            titulo="Escribirles ahora"
+            queHacer="Ya vinieron a la consulta. Escribiles para ofrecerles el turno de instalación y anotá qué contestaron."
+            lista={escribirAhora}
+            {...acciones}
+          />
+          <Seccion
+            icono="🔎"
+            titulo="Revisar si vinieron"
+            queHacer="Tenían consulta, ya pasó la fecha y nadie marcó si vinieron (o la cancelaron). Fijate en la agenda: si vinieron, marcá que vino y pasan al grupo de arriba; si no, escribiles para darles otra fecha."
+            lista={revisar}
+            {...acciones}
+          />
+          <Seccion
+            icono="📅"
+            titulo="Esperando su consulta"
+            queHacer="Tienen la consulta agendada para más adelante. Todavía no hay que escribirles: cuando vengan pasan al primer grupo."
+            lista={esperando}
+            abierta={false}
+            {...acciones}
+          />
         </>
       )}
     </main>
