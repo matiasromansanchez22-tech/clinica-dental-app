@@ -15,6 +15,7 @@ import {
   marcarComoConsulta,
   verificarAntesDeEscribir,
   mensajeAgendarControlOrtodoncia,
+  mensajeReprogramarTurnoOrtodoncia,
   mensajeRetomarOrtodoncia,
   obtenerGestionRetomar,
 } from "@/lib/data/retomarOrtodoncia";
@@ -57,7 +58,7 @@ function tieneWhatsApp(p) {
   return Boolean(p.whatsapp && String(p.whatsapp).trim());
 }
 
-function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, onConsulta, elegido, onElegir }) {
+function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, onConsulta, elegido, onElegir, modoFaltaron }) {
   const [pidiendoAlta, setPidiendoAlta] = useState(false);
   const [fechaAltaFila, setFechaAltaFila] = useState(fechaDeHoyISO());
   const [dandoAlta, setDandoAlta] = useState(false);
@@ -66,7 +67,17 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, onCons
   const [numero, setNumero] = useState("");
   const [guardando, setGuardando] = useState(false);
   // Si vino hace poco solo falta agendar el control; si se alejó, se le pregunta si quiere retomar.
-  const mensaje = p.segmento === SEGMENTOS.AL_DIA ? mensajeAgendarControlOrtodoncia(p.nombre) : mensajeRetomarOrtodoncia(p.nombre);
+  // En "No asistieron a su turno" se le ofrece reprogramar el turno que perdió.
+  const turnoPerdido = modoFaltaron
+    ? p.turnos
+        .filter((t) => t.situacion !== "Por venir" && t.situacion !== "Asistió")
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))[0] || null
+    : null;
+  const mensaje = modoFaltaron
+    ? mensajeReprogramarTurnoOrtodoncia(p.nombre, turnoPerdido?.fecha)
+    : p.segmento === SEGMENTOS.AL_DIA
+      ? mensajeAgendarControlOrtodoncia(p.nombre)
+      : mensajeRetomarOrtodoncia(p.nombre);
   const link = linkWhatsApp(p.whatsapp, mensaje);
 
   async function escribir() {
@@ -109,6 +120,11 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, onCons
       </td>
       <td className="px-3 py-2 text-xs text-gray-600">
         <p>{p.segmento}</p>
+        {turnoPerdido && (
+          <p className="mt-0.5 font-medium text-amber-700">
+            No vino a su turno del {formatoFecha(turnoPerdido.fecha)} ({turnoPerdido.situacion === "Sin marcar" ? "sin marcar" : "No asistió"})
+          </p>
+        )}
         {p.posibleConsulta && (
           <p className="mt-0.5">
             <span className="rounded bg-violet-100 px-1.5 py-0.5 font-medium text-violet-800" title="No tiene instalación, brackets ni cuota cargados, o solo vino a una consulta">
@@ -352,12 +368,18 @@ function PaginaRetomar() {
     pacientes.filter((p) => {
       if (p.estado !== "Activo") return false;
       if (crit === "retomar") return p.segmento === SEGMENTOS.SIN_MOVIMIENTO && !p.proximoTurno;
+      if (crit === "faltaron") return estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR && (!sinNingunTurnoFuturo || !p.proximoTurno);
       if (p.segmento === SEGMENTOS.SIN_MOVIMIENTO) return false; // esas fichas van aparte, en "Para retomar"
       if (crit === "mes") return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO && (!sinNingunTurnoFuturo || !p.proximoTurno);
       return p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno;
     });
   const conteoPestanas = useMemo(
-    () => ({ mes: candidatosDe("mes").length, alejados: candidatosDe("alejados").length, retomar: candidatosDe("retomar").length }),
+    () => ({
+      mes: candidatosDe("mes").length,
+      alejados: candidatosDe("alejados").length,
+      retomar: candidatosDe("retomar").length,
+      faltaron: candidatosDe("faltaron").length,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pacientes, mesActual, sinNingunTurnoFuturo]
   );
@@ -407,6 +429,11 @@ function PaginaRetomar() {
             Pacientes activos que <strong>no tienen turno ni vinieron en {nombreMes(mesActual)}</strong>. Escribiles para agendarles
             el control (a los que vinieron hace poco) o para ver si quieren retomar (a los que se alejaron), y anotá qué contestaron.
           </>
+        ) : criterio === "faltaron" ? (
+          <>
+            Pacientes activos que <strong>tenían turno en {nombreMes(mesActual)} y no vinieron</strong> (marcados &quot;No asistió&quot; o sin marcar). Escribiles para
+            reprogramar el turno y anotá qué contestaron. Si alguno sí vino y no se marcó, marcalo en la agenda y sale de esta lista.
+          </>
         ) : criterio === "registro" ? (
           <>Registro de los pacientes a los que se les escribió: cuántos ya tienen turno o ya vinieron.</>
         ) : criterio === "retomar" ? (
@@ -429,6 +456,7 @@ function PaginaRetomar() {
             ["mes", "Sin turno este mes"],
             ["alejados", "Alejados (más de un mes)"],
             ["retomar", "Para retomar tratamiento"],
+            ["faltaron", "No asistieron a su turno"],
             ["registro", "📊 Registro de contactados"],
           ].map(([clave, etiqueta]) => (
             <button
@@ -441,7 +469,7 @@ function PaginaRetomar() {
             </button>
           ))}
         </div>
-        {criterio === "mes" && (
+        {(criterio === "mes" || criterio === "faltaron") && (
           <label className="flex items-center gap-2 text-sm text-gray-700" title="Saca a los que ya tienen turno en un mes que viene">
             <input type="checkbox" checked={sinNingunTurnoFuturo} onChange={(e) => setSinNingunTurnoFuturo(e.target.checked)} />
             Ocultar los que ya tienen turno más adelante
@@ -576,6 +604,7 @@ function PaginaRetomar() {
                     onGuardarWhatsApp={guardarWhatsApp}
                     onAlta={darDeAltaUno}
                     onConsulta={pasarAConsultaUno}
+                    modoFaltaron={criterio === "faltaron"}
                     elegido={elegidos.has(p.id)}
                     onElegir={alternarElegido}
                   />
