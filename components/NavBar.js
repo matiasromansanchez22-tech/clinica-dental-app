@@ -25,6 +25,7 @@ import {
   obtenerCantidadPacientesOrtodonciaConPendientesDeCobro,
   obtenerVisitasPorCompletarOrtodoncia,
 } from "@/lib/data/prestacionesRealizadas";
+import { obtenerCantidadAltasParaEscribir } from "@/lib/data/altasOrtodoncia";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -71,6 +72,7 @@ const GRUPOS = [
       { href: "/ortodoncia/cancelados", label: "Turnos cancelados" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/retomar", label: "📲 Retomar tratamiento", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/altas", label: "🏁 Altas (seguimiento cada 6 meses)", badgeKey: "altasParaEscribir", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/catalogo", label: "Catálogo" },
       { href: "/ortodoncia/controles", label: "Controles" },
       { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia", ocultarRoles: ["Odontologo", "Laboratorio"] },
@@ -255,6 +257,13 @@ export default function NavBar() {
           }))
       )
       .catch(() => {});
+
+    // Pacientes de alta a los que ya toca escribirles (cada 6 meses).
+    if (perfil?.rol === "Duena" || perfil?.rol === "Secretaria") {
+      obtenerCantidadAltasParaEscribir()
+        .then((altasParaEscribir) => setBadges((b) => ({ ...b, altasParaEscribir })))
+        .catch(() => {});
+    }
 
     if (perfil?.rol === "Duena" || perfil?.rol === "Secretaria") {
       obtenerCantidadParaAutorizar()

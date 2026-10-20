@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloDuenaYSecretaria from "@/components/SoloDuenaYSecretaria";
 import { linkWhatsApp } from "@/lib/whatsapp";
+import { fechaDeHoyISO } from "@/lib/agenda";
+import { marcarAltaPaciente } from "@/lib/data/altasOrtodoncia";
 import { SEGMENTOS, obtenerSeguimientoOrtodoncia } from "@/lib/data/seguimientoOrtodoncia";
 import {
   ESTADOS_RETOMAR,
@@ -45,7 +47,7 @@ const ORDEN_SEGMENTO = {
   [SEGMENTOS.SIN_MOVIMIENTO]: 2,
 };
 
-function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp }) {
+function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onElegir }) {
   const estado = gestion?.estado || "Por contactar";
   const [nota, setNota] = useState(gestion?.nota || "");
   const [numero, setNumero] = useState("");
@@ -71,6 +73,9 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp }) {
 
   return (
     <tr className="border-t border-gray-100 align-top">
+      <td className="px-3 py-2">
+        <input type="checkbox" checked={elegido} onChange={() => onElegir(p.id)} aria-label={`Elegir a ${p.nombre}`} />
+      </td>
       <td className="px-3 py-2">
         <p className="font-medium text-gray-900">{p.nombre}</p>
         <p className="text-xs text-gray-500">{p.ortodoncista}</p>
@@ -153,6 +158,39 @@ function PaginaRetomar() {
   const [estadoElegido, setEstadoElegido] = useState("pendientes");
   const [ortodoncista, setOrtodoncista] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
+  // Selección para dar de alta a varios a la vez.
+  const [elegidos, setElegidos] = useState(new Set());
+  const [fechaAlta, setFechaAlta] = useState(fechaDeHoyISO());
+  const [dandoDeAlta, setDandoDeAlta] = useState(false);
+
+  function alternarElegido(id) {
+    setElegidos((actual) => {
+      const nuevo = new Set(actual);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+  }
+
+  async function darDeAltaElegidos() {
+    if (elegidos.size === 0) return;
+    if (!window.confirm(`¿Marcar de alta a ${elegidos.size} paciente${elegidos.size === 1 ? "" : "s"} con fecha ${formatoFecha(fechaAlta)}? Pasan a "Finalizado" y salen de esta lista.`)) return;
+    setDandoDeAlta(true);
+    setError(null);
+    const hechos = [];
+    try {
+      for (const id of elegidos) {
+        await marcarAltaPaciente(id, fechaAlta);
+        hechos.push(id);
+      }
+    } catch (e) {
+      setError(`${e.message}${e.message?.includes("fecha_alta") ? " — falta correr la migración 159." : ""}`);
+    } finally {
+      setPacientes((lista) => lista.map((p) => (hechos.includes(p.id) ? { ...p, estado: "Finalizado" } : p)));
+      setElegidos(new Set());
+      setDandoDeAlta(false);
+    }
+  }
 
   useEffect(() => {
     Promise.all([obtenerSeguimientoOrtodoncia(), obtenerGestionRetomar()])
@@ -289,10 +327,41 @@ function PaginaRetomar() {
           <p className="mt-3 text-sm font-semibold text-gray-700">
             {visibles.length} paciente{visibles.length === 1 ? "" : "s"}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+            <span className="text-gray-700">
+              ¿Alguno ya terminó el tratamiento? Tildalos y marcalos de alta: pasan a la sección <strong>Altas</strong>, donde se les
+              escribe cada 6 meses.
+            </span>
+            <button
+              onClick={() => setElegidos(new Set(visibles.map((p) => p.id)))}
+              className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-white"
+            >
+              Tildar todos los que se ven
+            </button>
+            {elegidos.size > 0 && (
+              <>
+                <button onClick={() => setElegidos(new Set())} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-white">
+                  Destildar
+                </button>
+                <label className="flex items-center gap-1.5 text-xs text-gray-700">
+                  Fecha del alta
+                  <input type="date" value={fechaAlta} onChange={(e) => setFechaAlta(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1 text-xs" />
+                </label>
+                <button
+                  onClick={darDeAltaElegidos}
+                  disabled={dandoDeAlta}
+                  className="rounded-md bg-brand-brown px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+                >
+                  {dandoDeAlta ? "Guardando..." : `🏁 Dar de alta a ${elegidos.size}`}
+                </button>
+              </>
+            )}
+          </div>
           <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full min-w-[820px] border-collapse text-sm">
               <thead>
                 <tr className="bg-brand-brown text-white">
+                  <th className="w-8 px-3 py-2"></th>
                   <th className="px-3 py-2 text-left font-semibold">Paciente</th>
                   <th className="px-3 py-2 text-left font-semibold">Situación</th>
                   <th className="px-3 py-2 text-left font-semibold">WhatsApp</th>
@@ -302,7 +371,15 @@ function PaginaRetomar() {
               </thead>
               <tbody>
                 {visibles.map((p) => (
-                  <FilaPaciente key={p.id} p={p} gestion={gestion[p.id]} onGuardar={guardar} onGuardarWhatsApp={guardarWhatsApp} />
+                  <FilaPaciente
+                    key={p.id}
+                    p={p}
+                    gestion={gestion[p.id]}
+                    onGuardar={guardar}
+                    onGuardarWhatsApp={guardarWhatsApp}
+                    elegido={elegidos.has(p.id)}
+                    onElegir={alternarElegido}
+                  />
                 ))}
               </tbody>
             </table>
