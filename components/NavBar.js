@@ -130,6 +130,7 @@ const GRUPOS = [
       { href: "/gerencial/registro-pacientes", label: "📋 Registro de pacientes por profesional" },
       { href: "/gerencial/pacientes-por-obra-social", label: "🏥 Pacientes por obra social" },
       { href: "/gerencial/seguimiento-ortodoncia", label: "🦷 Seguimiento de Ortodoncia" },
+      { href: "/gerencial/balance-especialidades", label: "⚖️ Balance por especialidad" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)", badgeKey: "cierreDiario" },
       { href: "/gerencial/limpio-diario", label: "💵 Lo que queda limpio" },
