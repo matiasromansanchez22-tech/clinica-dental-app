@@ -27,6 +27,7 @@ import {
 } from "@/lib/data/prestacionesRealizadas";
 import { obtenerCantidadAltasParaEscribir } from "@/lib/data/altasOrtodoncia";
 import { obtenerCantidadPrioridadesPorVolver } from "@/lib/data/prioridadesOrtodoncia";
+import { obtenerCantidadConsultasPorContactar } from "@/lib/data/consultasOrtodoncia";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -73,6 +74,7 @@ const GRUPOS = [
       { href: "/ortodoncia/cancelados", label: "Turnos cancelados" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
       { href: "/ortodoncia/retomar", label: "📲 Retomar tratamiento", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/consultas", label: "🩺 Consultas (hasta la instalación)", badgeKey: "consultasPorContactar", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/prioridades", label: "⭐ Prioridades (de otra ortodoncista)", badgeKey: "prioridadesPorVolver", ocultarRoles: ["Laboratorio"] },
       { href: "/ortodoncia/altas", label: "🏁 Altas (seguimiento cada 6 meses)", badgeKey: "altasParaEscribir", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/catalogo", label: "Catálogo" },
@@ -260,6 +262,13 @@ export default function NavBar() {
           }))
       )
       .catch(() => {});
+
+    // Consultas de Ortodoncia a las que todavía no se les escribió para avanzar a la instalación.
+    if (perfil?.rol === "Duena" || perfil?.rol === "Secretaria") {
+      obtenerCantidadConsultasPorContactar()
+        .then((consultasPorContactar) => setBadges((b) => ({ ...b, consultasPorContactar })))
+        .catch(() => {});
+    }
 
     // Pacientes atendidos por otra ortodoncista (prioridad) a los que falta darles turno con la suya.
     if (perfil?.rol === "Duena" || perfil?.rol === "Secretaria" || perfil?.rol === "Odontologo") {
