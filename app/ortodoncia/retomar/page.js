@@ -12,6 +12,7 @@ import {
   guardarGestionRetomar,
   guardarWhatsAppPacienteOrtodoncia,
   marcarComoConsulta,
+  verificarAntesDeEscribir,
   mensajeAgendarControlOrtodoncia,
   mensajeRetomarOrtodoncia,
   obtenerGestionRetomar,
@@ -68,6 +69,18 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, onAlta, onCons
   const link = linkWhatsApp(p.whatsapp, mensaje);
 
   async function escribir() {
+    // Antes de abrir WhatsApp se revisa que siga sin turno ni visita reciente (la lista puede estar desactualizada).
+    try {
+      const { proximoTurno, ultimaVisita } = await verificarAntesDeEscribir(p.id);
+      if (proximoTurno || ultimaVisita) {
+        const motivo = proximoTurno
+          ? `ya tiene turno el ${formatoFecha(proximoTurno.fecha)}`
+          : `ya vino/pagó el ${formatoFecha(ultimaVisita)} (hace menos de 30 días)`;
+        if (!window.confirm(`⚠️ ${p.nombre} ${motivo}. Capaz no hace falta escribirle.\n\n¿Escribirle igual?`)) return;
+      }
+    } catch {
+      // Si no se puede verificar, se sigue como siempre.
+    }
     window.open(link, "_blank", "noopener,noreferrer");
     // Al abrir el mensaje queda anotado que se le escribió (si todavía no tenía otro estado).
     if (estado === "Por contactar") await onGuardar(p.id, cambiosDeContacto("Mensaje enviado"));
