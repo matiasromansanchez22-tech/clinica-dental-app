@@ -5,6 +5,11 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { crearFichaEntreRiosManual, OBRAS_SOCIALES_ENTRE_RIOS } from "@/lib/data/facturacionObrasSociales";
 
+// "02.16", "0216" y " 02.16 " son el mismo código.
+function normalizarCodigo(c) {
+  return String(c || "").replace(/[^0-9a-zA-Z]/g, "").toLowerCase();
+}
+
 export default function NuevaFichaEntreRiosModal({ pacientes, profesionales, onClose, onGuardado }) {
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [obraSocial, setObraSocial] = useState(OBRAS_SOCIALES_ENTRE_RIOS[0]);
@@ -32,6 +37,7 @@ export default function NuevaFichaEntreRiosModal({ pacientes, profesionales, onC
     setCodigo("");
     setValorOS("");
     setCategoria("Común");
+    setEstadoCodigo(null);
   }, [obraSocial]);
 
   const coincidenciasPaciente =
@@ -40,6 +46,27 @@ export default function NuevaFichaEntreRiosModal({ pacientes, profesionales, onC
           .filter((p) => (p.apellido_y_nombre || "").toLowerCase().includes(busquedaPaciente.trim().toLowerCase()))
           .slice(0, 8)
       : [];
+
+  // Al escribir el código se busca solo en el nomenclador de la obra social: si existe, se completan la prestación,
+  // el valor y la categoría. Si no existe, se avisa (y se puede completar a mano igual).
+  const [estadoCodigo, setEstadoCodigo] = useState(null); // { ok: boolean, texto }
+  function escribirCodigo(valor) {
+    setCodigo(valor);
+    const buscado = normalizarCodigo(valor);
+    if (!buscado) {
+      setEstadoCodigo(null);
+      return;
+    }
+    const item = prestacionesDisponibles.find((p) => normalizarCodigo(p.codigo) === buscado);
+    if (item) {
+      elegirItem(item.id);
+      setCodigo(valor);
+      setEstadoCodigo({ ok: true, texto: `✓ ${item.prestacion_os}` });
+    } else {
+      setItemId("");
+      setEstadoCodigo({ ok: false, texto: `No encuentro ese código en el nomenclador de ${obraSocial}. Completá la prestación a mano.` });
+    }
+  }
 
   function elegirItem(id) {
     setItemId(id);
@@ -192,7 +219,7 @@ export default function NuevaFichaEntreRiosModal({ pacientes, profesionales, onC
           </label>
 
           <label className="flex flex-col gap-1 text-xs text-gray-700">
-            Prestación (del nomenclador de {obraSocial}, opcional)
+            Elegir la prestación de la lista de {obraSocial} (opcional: también podés escribir el código abajo)
             <select
               value={itemId}
               onChange={(e) => elegirItem(e.target.value)}
@@ -207,7 +234,16 @@ export default function NuevaFichaEntreRiosModal({ pacientes, profesionales, onC
             </select>
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[8rem_1fr] gap-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-700">
+              Código
+              <input
+                value={codigo}
+                onChange={(e) => escribirCodigo(e.target.value)}
+                placeholder="Ej: 02.16"
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+            </label>
             <label className="flex flex-col gap-1 text-xs text-gray-700">
               Prestación
               <input
@@ -216,15 +252,10 @@ export default function NuevaFichaEntreRiosModal({ pacientes, profesionales, onC
                 className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-700">
-              Código
-              <input
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              />
-            </label>
           </div>
+          {estadoCodigo && (
+            <p className={`-mt-2 text-xs ${estadoCodigo.ok ? "text-emerald-700" : "text-amber-700"}`}>{estadoCodigo.texto}</p>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
