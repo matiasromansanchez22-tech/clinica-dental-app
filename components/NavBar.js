@@ -70,6 +70,7 @@ const GRUPOS = [
       { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar", badgeKey: "ortodoncia" },
       { href: "/ortodoncia/cancelados", label: "Turnos cancelados" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
+      { href: "/ortodoncia/retomar", label: "📲 Retomar tratamiento", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/catalogo", label: "Catálogo" },
       { href: "/ortodoncia/controles", label: "Controles" },
       { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia", ocultarRoles: ["Odontologo", "Laboratorio"] },
