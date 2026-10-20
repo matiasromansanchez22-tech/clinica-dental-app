@@ -50,6 +50,10 @@ const ORDEN_SEGMENTO = {
   [SEGMENTOS.SIN_MOVIMIENTO]: 3,
 };
 
+function tieneWhatsApp(p) {
+  return Boolean(p.whatsapp && String(p.whatsapp).trim());
+}
+
 function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onElegir }) {
   const estado = gestion?.estado || "Por contactar";
   const [nota, setNota] = useState(gestion?.nota || "");
@@ -88,6 +92,7 @@ function FilaPaciente({ p, gestion, onGuardar, onGuardarWhatsApp, elegido, onEle
       <td className="px-3 py-2 text-xs text-gray-600">
         <p>{p.segmento}</p>
         {p.proximoTurno && <p className="font-medium text-sky-700">Próximo turno: {formatoFecha(p.proximoTurno)}</p>}
+        {p.fechaInstalacion && p.segmento === SEGMENTOS.SIN_MOVIMIENTO && <p className="text-gray-500">Empezó el tratamiento: {nombreMes(p.fechaInstalacion.slice(0, 7))}</p>}
         <p className="text-gray-500">
           {p.ultimaVisita ? `Última visita ${formatoFecha(p.ultimaVisita)}` : p.ultimoMesPago ? `Último pago: ${nombreMes(p.ultimoMesPago)}` : "Sin registros"}
         </p>
@@ -160,8 +165,9 @@ function PaginaRetomar() {
   const [disponible, setDisponible] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
-  const [incluirSinMovimiento, setIncluirSinMovimiento] = useState(false);
+  const [conWhatsApp, setConWhatsApp] = useState("todos"); // "todos" | "con" | "sin"
   // "mes": activos sin turno ni visita en el mes en curso. "alejados": no vienen hace más de un mes y no tienen turno a futuro.
+  // "retomar": fichas activas sin ningún movimiento (ni cobros, ni visitas, ni pagos en el cuaderno).
   const [criterio, setCriterio] = useState("mes");
   const [sinNingunTurnoFuturo, setSinNingunTurnoFuturo] = useState(false);
   const [estadoElegido, setEstadoElegido] = useState("pendientes");
@@ -235,21 +241,24 @@ function PaginaRetomar() {
   //  · "mes": activos que no vinieron ni tienen turno en el mes en curso (la misma lista de "Sin turno este mes").
   //  · "alejados": activos que no vinieron en el último mes y no tienen turno a futuro.
   const mesActual = fechaDeHoyISO().slice(0, 7);
-  const candidatos = useMemo(
-    () =>
-      pacientes.filter((p) => {
-        if (p.estado !== "Activo") return false;
-        if (criterio === "mes") {
-          return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO && (!sinNingunTurnoFuturo || !p.proximoTurno);
-        }
-        return p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno;
-      }),
-    [pacientes, criterio, mesActual, sinNingunTurnoFuturo]
+  const candidatosDe = (crit) =>
+    pacientes.filter((p) => {
+      if (p.estado !== "Activo") return false;
+      if (crit === "retomar") return p.segmento === SEGMENTOS.SIN_MOVIMIENTO && !p.proximoTurno;
+      if (p.segmento === SEGMENTOS.SIN_MOVIMIENTO) return false; // esas fichas van aparte, en "Para retomar"
+      if (crit === "mes") return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO && (!sinNingunTurnoFuturo || !p.proximoTurno);
+      return p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno;
+    });
+  const conteoPestanas = useMemo(
+    () => ({ mes: candidatosDe("mes").length, alejados: candidatosDe("alejados").length, retomar: candidatosDe("retomar").length }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pacientes, mesActual, sinNingunTurnoFuturo]
   );
   const estadoDe = (p) => gestion[p.id]?.estado || "Por contactar";
   const baseVisible = useMemo(
-    () => candidatos.filter((p) => incluirSinMovimiento || p.segmento !== SEGMENTOS.SIN_MOVIMIENTO),
-    [candidatos, incluirSinMovimiento]
+    () => candidatosDe(criterio),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pacientes, criterio, mesActual, sinNingunTurnoFuturo]
   );
   const ortodoncistas = useMemo(() => [...new Set(baseVisible.map((p) => p.ortodoncista))].sort((a, b) => a.localeCompare(b, "es")), [baseVisible]);
   const conteoEstados = useMemo(() => {
@@ -268,15 +277,18 @@ function PaginaRetomar() {
         return estadoElegido === "todos" || e === estadoElegido;
       })
       .filter((p) => ortodoncista === "todos" || p.ortodoncista === ortodoncista)
+      .filter((p) => conWhatsApp === "todos" || (conWhatsApp === "con") === tieneWhatsApp(p))
       .filter((p) => !q || p.nombre.toLowerCase().includes(q))
       .sort(
         (a, b) =>
+          // En "para retomar" van primero los que tienen WhatsApp (se les puede escribir ya).
+          (criterio === "retomar" ? Number(tieneWhatsApp(b)) - Number(tieneWhatsApp(a)) : 0) ||
           ORDEN_SEGMENTO[a.segmento] - ORDEN_SEGMENTO[b.segmento] ||
           (b.ultimoMovimiento || "").localeCompare(a.ultimoMovimiento || "") ||
           a.nombre.localeCompare(b.nombre, "es")
       );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseVisible, gestion, estadoElegido, ortodoncista, busqueda]);
+  }, [baseVisible, gestion, estadoElegido, ortodoncista, busqueda, conWhatsApp, criterio]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -287,25 +299,31 @@ function PaginaRetomar() {
             Pacientes activos que <strong>no tienen turno ni vinieron en {nombreMes(mesActual)}</strong>. Escribiles para agendarles
             el control (a los que vinieron hace poco) o para ver si quieren retomar (a los que se alejaron), y anotá qué contestaron.
           </>
+        ) : criterio === "retomar" ? (
+          <>
+            <strong>Pacientes para retomar tratamiento:</strong> fichas activas que empezaron hace tiempo y de las que no hay ningún cobro,
+            visita ni pago registrado. Casi no tienen teléfono cargado: cargalo en cada fila y escribiles para ver si quieren retomar.
+          </>
         ) : (
           <>Pacientes activos que no vienen hace más de un mes y no tienen turno a futuro. Escribiles para ver si quieren retomar y anotá qué contestaron.</>
         )}{" "}
         El botón <strong>Escribirle</strong> abre WhatsApp con un mensaje ya armado (lo podés editar antes de enviarlo).
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <div className="flex overflow-hidden rounded-md border border-gray-300 text-sm">
-          <button
-            onClick={() => setCriterio("mes")}
-            className={`px-3 py-1.5 ${criterio === "mes" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
-          >
-            Sin turno este mes
-          </button>
-          <button
-            onClick={() => setCriterio("alejados")}
-            className={`px-3 py-1.5 ${criterio === "alejados" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
-          >
-            Alejados (más de un mes)
-          </button>
+        <div className="flex flex-wrap overflow-hidden rounded-md border border-gray-300 text-sm">
+          {[
+            ["mes", "Sin turno este mes"],
+            ["alejados", "Alejados (más de un mes)"],
+            ["retomar", "Para retomar tratamiento"],
+          ].map(([clave, etiqueta]) => (
+            <button
+              key={clave}
+              onClick={() => setCriterio(clave)}
+              className={`px-3 py-1.5 ${criterio === clave ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+            >
+              {etiqueta} ({conteoPestanas[clave]})
+            </button>
+          ))}
         </div>
         {criterio === "mes" && (
           <label className="flex items-center gap-2 text-sm text-gray-700" title="Saca a los que ya tienen turno en un mes que viene">
@@ -365,10 +383,11 @@ function PaginaRetomar() {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-sm text-gray-700" title="Fichas sin cobros, visitas ni pagos en el cuaderno: suelen ser del traspaso inicial">
-              <input type="checkbox" checked={incluirSinMovimiento} onChange={(e) => setIncluirSinMovimiento(e.target.checked)} />
-              Incluir fichas sin ningún movimiento ({candidatos.filter((p) => p.segmento === SEGMENTOS.SIN_MOVIMIENTO).length})
-            </label>
+            <select value={conWhatsApp} onChange={(e) => setConWhatsApp(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+              <option value="todos">Con y sin WhatsApp</option>
+              <option value="con">Solo con WhatsApp</option>
+              <option value="sin">Solo sin WhatsApp (hay que conseguir el número)</option>
+            </select>
           </div>
 
           <p className="mt-3 text-sm font-semibold text-gray-700">
