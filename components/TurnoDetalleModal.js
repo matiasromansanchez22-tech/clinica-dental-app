@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CONSULTORIOS, generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
+import { supabase } from "@/lib/supabaseClient";
 import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
@@ -50,10 +51,50 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
   const [prestacionesTurno, setPrestacionesTurno] = useState(turno.prestaciones || []);
   const [nuevaPrestacionId, setNuevaPrestacionId] = useState("");
   const [guardandoPrestaciones, setGuardandoPrestaciones] = useState(false);
+  // Obra social de la ficha del paciente (si tiene): sirve para poder cambiar la cobertura de ESTE turno entre
+  // la obra social y particular, sin tocar la ficha.
+  const [obraSocialDelPaciente, setObraSocialDelPaciente] = useState(null);
+  const [cambiandoCobertura, setCambiandoCobertura] = useState(false);
 
   useEffect(() => {
     obtenerCatalogo().then(setCatalogoCompleto);
   }, []);
+
+  useEffect(() => {
+    if (!turno.pacienteId) return;
+    supabase
+      .from("pacientes")
+      .select("tipo_paciente, obra_social")
+      .eq("id", turno.pacienteId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.obra_social && data.tipo_paciente !== "Particular") setObraSocialDelPaciente(data.obra_social.trim());
+      });
+  }, [turno.pacienteId]);
+
+  // Cambia la cobertura de ESTE turno (la ficha del paciente no se toca). Las prestaciones cargadas eran de la
+  // lista de la cobertura anterior, así que se sacan y se vuelven a elegir de la nueva.
+  async function cambiarCobertura(nueva) {
+    if (nueva === turnoActual.cobertura) return;
+    const aviso =
+      nueva === "Particular"
+        ? `¿Hacer este turno como PARTICULAR? Se cobra con los precios del catálogo particular, no va a la obra social, y las prestaciones cargadas (de la obra social) se sacan para elegirlas de nuevo.`
+        : `¿Volver este turno a ${nueva}? Las prestaciones cargadas se sacan para elegirlas de nuevo de su listado.`;
+    if (!window.confirm(aviso)) return;
+    setError(null);
+    setCambiandoCobertura(true);
+    try {
+      const actualizado = await actualizarEstadoTurnoGeneral(turnoActual.id, { cobertura: nueva, prestaciones: [] });
+      setTurnoActual(actualizado);
+      setPrestacionesTurno([]);
+      setNuevaPrestacionId("");
+      onCambiado?.();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCambiandoCobertura(false);
+    }
+  }
 
   useEffect(() => {
     if (turnoActual.cobertura === "Particular") {
@@ -317,6 +358,25 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
             </p>
             <span className="text-xs text-gray-400">Duración actual: {turnoActual.duracionMin} min</span>
           </div>
+
+          {(obraSocialDelPaciente || turnoActual.cobertura !== "Particular") && (
+            <label className="mb-2 flex flex-wrap items-center gap-2 rounded-md bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
+              Cobertura de este turno
+              <select
+                value={turnoActual.cobertura}
+                disabled={cambiandoCobertura}
+                onChange={(e) => cambiarCobertura(e.target.value)}
+                className="rounded-md border border-sky-300 bg-white px-2 py-1 text-xs font-medium"
+              >
+                {[...new Set([obraSocialDelPaciente, turnoActual.cobertura, "Particular"].filter(Boolean))].map((c) => (
+                  <option key={c} value={c}>
+                    {c === "Particular" ? "Particular (no va a la obra social)" : c}
+                  </option>
+                ))}
+              </select>
+              <span className="text-sky-700">Solo cambia este turno, no la ficha del paciente.</span>
+            </label>
+          )}
 
           {prestacionesTurno.length === 0 && (
             <p className="mb-2 text-sm text-gray-500">Todavía no tiene una prestación cargada.</p>
