@@ -106,7 +106,10 @@ function CuentasPorCobrarPageContenido() {
             {filas.map((f) => (
               <tr key={f.id} className="border-t border-gray-100">
                 <td className="px-3 py-2 text-gray-600">{formatoFecha(f.fecha)}</td>
-                <td className="px-3 py-2 font-medium text-gray-900">{f.paciente}</td>
+                <td className="px-3 py-2 font-medium text-gray-900">
+                  {f.paciente}
+                  {f.observaciones && <span className="mt-1 block text-xs font-normal text-amber-800">📝 {f.observaciones}</span>}
+                </td>
                 <td className="px-3 py-2 text-gray-600">{f.profesionalAtencion}</td>
                 <td className="px-3 py-2 text-gray-600">{f.prestaciones.map((p) => p.prestacion).join(", ") || "—"}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(f.importeTotal)}</td>
