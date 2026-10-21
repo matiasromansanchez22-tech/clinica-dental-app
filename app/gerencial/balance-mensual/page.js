@@ -77,7 +77,29 @@ function TablaNeto({ titulo, filas }) {
   );
 }
 
-const DIAS_SEMANA_CORTO = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+// Todo lo que no es efectivo termina en el banco o en Mercado Pago: este total es el que se compara con las cuentas.
+function TotalEnCuentas({ filas }) {
+  const sinEfectivo = filas.filter((f) => f.clave !== "Efectivo");
+  if (sinEfectivo.length === 0) return null;
+  const total = sinEfectivo.reduce((acc, f) => acc + f.monto, 0);
+  return (
+    <div className="mt-2 flex items-baseline justify-between gap-3 rounded-lg border border-brand-brown/30 bg-brand-tan/10 px-4 py-3 text-sm">
+      <span className="text-gray-700">
+        <span className="font-semibold text-brand-brown">Total que va a las cuentas (todo menos efectivo)</span>
+        <span className="block text-xs text-gray-500">
+          {sinEfectivo.map((f) => `${f.clave} ${formatoMoneda(f.monto)}`).join(" · ")}. Para compararlo con Galicia y Mercado Pago, mirá{" "}
+          <a href="/gerencial/cuentas" className="underline">
+            Cuentas
+          </a>
+          .
+        </span>
+      </span>
+      <span className={`text-lg font-semibold tabular-nums ${total >= 0 ? "text-brand-green" : "text-red-700"}`}>{formatoMoneda(total)}</span>
+    </div>
+  );
+}
+
+const DIAS_SEMANA_CORTO =["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
 function formatoDiaCorto(fechaISO) {
   const [anio, mes, dia] = fechaISO.split("-").map(Number);
@@ -308,6 +330,7 @@ function BalanceMensualContenido() {
 
             <div className="mt-6">
               <TablaNeto titulo="Lo que queda limpio por medio de pago (ingresos − egresos)" filas={balance.netoPorMedioPago} />
+              <TotalEnCuentas filas={balance.netoPorMedioPago} />
             </div>
 
             <div className="mt-6">
