@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CONCEPTO_CONTINUACION,
   CONCEPTOS_ORTODONCIA,
@@ -17,6 +17,8 @@ import {
   marcarTurnoOrtodonciaRealizado,
   obtenerPendienteCobroOrtodoncia,
   obtenerVisitaPorCompletarDePaciente,
+  obtenerVisitaYaCobradaOrtodoncia,
+  registrarVisitaCobradaPorCompletar,
 } from "@/lib/data/prestacionesRealizadas";
 import { actualizarEstadoTurnoOrtodoncia } from "@/lib/data/turnosOrtodoncia";
 import CompletarVisitaOrtodoncia from "@/components/CompletarVisitaOrtodoncia";
@@ -51,6 +53,11 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   // La secretaria ya cobró esta visita antes de que se marcara qué se hizo.
   const [visitaPorCompletar, setVisitaPorCompletar] = useState(null);
   const [visitaCompletada, setVisitaCompletada] = useState(false);
+  // Lo que ya pasó con esta visita: si la cobraron y si el ortodoncista ya la completó.
+  const [visitaCobrada, setVisitaCobrada] = useState(null);
+  const creandoPorCompletar = useRef(false);
+  // Por las dudas: aunque la visita ya esté cobrada, el profesional puede abrir el formulario completo (con un aviso).
+  const [verFormularioCompleto, setVerFormularioCompleto] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -65,6 +72,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
     obtenerVisitaPorCompletarDePaciente(turno.pacienteId).then((v) => setVisitaPorCompletar(v?.fecha === fecha ? v : null));
+    obtenerVisitaYaCobradaOrtodoncia(turno.pacienteId, fecha)
+      .then(setVisitaCobrada)
+      .catch(() => {});
     obtenerConfiguracionOrtodoncia()
       .then(setPreciosCatalogo)
       .catch(() => {});
@@ -73,6 +83,26 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turno.pacienteId]);
+
+  // Si la visita ya está cobrada pero no hay un aviso para completarla (por ejemplo se cobró de una forma que no lo generó), se arma
+  // uno acá: al ortodoncista le queda el formulario reducido (brackets y próximo turno) y no el de "qué hiciste hoy".
+  useEffect(() => {
+    if (cargando || visitaPorCompletar || pendiente || !visitaCobrada?.cobro || visitaCobrada.completada) return;
+    if (creandoPorCompletar.current) return;
+    creandoPorCompletar.current = true;
+    registrarVisitaCobradaPorCompletar({
+      fecha,
+      pacienteOrtodonciaId: turno.pacienteId,
+      ortodoncistaId: turno.profesionalDeTurnoId || visitaCobrada.cobro.ortodoncista_id,
+      turnoOrtodonciaId: turno.id,
+      concepto: visitaCobrada.cobro.concepto,
+      cajaOrtodonciaId: visitaCobrada.cobro.id,
+    })
+      .then(() => obtenerVisitaPorCompletarDePaciente(turno.pacienteId))
+      .then((v) => setVisitaPorCompletar(v?.fecha === fecha ? v : null))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargando, visitaPorCompletar, pendiente, visitaCobrada]);
 
   async function marcarRealizado() {
     setError(null);
@@ -140,14 +170,19 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
 
   if (!turno.pacienteId) return null;
 
-  if (visitaPorCompletar) {
+  if (visitaPorCompletar && !verFormularioCompleto) {
     return (
       <div className="mt-4 border-t border-gray-200 pt-3">
         <p className="mb-2 text-xs font-semibold uppercase text-brand-brown">Actividad de hoy</p>
         <CompletarVisitaOrtodoncia visita={visitaPorCompletar} onCompletado={alCompletarVisita} />
+        <button type="button" onClick={() => setVerFormularioCompleto(true)} className="mt-2 text-xs text-gray-500 underline hover:text-gray-700">
+          Marcar qué se hizo igual (por las dudas)
+        </button>
       </div>
     );
   }
+
+  const visitaYaCobrada = Boolean(visitaCobrada?.cobro || visitaPorCompletar || visitaCompletada || visitaCobrada?.completada);
 
   return (
     <div className="mt-4 border-t border-gray-200 pt-3">
@@ -157,8 +192,22 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       )}
       {cargando ? (
         <p className="text-xs text-gray-500">Buscando...</p>
-      ) : visitaCompletada && !pendiente ? (
-        <p className="text-sm text-emerald-700">✓ Visita completada: ya estaba cobrada y quedó registrado qué sigue.</p>
+      ) : (visitaCompletada || visitaCobrada?.completada) && !pendiente && !verFormularioCompleto ? (
+        <div className="text-sm text-emerald-700">
+          <p>✓ Visita completada: ya estaba cobrada y quedó registrado qué sigue.</p>
+          {visitaCobrada?.completada?.nota_proximo_turno && (
+            <p className="mt-1 text-xs text-emerald-600">📌 Próximo turno: {visitaCobrada.completada.nota_proximo_turno}</p>
+          )}
+          {visitaCobrada?.completada?.proxima_prestacion_nombre && (
+            <p className="mt-1 text-xs text-emerald-600">
+              📅 La próxima vez viene para: {visitaCobrada.completada.proxima_prestacion_nombre}
+              {visitaCobrada.completada.proxima_prestacion_tiempo_min ? ` (turno de ${visitaCobrada.completada.proxima_prestacion_tiempo_min} min)` : ""}
+            </p>
+          )}
+          <button type="button" onClick={() => setVerFormularioCompleto(true)} className="mt-2 text-xs text-gray-500 underline hover:text-gray-700">
+            Marcar qué se hizo igual (por las dudas)
+          </button>
+        </div>
       ) : pendiente ? (
         <div className="text-sm text-emerald-700">
           <p>
@@ -196,6 +245,17 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         </div>
       ) : (
         <div className="flex flex-col gap-2">
+          {visitaYaCobrada && (
+            <div className="rounded-md border-2 border-red-400 bg-red-50 px-3 py-2 text-xs text-red-900">
+              <p className="font-semibold">⚠️ Esta visita ya se cobró.</p>
+              <p className="mt-0.5">
+                Si marcás qué hiciste, puede aparecer otra vez como algo para cobrar. Usalo solo si hiciste algo distinto a lo que ya se cobró (por ejemplo una reposición de bracket). Si no, indicá los brackets y el próximo turno en el formulario de «Actividad de hoy».
+              </p>
+              <button type="button" onClick={() => setVerFormularioCompleto(false)} className="mt-1 font-medium underline">
+                Volver
+              </button>
+            </div>
+          )}
           <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué hiciste hoy?</p>
 
           <select
