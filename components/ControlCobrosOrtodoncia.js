@@ -37,6 +37,25 @@ const ESTILO_TIPO = {
   [TIPOS_CONTROL.SIN_VALOR]: "bg-gray-100 text-gray-700",
 };
 
+// Lo que no queda explicado por brackets, cargo extra o saldo a favor, dicho en palabras: qué pudo pasar.
+function textoSinExplicar(f) {
+  const resto = f.sinExplicar;
+  if (Math.abs(resto) < 1) return null;
+  const monto = pesos(Math.abs(resto));
+  const esCobroDeMas = f.tipo === TIPOS_CONTROL.DE_MAS;
+  // Cobró de más y lo explicado no alcanza: queda plata sin explicar.
+  if (esCobroDeMas && resto > 0) {
+    if (f.valorUnitario > 0 && resto % f.valorUnitario < 1) {
+      const n = Math.round(resto / f.valorUnitario);
+      return { tono: "text-amber-700", texto: `Sin explicar: ${monto}, justo ${n === 1 ? "un control" : `${n} controles`} más. ¿Pagó por adelantado un mes más?` };
+    }
+    if (resto <= f.valorUnitario * 0.15) return { tono: "text-amber-700", texto: `Sin explicar: ${monto}. Diferencia chica: puede ser que el valor de control de la ficha esté desactualizado.` };
+    return { tono: "text-amber-700", texto: `Sin explicar: ${monto}. Revisar el cobro.` };
+  }
+  // Los brackets/extra explican más de lo que se cobró de más (o de menos): el control en sí salió por menos de su valor.
+  return { tono: "text-red-700", texto: `El control en sí se cobró ${monto} menos que su valor. ¿Descuento autorizado?` };
+}
+
 function Tarjeta({ titulo, valor, detalle, color, activa, onClick }) {
   return (
     <button
@@ -83,11 +102,12 @@ export default function ControlCobrosOrtodoncia() {
 
   function exportar() {
     const filas = [
-      ["Paciente", "Ortodoncista", "Turnos de Control del mes (día, hora, consultorio)", "Vino", "Debería cobrarse", "Cobrado en controles", "Diferencia", "Situación", "Cobros del mes (día, hora de carga, quién)"],
+      ["Paciente", "Ortodoncista", "Turnos de Control del mes (día, hora, consultorio)", "Vino", "Debería cobrarse", "Cobrado en controles", "Diferencia", "Situación", "Explicación de la diferencia", "Cobros del mes (día, hora de carga, quién)"],
       ...visibles.map((f) => [
         f.paciente, f.ortodoncista,
         f.turnos.map((t) => `${diaConFecha(t.fecha)} ${t.hora}${t.consultorio ? ` (cons. ${t.consultorio})` : ""} ${t.situacion}`).join(" | "),
         f.asistio, Math.round(f.esperado), Math.round(f.cobrado), Math.round(f.diferencia), f.tipo,
+        f.explicacion.map((e) => `${e.texto} ${Math.round(e.monto)}`).join(" + ") + (textoSinExplicar(f) ? ` | ${textoSinExplicar(f).texto}` : ""),
         f.cobros.map((c) => `${diaConFecha(c.fecha)} ${c.hora} ${Math.round(c.importe)} ${c.medio || ""} ${c.concepto}${c.cargadoPor ? ` (cargó ${c.cargadoPor})` : ""}`).join(" | "),
       ]),
     ];
@@ -267,6 +287,20 @@ export default function ControlCobrosOrtodoncia() {
                     </td>
                     <td className={`px-3 py-2 text-right font-semibold tabular-nums ${f.tipo === TIPOS_CONTROL.SIN_PAGO || f.tipo === TIPOS_CONTROL.DE_MENOS ? "text-red-700" : "text-gray-500"}`}>
                       {f.diferencia ? pesos(f.diferencia) : "—"}
+                      {f.explicacion?.length > 0 || f.sinExplicar > 0 ? (
+                        <div className="mt-1 text-right text-[11px] font-normal leading-tight text-gray-600">
+                          {f.explicacion.map((e, i) => (
+                            <span key={i} className="block">
+                              {e.texto}: {e.monto < 0 ? "-" : ""}{pesos(Math.abs(e.monto))}
+                            </span>
+                          ))}
+                          {(() => {
+                            const t = textoSinExplicar(f);
+                            if (t) return <span className={`mt-0.5 block font-semibold ${t.tono}`}>{t.texto}</span>;
+                            return f.explicacion.length > 0 ? <span className="block text-emerald-700">✓ Explicada</span> : null;
+                          })()}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2">
                       <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_TIPO[f.tipo]}`}>{f.tipo}</span>
