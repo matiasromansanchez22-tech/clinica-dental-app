@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import ControlCobrosOrtodoncia from "@/components/ControlCobrosOrtodoncia";
+import ControlInstalacionesOrtodoncia from "@/components/ControlInstalacionesOrtodoncia";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import {
   ESTADOS_ASISTENCIA,
@@ -611,8 +612,14 @@ function PaginaSeguimiento() {
         >
           💰 Control de cobros
         </button>
+        <button
+          onClick={() => setVista("instalaciones")}
+          className={`px-4 py-1.5 ${vista === "instalaciones" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+        >
+          🦷 Control de instalaciones
+        </button>
       </div>
-      {vista === "mes" ? <VistaMes /> : vista === "asistencia" ? <VistaAsistencia /> : vista === "cobros" ? <ControlCobrosOrtodoncia /> : <VistaEvolucion />}
+      {vista === "mes" ? <VistaMes /> : vista === "asistencia" ? <VistaAsistencia /> : vista === "cobros" ? <ControlCobrosOrtodoncia /> : vista === "instalaciones" ? <ControlInstalacionesOrtodoncia /> : <VistaEvolucion />}
     </main>
   );
 }
