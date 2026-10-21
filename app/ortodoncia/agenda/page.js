@@ -8,6 +8,8 @@ import RecordatoriosDelDia from "@/components/RecordatoriosDelDia";
 import ConfiguracionDuracionOrtodonciaModal from "@/components/ConfiguracionDuracionOrtodonciaModal";
 import NuevoTurnoOrtodonciaModal from "@/components/NuevoTurnoOrtodonciaModal";
 import TurnoOrtodonciaDetalleModal from "@/components/TurnoOrtodonciaDetalleModal";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { marcarConsentimientoFirmado } from "@/lib/data/consentimientos";
 import {
   diaSemanaDeFecha,
   fechaDeHoyISO,
@@ -52,6 +54,19 @@ export default function AgendaOrtodonciaPage() {
   const [error, setError] = useState(null);
   const [slotElegido, setSlotElegido] = useState(null);
   const [turnoElegido, setTurnoElegido] = useState(null);
+  const { perfil } = useAuth();
+  const puedeMarcarConsentimiento = perfil?.rol === "Secretaria" || perfil?.rol === "Duena";
+
+  // Tilde "Ya firmó" directo en la agenda: marca al paciente y saca la etiqueta de todos sus turnos del día.
+  async function marcarConsentimiento(turno) {
+    if (!window.confirm(`¿Confirmás que ${turno.paciente} ya firmó el consentimiento?`)) return;
+    try {
+      await marcarConsentimientoFirmado("ortodoncia", turno.pacienteId);
+      setTurnos((actuales) => actuales.map((t) => (t.pacienteId === turno.pacienteId ? { ...t, consentimientoPendiente: false } : t)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
   const [mostrarConfigDuracion, setMostrarConfigDuracion] = useState(false);
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
@@ -190,6 +205,7 @@ export default function AgendaOrtodonciaPage() {
             consultorios={CONSULTORIOS_ORTO}
             minutosPorBloque={15}
             onSlotClick={(consultorio, hora) => setSlotElegido({ consultorio, hora })}
+            onMarcarConsentimiento={puedeMarcarConsentimiento ? marcarConsentimiento : undefined}
             onTurnoClick={(turno) => setTurnoElegido(turno)}
           />
         )}

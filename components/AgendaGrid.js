@@ -38,6 +38,7 @@ export default function AgendaGrid({
   minutosPorBloque = 30,
   onSlotClick,
   onTurnoClick,
+  onMarcarConsentimiento,
   renderSubtitulo,
 }) {
   const turnosVisibles = turnos.filter(seMuestraEnGrilla);
@@ -133,6 +134,18 @@ export default function AgendaGrid({
                           title="A este paciente le falta firmar el consentimiento"
                         >
                           ✍️ Falta firmar el consentimiento
+                          {onMarcarConsentimiento && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onMarcarConsentimiento(turno);
+                              }}
+                              className="ml-1 rounded border border-amber-700 bg-white px-1 text-[11px] font-medium text-amber-900 hover:bg-amber-50"
+                            >
+                              ✓ Ya firmó
+                            </button>
+                          )}
                         </div>
                       )}
                       <div className="text-[11px] opacity-80 leading-tight">

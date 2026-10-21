@@ -24,6 +24,8 @@ import {
   obtenerTurnosGeneralPorRango,
 } from "@/lib/data/turnosGeneral";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { marcarConsentimientoFirmado } from "@/lib/data/consentimientos";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 
@@ -51,6 +53,19 @@ export default function AgendaPage() {
   const [error, setError] = useState(null);
   const [slotElegido, setSlotElegido] = useState(null); // { consultorio, hora }
   const [turnoElegido, setTurnoElegido] = useState(null);
+  const { perfil } = useAuth();
+  const puedeMarcarConsentimiento = perfil?.rol === "Secretaria" || perfil?.rol === "Duena";
+
+  // Tilde "Ya firmó" directo en la agenda: marca al paciente y saca la etiqueta de todos sus turnos del día.
+  async function marcarConsentimiento(turno) {
+    if (!window.confirm(`¿Confirmás que ${turno.paciente} ya firmó el consentimiento?`)) return;
+    try {
+      await marcarConsentimientoFirmado("general", turno.pacienteId);
+      setTurnos((actuales) => actuales.map((t) => (t.pacienteId === turno.pacienteId ? { ...t, consentimientoPendiente: false } : t)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   const nombreDia = NOMBRES_DIA_SEMANA[diaSemanaDeFecha(fecha)];
   const inicioSemana = inicioDeSemana(fecha);
@@ -186,6 +201,7 @@ export default function AgendaPage() {
             turnos={turnos}
             bloques={bloques}
             onSlotClick={(consultorio, hora) => setSlotElegido({ consultorio, hora })}
+            onMarcarConsentimiento={puedeMarcarConsentimiento ? marcarConsentimiento : undefined}
             onTurnoClick={(turno) => setTurnoElegido(turno)}
           />
         )}
