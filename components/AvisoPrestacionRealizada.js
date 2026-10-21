@@ -6,6 +6,7 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import {
   marcarPromesaDePago,
   obtenerAvisosPendientesDeCobro,
+  obtenerAvisosProximoTurnoOrtodoncia,
   suscribirseACobrosDePrestacionesRealizadas,
   suscribirseAPrestacionesRealizadas,
 } from "@/lib/data/prestacionesRealizadas";
@@ -21,6 +22,8 @@ import { reproducirSonidoAviso } from "@/lib/sonidoAviso";
 export default function AvisoPrestacionRealizada() {
   const { perfil } = useAuth();
   const [avisos, setAvisos] = useState([]);
+  // Visitas ya cobradas y completadas por el ortodoncista: hay que darle el próximo turno al paciente.
+  const [avisosProximo, setAvisosProximo] = useState([]);
   const [pidiendoFechaPara, setPidiendoFechaPara] = useState(null);
   const [fechaPromesa, setFechaPromesa] = useState(fechaDeHoyISO());
   const [guardandoPromesa, setGuardandoPromesa] = useState(false);
@@ -36,6 +39,15 @@ export default function AvisoPrestacionRealizada() {
         .then((nuevos) => {
           if (cancelado) return;
           setAvisos((actuales) => {
+            if (sonido && nuevos.length > actuales.length) reproducirSonidoAviso();
+            return nuevos;
+          });
+        })
+        .catch(() => {});
+      obtenerAvisosProximoTurnoOrtodoncia()
+        .then((nuevos) => {
+          if (cancelado) return;
+          setAvisosProximo((actuales) => {
             if (sonido && nuevos.length > actuales.length) reproducirSonidoAviso();
             return nuevos;
           });
@@ -79,10 +91,27 @@ export default function AvisoPrestacionRealizada() {
     }
   }
 
-  if (!puedeCobrar || avisos.length === 0) return null;
+  if (!puedeCobrar || (avisos.length === 0 && avisosProximo.length === 0)) return null;
 
   return (
     <div className="fixed bottom-4 left-4 z-[100] flex w-72 flex-col items-stretch gap-2">
+      {avisosProximo.map((a) => (
+        <div key={a.clave} className="flex flex-col gap-1.5 rounded-lg border-2 border-sky-500 bg-white p-3 shadow-2xl">
+          <p className="font-heading text-sm font-bold text-sky-800">📅 {a.nombre} — dar el próximo turno</p>
+          <p className="text-xs text-gray-700">
+            Viene para: <strong>{a.proximaPrestacion}</strong>
+            {a.proximaTiempoMin ? ` · necesita ${a.proximaTiempoMin} minutos` : ""}
+          </p>
+          {a.nota && <p className="text-xs text-gray-600">📌 {a.nota}</p>}
+          <a
+            href="/ortodoncia/agenda"
+            className="rounded-md bg-sky-600 px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-sky-700"
+          >
+            Ir a la agenda
+          </a>
+          <p className="text-[11px] text-gray-400">Al agendar, escribí el nombre del paciente: ya viene con la prestación y el tiempo.</p>
+        </div>
+      ))}
       {avisos.map((a) => (
         <div
           key={a.clave}
@@ -91,6 +120,12 @@ export default function AvisoPrestacionRealizada() {
           <div>
             <p className="font-heading text-sm font-bold text-brand-brown">✅ {a.nombre} — listo para cobrar</p>
             <p className="mt-0.5 text-xs text-gray-700">{a.prestaciones.join(", ")}</p>
+            {a.proximaPrestacion && (
+              <p className="mt-1 text-xs text-sky-800">
+                📅 Próximo turno: <strong>{a.proximaPrestacion}</strong>
+                {a.proximaTiempoMin ? ` (${a.proximaTiempoMin} min)` : ""}
+              </p>
+            )}
             {a.formaPago && (
               <p className="mt-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900">
                 💳 {a.formaPago === "Efectivo" ? "En efectivo" : "Por transferencia"} · {a.cuotas === 2 ? "en 2 veces" : "al contado"}
