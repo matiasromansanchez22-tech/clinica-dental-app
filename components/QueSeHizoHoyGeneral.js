@@ -44,6 +44,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const [cantidadElegida, setCantidadElegida] = useState(1);
   const [precioElegido, setPrecioElegido] = useState("");
   const [notaProximoTurno, setNotaProximoTurno] = useState("");
+  // Cómo va a pagar el paciente lo que se hizo "aparte": efectivo o transferencia, al contado o en 2 veces.
+  const [formaPago, setFormaPago] = useState("");
+  const [cuotasPago, setCuotasPago] = useState(0);
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [proximaPrestacionCatalogoId, setProximaPrestacionCatalogoId] = useState("");
@@ -154,6 +157,10 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setError("Elegí qué hiciste hoy antes de enviar a caja.");
       return;
     }
+    if (aparte.length > 0 && turno.cobertura === "Particular" && (!formaPago || !cuotasPago)) {
+      setError("Indicá cómo va a pagar el paciente (efectivo o transferencia, al contado o en 2 veces) antes de enviar a caja.");
+      return;
+    }
     if (catalogo?.length > 0 && !proximaPrestacionCatalogoId && !altaPaciente) {
       setError("Elegí la prestación para el próximo turno (paso 2), o marcá que el paciente está de alta, antes de enviar a caja.");
       return;
@@ -188,6 +195,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           prestacion: a.prestacion,
           cantidad: a.cantidad,
           precioManual: a.precio,
+          formaPagoPrevista: turno.cobertura === "Particular" ? formaPago || null : null,
+          cuotasPrevistas: turno.cobertura === "Particular" ? cuotasPago || null : null,
           pacienteId: turno.pacienteId,
           profesionalId: profesionalId || null,
           turnoGeneralId: turno.id,
@@ -206,6 +215,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setCargoExtraMonto("");
       setProximaPrestacionCatalogoId("");
       setAltaPaciente(false);
+      setFormaPago("");
+      setCuotasPago(0);
       await recargar();
       setMensaje("✓ Enviado a caja. La secretaria ya lo ve para cobrar.");
     } catch (e) {
@@ -530,6 +541,33 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           </div>
 
           <div className="mt-4 border-t border-gray-100 pt-3">
+            {aparte.length > 0 && turno.cobertura === "Particular" && (
+              <div className="mb-3 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">💳 ¿Cómo va a pagar el paciente?</p>
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                  {["Efectivo", "Transferencia"].map((m) => (
+                    <label key={m} className="flex cursor-pointer items-center gap-1.5">
+                      <input type="radio" name="forma-pago-prevista" checked={formaPago === m} onChange={() => setFormaPago(m)} />
+                      {m}
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                  {[
+                    { n: 1, texto: "Al contado" },
+                    { n: 2, texto: "En 2 veces" },
+                  ].map((o) => (
+                    <label key={o.n} className="flex cursor-pointer items-center gap-1.5">
+                      <input type="radio" name="cuotas-previstas" checked={cuotasPago === o.n} onChange={() => setCuotasPago(o.n)} />
+                      {o.texto}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-amber-800">
+                  La secretaria lo ve al cobrar. En efectivo se usa el precio de efectivo del catálogo; por transferencia, el de lista.
+                </p>
+              </div>
+            )}
             <p className="mb-1 text-xs font-semibold text-gray-700">3. Enviar a caja</p>
             <button
               type="button"

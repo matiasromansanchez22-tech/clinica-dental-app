@@ -64,6 +64,8 @@ export default function CobroFormModal({
   // particular, no el nomenclador), así que se avisa en texto para que
   // se agregue a mano — igual se cierra el pendiente al cobrar.
   const [pendientesObraSocialSinPrecargar, setPendientesObraSocialSinPrecargar] = useState([]);
+  // Lo que indicó el profesional: cómo va a pagar el paciente (medio y cantidad de veces).
+  const [indicacionProfesional, setIndicacionProfesional] = useState(null);
   const [prestacionesDisponibles, setPrestacionesDisponibles] = useState([]);
   const [prestaciones, setPrestaciones] = useState([filaVacia()]);
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -114,6 +116,7 @@ export default function CobroFormModal({
     setPendientesPlanIds([]);
     setPendientesAparteIds([]);
     setPendientesObraSocialSinPrecargar([]);
+    setIndicacionProfesional(null);
     setPrestaciones([filaVacia()]);
     setCargoExtraPlan(null);
     setSaldoAFavor(0);
@@ -195,6 +198,11 @@ export default function CobroFormModal({
         // para cobrar" le quedaba pegada para siempre aunque ya le hubieran
         // cobrado.
         setPendientesAparteIds(pendientes.adHoc.map((p) => p.id));
+        const indicada = pendientes.adHoc.find((p) => p.formaPagoPrevista);
+        if (indicada) {
+          setIndicacionProfesional({ medio: indicada.formaPagoPrevista, cuotas: indicada.cuotasPrevistas || 1 });
+          setMedioPago(indicada.formaPagoPrevista);
+        }
         const conNota = pendientes.adHoc.find((p) => p.notaProximoTurno);
         if (conNota) {
           setObservaciones((actual) => actual || `Nota del profesional: ${conNota.notaProximoTurno}`);
@@ -577,6 +585,31 @@ export default function CobroFormModal({
                 </>
               )}
             </p>
+          )}
+
+          {indicacionProfesional && (
+            <div className="rounded-md border-2 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <p>
+                💳 <strong>El profesional indicó:</strong> el paciente paga{" "}
+                <strong>{indicacionProfesional.medio === "Efectivo" ? "en efectivo" : "por transferencia"}</strong>,{" "}
+                <strong>{indicacionProfesional.cuotas === 2 ? "en 2 veces" : "al contado"}</strong>.
+              </p>
+              {indicacionProfesional.cuotas === 2 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                  <span>
+                    Total ${importeTotal.toLocaleString("es-AR")}: primera parte ${Math.round(importeTotal / 2).toLocaleString("es-AR")}; el resto queda como saldo
+                    pendiente (aparece en Cuentas por cobrar).
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPago(Math.round(importeTotal / 2))}
+                    className="rounded-md border border-amber-700 bg-white px-2 py-1 font-medium text-amber-900 hover:bg-amber-100"
+                  >
+                    Cobrar la mitad ahora
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {pendientesObraSocialSinPrecargar.length > 0 && (

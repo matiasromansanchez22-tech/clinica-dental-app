@@ -91,6 +91,11 @@ export default function AvisoPrestacionRealizada() {
           <div>
             <p className="font-heading text-sm font-bold text-brand-brown">✅ {a.nombre} — listo para cobrar</p>
             <p className="mt-0.5 text-xs text-gray-700">{a.prestaciones.join(", ")}</p>
+            {a.formaPago && (
+              <p className="mt-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900">
+                💳 {a.formaPago === "Efectivo" ? "En efectivo" : "Por transferencia"} · {a.cuotas === 2 ? "en 2 veces" : "al contado"}
+              </p>
+            )}
             {a.monto != null && (a.monto > 0 || a.montoIncompleto) && (
               <p className="mt-1 text-sm font-semibold text-emerald-700">
                 💲 A cobrar: ${a.monto.toLocaleString("es-AR")}
