@@ -202,7 +202,7 @@ export default function ControlInstalacionesOrtodoncia() {
               dos cuotas, pero el total es menor al precio actual; puede ser un precio anterior o un descuento.
             </li>
             <li>
-              Quedan afuera {datos.continuaciones} paciente{datos.continuaciones === 1 ? "" : "s"} de continuación de otra clínica (pagan la continuación) y {datos.anteriores} que ya estaban
+              Quedan afuera {datos.continuaciones} paciente{datos.continuaciones === 1 ? "" : "s"} de continuación de otra clínica (pagan la continuación), {datos.ortopedia} de ortopedia (otro tratamiento y otro precio; si hay más, marcalos con la columna Revisión) y {datos.anteriores} que ya estaban
               instalados antes de la app y volvieron por otra arcada. El precio de lista cambia con el tiempo, por eso no todo lo marcado &quot;por menos&quot; es un error.
             </li>
           </ul>
