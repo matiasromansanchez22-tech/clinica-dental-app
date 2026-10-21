@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { calcularEstadoAumento } from "@/lib/ortodoncia";
+import { calcularCuotaConAumento, calcularEstadoAumento } from "@/lib/ortodoncia";
 import {
   aplicarAumentoCuota,
   obtenerConfiguracionOrtodoncia,
@@ -47,9 +47,7 @@ function AumentosOrtodonciaContenido() {
       .filter((p) => !texto || p.nombre.toLowerCase().includes(texto))
       .map((p) => {
         const estado = calcularEstadoAumento(p.proximoAumento);
-        const cuotaSugerida = p.valorControl
-          ? Math.round((Number(p.valorControl) * (1 + porcentajeAumento / 100)) / 100) * 100
-          : 0;
+        const cuotaSugerida = p.valorControl ? calcularCuotaConAumento(p.valorControl, porcentajeAumento) : 0;
         return { paciente: p, estado, cuotaSugerida };
       })
       .filter((f) => mostrarTodos || f.estado.emoji === "🔴" || f.estado.emoji === "🟡")

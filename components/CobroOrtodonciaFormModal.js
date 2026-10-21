@@ -10,6 +10,7 @@ import {
   cuotaControlSugerida,
   precioContinuacionSugerido,
   TIPOS_BRACKET_ORTODONCIA,
+  calcularCuotaConAumento,
   calcularEstadoAumento,
   calcularEstadoInstalacion,
   precioInstalacionSugerido,
@@ -93,7 +94,7 @@ export default function CobroOrtodonciaFormModal({
   );
   const porcentajeAumento = precios.aumento_porcentaje ?? 25;
   const cuotaSugerida = paciente?.valorControl
-    ? Math.round((Number(paciente.valorControl) * (1 + porcentajeAumento / 100)) / 100) * 100
+    ? calcularCuotaConAumento(paciente.valorControl, porcentajeAumento)
     : 0;
   const debeConfirmarAumento = estadoAumento?.texto === "Aumentar";
 
