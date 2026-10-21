@@ -49,7 +49,7 @@ export default function NuevoTurnoOrtodonciaModal({
   const [valor, setValor] = useState("");
   const [observaciones, setObservaciones] = useState("");
   // Prioridad: el paciente es de otra ortodoncista y este turno lo atiende quien se elige abajo.
-  const [prioridadDesmarcada, setPrioridadDesmarcada] = useState(false);
+  const [tipoOtro, setTipoOtro] = useState("");
   const [motivoPrioridad, setMotivoPrioridad] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -232,6 +232,11 @@ export default function NuevoTurnoOrtodonciaModal({
       return;
     }
 
+    if (esOtroOrtodoncista && !tipoOtro) {
+      setErrorMsg("Este turno lo atiende una ortodoncista distinta a la del paciente: elegí si es prioridad, sobreturno o cobertura.");
+      return;
+    }
+
     setGuardando(true);
     try {
       let pacienteId = pacienteExistente?.id;
@@ -266,9 +271,9 @@ export default function NuevoTurnoOrtodonciaModal({
         concepto,
         valor: valor ? Number(valor) : null,
         observaciones,
-        prioridad: esPrioridad,
-        ortodoncistaHabitualId: esPrioridad ? pacienteExistente.ortodoncistaId : null,
-        motivoPrioridad: esPrioridad ? motivoPrioridad.trim() : null,
+        tipoOtroOrtodoncista: esOtroOrtodoncista ? tipoOtro : null,
+        ortodoncistaHabitualId: esOtroOrtodoncista ? pacienteExistente.ortodoncistaId : null,
+        motivoPrioridad: esOtroOrtodoncista && tipoOtro !== "Cobertura" ? motivoPrioridad.trim() || null : null,
       });
 
       if (proximaPrestacionPendiente) await marcarProximaPrestacionUsada(proximaPrestacionPendiente.id);
@@ -285,7 +290,7 @@ export default function NuevoTurnoOrtodonciaModal({
   const esOtroOrtodoncista = Boolean(
     pacienteExistente?.ortodoncistaId && ortodoncistaId && ortodoncistaId !== pacienteExistente.ortodoncistaId
   );
-  const esPrioridad = esOtroOrtodoncista && !prioridadDesmarcada;
+  const tipoElegido = esOtroOrtodoncista ? tipoOtro : "";
 
   const aumento = pacienteExistente?.proximoAumento ? calcularEstadoAumento(pacienteExistente.proximoAumento) : null;
 
@@ -499,21 +504,26 @@ export default function NuevoTurnoOrtodonciaModal({
           </label>
 
           {esOtroOrtodoncista && (
-            <div className={`rounded-md border px-3 py-2 text-sm ${esPrioridad ? "border-amber-400 bg-amber-50 text-amber-900" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
-              <label className="flex cursor-pointer items-start gap-2">
-                <input
-                  type="checkbox"
-                  checked={esPrioridad}
-                  onChange={(e) => setPrioridadDesmarcada(!e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  <strong>⭐ Prioridad:</strong> {pacienteExistente.nombre} es paciente de <strong>{pacienteExistente.ortodoncista}</strong> y lo atiende{" "}
-                  <strong>{ortodoncistaSeleccionado?.nombre}</strong>. Queda marcado en la agenda y después vuelve con{" "}
-                  {pacienteExistente.ortodoncista} (su ficha no cambia).
-                </span>
-              </label>
-              {esPrioridad && (
+            <div className={`rounded-md border px-3 py-2 text-sm ${tipoElegido ? "border-amber-400 bg-amber-50 text-amber-900" : "border-red-300 bg-red-50 text-red-900"}`}>
+              <p className="font-medium">
+                {pacienteExistente.nombre} es paciente de <strong>{pacienteExistente.ortodoncista}</strong> y este turno lo atiende{" "}
+                <strong>{ortodoncistaSeleccionado?.nombre}</strong>. ¿Qué es?
+              </p>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {[
+                  { valor: "Prioridad", titulo: "⭐ Prioridad", texto: `Lo atiende ${ortodoncistaSeleccionado?.nombre} y después vuelve con ${pacienteExistente.ortodoncista}.` },
+                  { valor: "Sobreturno", titulo: "🔁 Sobreturno", texto: `Se agenda acá para no perder el lugar. Si se libera un turno con ${pacienteExistente.ortodoncista}, se pasa.` },
+                  { valor: "Cobertura", titulo: "↔ Cobertura", texto: `${ortodoncistaSeleccionado?.nombre} atiende solo ese día. No cambia nada.` },
+                ].map((o) => (
+                  <label key={o.valor} className="flex cursor-pointer items-start gap-2">
+                    <input type="radio" name="tipo-otro-ortodoncista" checked={tipoOtro === o.valor} onChange={() => setTipoOtro(o.valor)} className="mt-0.5" />
+                    <span>
+                      <strong>{o.titulo}:</strong> {o.texto}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {(tipoElegido === "Prioridad" || tipoElegido === "Sobreturno") && (
                 <input
                   value={motivoPrioridad}
                   onChange={(e) => setMotivoPrioridad(e.target.value)}

@@ -162,6 +162,21 @@ function QueRevisarContenido() {
           </Seccion>
 
           <Seccion
+            titulo="Sobreturnos sin resolver"
+            cantidad={alertas.sobreturnos.length}
+            ayuda="Llegó el día de un sobreturno y sigue sin resolverse: pasarlo con su ortodoncista si se liberó un lugar, confirmarlo con quien lo atiende, o cancelarlo desde la agenda."
+          >
+            {alertas.sobreturnos.map((t) => (
+              <p key={t.id} className="text-sm text-gray-800">
+                <strong>{t.paciente}</strong> — {formatoFecha(t.fecha)} {t.hora}, agendado con {t.atiende} (es de {t.habitual})
+              </p>
+            ))}
+            <Link href="/ortodoncia/prioridades" className="text-xs text-brand-brown underline">
+              Ir a Prioridades
+            </Link>
+          </Seccion>
+
+          <Seccion
             titulo="Visitas que quedaron pendientes de pago"
             cantidad={alertas.pendientesDePago.length}
             ayuda="Al cerrar el turno se dejaron como pendientes de pago. Siguen acá hasta que el paciente tenga un cobro cargado."

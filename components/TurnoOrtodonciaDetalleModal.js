@@ -193,7 +193,30 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           {fecha} · {turnoActual.horaInicio} ({turnoActual.duracionMin} min) · Consultorio {turnoActual.consultorio} ·{" "}
           {turnoActual.concepto} · {turnoActual.profesionalDeTurno}
         </p>
-        {turnoActual.prioridad && (
+        {turnoActual.tipoOtroOrtodoncista === "Sobreturno" && (
+          <div className="mb-3 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            🔁 <strong>Sobreturno:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y se agendó con {turnoActual.profesionalDeTurno} para no perder el lugar
+            {turnoActual.motivoPrioridad ? ` — ${turnoActual.motivoPrioridad}` : ""}. Si se libera un turno con {turnoActual.ortodoncistaHabitual || "su ortodoncista"}, hay que pasarlo.
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => aplicarCambio("confirmar-sobreturno", { tipo_otro_ortodoncista: "Prioridad" })}
+                disabled={guardando === "confirmar-sobreturno"}
+                className="rounded-md border border-amber-700 bg-white px-2 py-1 font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+              >
+                Confirmar: lo atiende {turnoActual.profesionalDeTurno}
+              </button>
+              <a href="/ortodoncia/prioridades" className="underline">
+                Ver lugares libres con {turnoActual.ortodoncistaHabitual || "su ortodoncista"}
+              </a>
+            </div>
+          </div>
+        )}
+        {turnoActual.tipoOtroOrtodoncista === "Cobertura" && (
+          <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+            ↔ <strong>Cobertura:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y {turnoActual.profesionalDeTurno} lo atiende solo este día.
+          </div>
+        )}
+        {turnoActual.prioridad && turnoActual.tipoOtroOrtodoncista !== "Sobreturno" && (
           <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             ⭐ <strong>Prioridad:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y lo atiende {turnoActual.profesionalDeTurno}
             {turnoActual.motivoPrioridad ? ` — ${turnoActual.motivoPrioridad}` : ""}. Después vuelve con {turnoActual.ortodoncistaHabitual || "su ortodoncista"}.

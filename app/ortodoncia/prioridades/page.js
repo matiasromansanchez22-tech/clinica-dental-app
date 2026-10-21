@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { SITUACION_VUELTA, obtenerPrioridadesOrtodoncia } from "@/lib/data/prioridadesOrtodoncia";
+import SobreturnosOrtodoncia from "@/components/SobreturnosOrtodoncia";
 
 function formatoFecha(fechaISO) {
   if (!fechaISO) return "—";
@@ -51,6 +52,8 @@ function PaginaPrioridades() {
           Falta activar las prioridades (migración 160).
         </div>
       )}
+
+      {perfil?.rol !== "Odontologo" && <SobreturnosOrtodoncia />}
 
       {cargando ? (
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>

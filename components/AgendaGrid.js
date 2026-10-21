@@ -81,16 +81,28 @@ export default function AgendaGrid({
                       key={consultorio}
                       rowSpan={celda.span}
                       onClick={() => onTurnoClick?.(turno)}
-                      className={`cursor-pointer border border-gray-300 p-1.5 align-top hover:brightness-95 ${color.bg} ${color.text}`}
+                      className={`cursor-pointer border p-1.5 align-top hover:brightness-95 ${
+                        turno.tipoOtroOrtodoncista === "Sobreturno" ? "border-2 border-dashed border-amber-600" : "border-gray-300"
+                      } ${color.bg} ${color.text}`}
                     >
                       <div className="font-semibold leading-tight">{turno.paciente}</div>
                       <div className="text-xs opacity-90 leading-tight">
                         {subtitulo} · {turno.profesionalDeTurno}
                       </div>
-                      {turno.prioridad && (
-                        <div className="text-[11px] font-semibold leading-tight">
-                          ⭐ Prioridad{turno.ortodoncistaHabitual ? ` — es paciente de ${turno.ortodoncistaHabitual}` : ""}
+                      {turno.tipoOtroOrtodoncista === "Sobreturno" ? (
+                        <div className="text-[11px] font-bold leading-tight">
+                          🔁 SOBRETURNO{turno.ortodoncistaHabitual ? ` — es paciente de ${turno.ortodoncistaHabitual}` : ""}
                         </div>
+                      ) : turno.tipoOtroOrtodoncista === "Cobertura" ? (
+                        <div className="text-[11px] font-semibold leading-tight">
+                          ↔ Cobertura{turno.ortodoncistaHabitual ? ` de ${turno.ortodoncistaHabitual}` : ""}
+                        </div>
+                      ) : (
+                        turno.prioridad && (
+                          <div className="text-[11px] font-semibold leading-tight">
+                            ⭐ Prioridad{turno.ortodoncistaHabitual ? ` — es paciente de ${turno.ortodoncistaHabitual}` : ""}
+                          </div>
+                        )
                       )}
                       {!turno.prioridad && turno.profesionalResponsable && turno.profesionalResponsable !== turno.profesionalDeTurno && (
                         <div className="text-[11px] font-medium opacity-90 leading-tight">
