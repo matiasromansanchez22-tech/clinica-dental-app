@@ -385,17 +385,13 @@ function PaginaRetomar() {
     [pacientes, mesActual, sinNingunTurnoFuturo]
   );
   // Cuántos de la lista actual se están ocultando porque ya tienen un turno agendado más adelante.
-  const ocultosPorTurnoFuturo = useMemo(
-    () =>
-      pacientes.filter(
-        (p) =>
-          p.estado === "Activo" &&
-          p.proximoTurno &&
-          p.segmento !== SEGMENTOS.SIN_MOVIMIENTO &&
-          estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR
-      ).length,
-    [pacientes, mesActual]
-  );
+  const ocultosPorTurnoFuturo = pacientes.filter(
+    (p) =>
+      p.estado === "Activo" &&
+      p.proximoTurno &&
+      p.segmento !== SEGMENTOS.SIN_MOVIMIENTO &&
+      estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR
+  ).length;
   const estadoDe = (p) => gestion[p.id]?.estado || "Por contactar";
   const baseVisible = useMemo(
     () => candidatosDe(criterio),
@@ -415,7 +411,8 @@ function PaginaRetomar() {
     return baseVisible
       .filter((p) => {
         const e = estadoDe(p);
-        if (estadoElegido === "pendientes") return e === "Por contactar" || e === "Sin respuesta";
+        // Pendientes = a los que todavía no se les escribió. Los que ya recibieron mensaje o no respondieron quedan en su propio grupo (abajo).
+        if (estadoElegido === "pendientes") return e === "Por contactar";
         return estadoElegido === "todos" || e === estadoElegido;
       })
       .filter((p) => ortodoncista === "todos" || p.ortodoncista === ortodoncista)
@@ -506,7 +503,11 @@ function PaginaRetomar() {
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <p className="mt-4 text-xs text-gray-500">
+            La lista muestra solo a los que todavía no se les escribió. Al tocar «Escribirle» queda anotado como «Mensaje enviado» con la fecha; si no contestan, cambialo a «Sin respuesta» y pasan a ese grupo.
+            Tocá un estado para ver cada grupo.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
             {ESTADOS_RETOMAR.map((e) => (
               <button
                 key={e}
@@ -529,7 +530,7 @@ function PaginaRetomar() {
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
             />
             <select value={estadoElegido} onChange={(e) => setEstadoElegido(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
-              <option value="pendientes">Pendientes (por contactar y sin respuesta)</option>
+              <option value="pendientes">Pendientes (todavía no se les escribió)</option>
               <option value="todos">Todos</option>
               {ESTADOS_RETOMAR.map((e) => (
                 <option key={e} value={e}>
