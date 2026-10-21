@@ -11,6 +11,7 @@ import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import PlanTratamiento from "@/components/PlanTratamiento";
 import Odontograma from "@/components/Odontograma";
+import AlertaAntecedentes from "@/components/AlertaAntecedentes";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 const MAX_PRESTACIONES_TURNO = 4;
@@ -305,6 +306,8 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio} · {turnoActual.tipoAtencion} ·{" "}
           {turnoActual.profesionalDeTurno}
         </p>
+
+        <AlertaAntecedentes pacienteId={turnoActual.pacienteId} />
 
         {!mostrarProfesional ? (
           <button

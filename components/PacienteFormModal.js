@@ -1,5 +1,6 @@
 "use client";
 
+import { CAMPOS_ANTECEDENTES, CONDICIONES_MEDICAS } from "@/lib/antecedentes";
 import { useEffect, useState } from "react";
 import { calcularEdad, formatearDni } from "@/lib/pacientes";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -43,6 +44,13 @@ const VACIO = {
   historiaClinicaCompleta: false,
   consentimientosFirmados: false,
   profesionalResponsableId: "",
+  antEnfermedades: "",
+  antPatologias: "",
+  antAlergias: "",
+  antMedicacion: "",
+  antAtm: "",
+  antCondiciones: [],
+  antModificado: false,
 };
 
 export default function PacienteFormModal({
@@ -149,11 +157,32 @@ export default function PacienteFormModal({
       historiaClinicaCompleta: p.historiaClinicaCompleta || false,
       consentimientosFirmados: p.consentimientosFirmados || false,
       profesionalResponsableId: p.profesionalResponsableId || "",
+      antEnfermedades: p.antEnfermedades || "",
+      antPatologias: p.antPatologias || "",
+      antAlergias: p.antAlergias || "",
+      antMedicacion: p.antMedicacion || "",
+      antAtm: p.antAtm || "",
+      antCondiciones: p.antCondiciones || [],
+      antModificado: false,
     };
   }
 
   function set(campo, valor) {
-    setForm((f) => ({ ...f, [campo]: valor }));
+    // Cualquier cambio en los antecedentes médicos deja anotado que se actualizaron.
+    setForm((f) => ({ ...f, [campo]: valor, ...(campo.startsWith("ant") && campo !== "antModificado" ? { antModificado: true } : {}) }));
+  }
+
+  // "Sin patología": completa con s/p los antecedentes que están vacíos (como en la historia clínica en papel).
+  function marcarSinPatologias() {
+    setForm((f) => ({
+      ...f,
+      antEnfermedades: f.antEnfermedades || "s/p",
+      antPatologias: f.antPatologias || "s/p",
+      antAlergias: f.antAlergias || "s/p",
+      antMedicacion: f.antMedicacion || "s/p",
+      antAtm: f.antAtm || "s/p",
+      antModificado: true,
+    }));
   }
 
   useEffect(() => {
@@ -594,6 +623,51 @@ export default function PacienteFormModal({
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
             </label>
+          </div>
+
+          <div className="rounded-md border border-red-200 bg-red-50/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-gray-800">🩺 Antecedentes médicos y patologías</p>
+              <button type="button" onClick={marcarSinPatologias} className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                Sin patologías (s/p)
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Lo que se complete acá le aparece al profesional como «Alertas médicas» en el turno, antes de atender.
+            </p>
+            <p className="mt-2 text-xs font-medium text-gray-600">Condiciones frecuentes (tildá las que tenga)</p>
+            <div className="mt-1 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+              {CONDICIONES_MEDICAS.map((c) => (
+                <label key={c} className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.antCondiciones.includes(c)}
+                    onChange={(e) => set("antCondiciones", e.target.checked ? [...form.antCondiciones, c] : form.antCondiciones.filter((x) => x !== c))}
+                  />
+                  {c}
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {CAMPOS_ANTECEDENTES.map((c) => {
+                const clave = "ant" + c.clave[0].toUpperCase() + c.clave.slice(1);
+                return (
+                  <label key={c.clave} className="flex flex-col gap-1 text-sm text-gray-700">
+                    {c.etiqueta}
+                    <textarea
+                      value={form[clave]}
+                      onChange={(e) => set(clave, e.target.value)}
+                      rows={2}
+                      placeholder={c.ayuda}
+                      className="rounded-md border border-gray-300 px-2 py-1.5"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+            {paciente?.antActualizadoEn && (
+              <p className="mt-2 text-[11px] text-gray-400">Última actualización: {new Date(paciente.antActualizadoEn).toLocaleDateString("es-AR")}</p>
+            )}
           </div>
 
           <div className="flex gap-6">

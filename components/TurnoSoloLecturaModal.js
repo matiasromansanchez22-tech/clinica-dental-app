@@ -4,6 +4,7 @@ import { useState } from "react";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import Odontograma from "@/components/Odontograma";
+import AlertaAntecedentes from "@/components/AlertaAntecedentes";
 import PlanTratamiento from "@/components/PlanTratamiento";
 
 export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, catalogo, onClose, onCambiado }) {
@@ -22,6 +23,8 @@ export default function TurnoSoloLecturaModal({ turno, fecha, profesionales, cat
         <p className="mb-4 text-sm text-gray-500">
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio}
         </p>
+
+        <AlertaAntecedentes pacienteId={turnoActual.pacienteId} />
 
         <div className="flex flex-col gap-1 text-sm text-gray-700">
           <p><span className="text-gray-500">Tipo de atención:</span> {turnoActual.tipoAtencion}</p>

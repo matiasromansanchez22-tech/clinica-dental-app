@@ -30,6 +30,8 @@ const ESTADOS_GENERAL = [
   "A extraer",
   "Corona a realizar",
   "Corona realizada",
+  "Carilla a realizar",
+  "Carilla realizada",
   "Conducto a realizar",
   "Conducto realizado",
   "Implante",
@@ -51,6 +53,8 @@ const ESTILO_GENERAL = {
   "A extraer": "border-blue-500 bg-white text-blue-600",
   "Corona a realizar": "border-blue-500 bg-white text-blue-600",
   "Corona realizada": "border-red-500 bg-white text-red-600",
+  "Carilla a realizar": "border-blue-500 bg-white text-blue-600",
+  "Carilla realizada": "border-red-500 bg-white text-red-600",
   "Conducto a realizar": "border-blue-500 bg-blue-500 text-white",
   "Conducto realizado": "border-red-500 bg-red-500 text-white",
   Implante: "border-teal-500 bg-teal-50 text-teal-700",
@@ -61,6 +65,8 @@ const ETIQUETA_GENERAL = {
   "A extraer": "✕",
   "Corona a realizar": "○",
   "Corona realizada": "○",
+  "Carilla a realizar": "Cv",
+  "Carilla realizada": "Cv",
   "Conducto a realizar": "TC",
   "Conducto realizado": "TC",
   Implante: "Imp",
@@ -608,6 +614,12 @@ export default function Odontograma({ pacienteId, profesionales, onCambio }) {
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2.5 w-2.5 rounded-full border-2 border-red-500" /> Corona realizada
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="flex h-3 w-4 items-center justify-center rounded-sm border-2 border-blue-500 text-[6px] font-bold text-blue-600">Cv</span> Carilla a realizar
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="flex h-3 w-4 items-center justify-center rounded-sm border-2 border-red-500 text-[6px] font-bold text-red-600">Cv</span> Carilla realizada
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" /> Conducto (TC) a realizar
