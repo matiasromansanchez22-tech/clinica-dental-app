@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   ESTADOS_INSTALACION,
   INICIO_APP_INSTALACIONES,
@@ -54,6 +55,8 @@ function Tarjeta({ titulo, valor, detalle, color, activa, onClick }) {
 
 // Control de instalaciones: qué pagó cada paciente instalado contra el precio de lista.
 export default function ControlInstalacionesOrtodoncia() {
+  const { perfil } = useAuth();
+  const puedeRevisar = perfil?.rol === "Duena";
   const [desde, setDesde] = useState(INICIO_APP_INSTALACIONES);
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -276,6 +279,9 @@ export default function ControlInstalacionesOrtodoncia() {
                       <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_ESTADO[f.estado]}`}>{f.estado}</span>
                     </td>
                     <td className="px-3 py-2">
+                      {!puedeRevisar ? (
+                        <span className="text-xs text-gray-600">{f.revision?.resultado || "—"}</span>
+                      ) : (
                       <select
                         value={f.revision?.resultado || ""}
                         onChange={(e) => revisar(f.id, e.target.value)}
@@ -289,6 +295,7 @@ export default function ControlInstalacionesOrtodoncia() {
                           </option>
                         ))}
                       </select>
+                      )}
                     </td>
                   </tr>
                 ))}

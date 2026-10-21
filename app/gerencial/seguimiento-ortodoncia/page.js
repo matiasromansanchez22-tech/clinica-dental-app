@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import SoloDuena from "@/components/SoloDuena";
+import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import ControlCobrosOrtodoncia from "@/components/ControlCobrosOrtodoncia";
 import ControlInstalacionesOrtodoncia from "@/components/ControlInstalacionesOrtodoncia";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
@@ -586,7 +586,7 @@ function PaginaSeguimiento() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🦷 Seguimiento de Ortodoncia</h1>
-      <p className="mt-0.5 text-sm text-gray-500">Solo para las dueñas: quién ya vino este mes, a quién le falta venir y a quién hay que escribirle.</p>
+      <p className="mt-0.5 text-sm text-gray-500">Para las dueñas y la contadora: quién ya vino este mes, a quién le falta venir y cuánto se cobró de lo que debería.</p>
       <div className="mt-4 flex overflow-hidden rounded-md border border-gray-300 text-sm sm:w-fit">
         <button
           onClick={() => setVista("mes")}
@@ -626,8 +626,8 @@ function PaginaSeguimiento() {
 
 export default function SeguimientoOrtodonciaPage() {
   return (
-    <SoloDuena>
+    <SoloDuenaYContador>
       <PaginaSeguimiento />
-    </SoloDuena>
+    </SoloDuenaYContador>
   );
 }

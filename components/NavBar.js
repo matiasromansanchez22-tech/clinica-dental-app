@@ -105,6 +105,7 @@ const GRUPOS = [
     items: [
       { href: "/caja", label: "Caja General" },
       { href: "/ortodoncia/caja", label: "Caja Ortodoncia" },
+      { href: "/gerencial/seguimiento-ortodoncia", label: "🦷 Seguimiento de Ortodoncia", ocultarRoles: ["Duena"] },
       { href: "/gerencial/gastos", label: "Gastos" },
       { href: "/gastos-recurrentes", label: "💼 Gastos de la Clínica" },
       { href: "/gerencial/finanzas-personales", label: "💰 Consultorio (reserva)", ocultarRoles: ["Duena"] },
