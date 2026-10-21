@@ -113,8 +113,17 @@ function VistaMes() {
 
   // Cada paciente activo, con su estado en el mes elegido.
   const activos = useMemo(
-    () => pacientes.filter((p) => p.estado === "Activo").map((p) => ({ ...p, estadoMes: estadoEnElMes(p, mes) })),
-    [pacientes, mes]
+    () =>
+      pacientes
+        .filter((p) => p.estado === "Activo")
+        .map((p) => {
+          const estadoMes = estadoEnElMes(p, mes);
+          // Faltó a su turno de este mes pero ya tiene otro agendado en un mes que viene: ya está resuelto, pasa a "Ya tiene turno más adelante"
+          // (en "Turnos del mes" se sigue viendo el turno que perdió).
+          const yaReprogramado = estadoMes === ESTADOS_MES.TURNO_SIN_ASISTIR && mes === hoy.slice(0, 7) && p.proximoTurno && p.proximoTurno.slice(0, 7) > mes;
+          return { ...p, estadoMes: yaReprogramado ? ESTADOS_MES.TURNO_PROXIMO : estadoMes };
+        }),
+    [pacientes, mes, hoy]
   );
   const otrosEstados = useMemo(() => {
     const m = {};
@@ -227,7 +236,7 @@ function VistaMes() {
         <Tarjeta
           titulo={ESTADOS_MES.TURNO_PROXIMO}
           valor={conteo(ESTADOS_MES.TURNO_PROXIMO)}
-          detalle="No vinieron este mes pero ya tienen turno en un mes que viene: no hace falta escribirles"
+          detalle="No vinieron este mes (o faltaron a su turno) pero ya tienen turno en un mes que viene: no hace falta escribirles"
           color="text-gray-700"
           activa={estadoElegido === ESTADOS_MES.TURNO_PROXIMO}
           onClick={() => alternar(ESTADOS_MES.TURNO_PROXIMO)}
