@@ -14,6 +14,7 @@ import {
   obtenerEvolucionMensualOrtodoncia,
   obtenerSeguimientoOrtodoncia,
 } from "@/lib/data/seguimientoOrtodoncia";
+import { obtenerGestionRetomar } from "@/lib/data/retomarOrtodoncia";
 import { esMesDePrueba } from "@/lib/mesesDePrueba";
 
 const NOMBRES_MES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -98,8 +99,12 @@ function VistaMes() {
   const [segmento, setSegmento] = useState("todos");
   const [ortodoncista, setOrtodoncista] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
+  // Seguimiento de "Retomar": a quién ya se le escribió (o ya se resolvió) desde la app.
+  const [gestion, setGestion] = useState({});
+  const [ocultarYaEscritos, setOcultarYaEscritos] = useState(true);
 
   useEffect(() => {
+    obtenerGestionRetomar().then((g) => setGestion(g.porPaciente)).catch(() => {});
     obtenerSeguimientoOrtodoncia()
       .then(setPacientes)
       .catch((e) => setError(e.message))
@@ -119,6 +124,9 @@ function VistaMes() {
   const conteo = (e) => activos.filter((p) => p.estadoMes === e).length;
   const sinTurno = activos.filter((p) => p.estadoMes === ESTADOS_MES.SIN_TURNO);
   const sinTurnoPorSegmento = (s) => sinTurno.filter((p) => p.segmento === s).length;
+  // "Ya se le escribió" = tiene cualquier estado distinto de "Por contactar" en Retomar (mensaje enviado, sin respuesta, quiere retomar, etc.).
+  const yaEscrito = (p) => Boolean(gestion[p.id]) && gestion[p.id].estado !== "Por contactar";
+  const sinTurnoYaEscritos = sinTurno.filter(yaEscrito).length;
 
   const ortodoncistas = useMemo(() => [...new Set(activos.map((p) => p.ortodoncista))].sort((a, b) => a.localeCompare(b, "es")), [activos]);
   const porOrtodoncista = useMemo(
@@ -138,6 +146,7 @@ function VistaMes() {
     const q = busqueda.trim().toLowerCase();
     return activos
       .filter((p) => estadoElegido === "todos" || p.estadoMes === estadoElegido)
+      .filter((p) => !(ocultarYaEscritos && p.estadoMes === ESTADOS_MES.SIN_TURNO && yaEscrito(p)))
       .filter((p) => segmento === "todos" || p.segmento === segmento)
       .filter((p) => ortodoncista === "todos" || p.ortodoncista === ortodoncista)
       .filter((p) => !q || p.nombre.toLowerCase().includes(q))
@@ -149,7 +158,8 @@ function VistaMes() {
           a.nombre.localeCompare(b.nombre, "es")
         );
       });
-  }, [activos, estadoElegido, segmento, ortodoncista, busqueda]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activos, estadoElegido, segmento, ortodoncista, busqueda, gestion, ocultarYaEscritos]);
 
   function turnosDelMes(p) {
     return p.turnos.filter((t) => t.fecha.slice(0, 7) === mes).sort((a, b) => a.fecha.localeCompare(b.fecha));
@@ -157,11 +167,12 @@ function VistaMes() {
 
   function exportar() {
     descargarCSV(`ortodoncia-${mes}.csv`, [
-      ["Paciente", "Ortodoncista", `Estado en ${nombreMes(mes)}`, "Turnos del mes", "Última visita en la app", "Último mes pago (cuaderno)", "Situación general", "Próximo turno"],
+      ["Paciente", "Ortodoncista", `Estado en ${nombreMes(mes)}`, "Turnos del mes", "Última visita en la app", "Último mes pago (cuaderno)", "Situación general", "Próximo turno", "Mensaje (Retomar)"],
       ...visibles.map((p) => [
         p.nombre, p.ortodoncista, p.estadoMes,
         turnosDelMes(p).map((t) => `${formatoDiaMes(t.fecha)} (${t.situacion})`).join(" | "),
         formatoFecha(p.ultimaVisita), nombreMes(p.ultimoMesPago), p.segmento, formatoFecha(p.proximoTurno),
+        gestion[p.id] ? gestion[p.id].estado : "",
       ]),
     ]);
   }
@@ -224,7 +235,7 @@ function VistaMes() {
         <Tarjeta
           titulo={ESTADOS_MES.SIN_TURNO}
           valor={conteo(ESTADOS_MES.SIN_TURNO)}
-          detalle={`${sinTurnoPorSegmento(SEGMENTOS.AL_DIA)} vinieron hace poco · ${sinTurnoPorSegmento(SEGMENTOS.SE_ALEJO)} se alejaron · ${sinTurnoPorSegmento(SEGMENTOS.SOLO_CUADERNO)} solo cuaderno · ${sinTurnoPorSegmento(SEGMENTOS.SIN_MOVIMIENTO)} sin movimiento`}
+          detalle={`${sinTurnoPorSegmento(SEGMENTOS.AL_DIA)} vinieron hace poco · ${sinTurnoPorSegmento(SEGMENTOS.SE_ALEJO)} se alejaron · ${sinTurnoPorSegmento(SEGMENTOS.SOLO_CUADERNO)} solo cuaderno · ${sinTurnoPorSegmento(SEGMENTOS.SIN_MOVIMIENTO)} sin movimiento · ${sinTurnoYaEscritos} ya recibieron mensaje desde Retomar`}
           color="text-red-700"
           activa={estadoElegido === ESTADOS_MES.SIN_TURNO}
           onClick={() => alternar(ESTADOS_MES.SIN_TURNO)}
@@ -277,6 +288,10 @@ function VistaMes() {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        <label className="flex items-center gap-2 text-sm text-gray-700" title="En el grupo Sin turno este mes, saca a los que ya tienen un seguimiento en Retomar (mensaje enviado, sin respuesta, etc.)">
+          <input type="checkbox" checked={ocultarYaEscritos} onChange={(e) => setOcultarYaEscritos(e.target.checked)} />
+          Ocultar los que ya recibieron mensaje{ocultarYaEscritos && sinTurnoYaEscritos > 0 ? ` (${sinTurnoYaEscritos})` : ""}
+        </label>
         <button onClick={exportar} className="ml-auto rounded-md border border-brand-brown/40 px-3 py-1.5 text-sm font-medium text-brand-brown hover:bg-brand-tan/30">
           ⬇️ Descargar Excel (CSV)
         </button>
@@ -293,6 +308,7 @@ function VistaMes() {
               <th className="px-3 py-2 text-left font-semibold">Turnos del mes</th>
               <th className="px-3 py-2 text-left font-semibold">Última visita (app)</th>
               <th className="px-3 py-2 text-left font-semibold">Próximo turno</th>
+              <th className="px-3 py-2 text-left font-semibold">Mensaje (Retomar)</th>
               <th className="px-3 py-2 text-left font-semibold">Antigüedad</th>
             </tr>
           </thead>
@@ -317,6 +333,9 @@ function VistaMes() {
                   {p.ultimaVisita ? `${formatoFecha(p.ultimaVisita)} (hace ${p.diasDesdeUltimaVisita} d)` : p.ultimoMesPago ? `Cuaderno: ${nombreMes(p.ultimoMesPago)}` : "—"}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-600">{p.proximoTurno ? formatoFecha(p.proximoTurno) : "—"}</td>
+                <td className="px-3 py-2 text-xs text-gray-600">
+                  {gestion[p.id] ? `${gestion[p.id].estado}${gestion[p.id].fecha_ultimo_contacto ? ` · ${formatoFecha(gestion[p.id].fecha_ultimo_contacto)}` : ""}` : "—"}
+                </td>
                 <td className="px-3 py-2">
                   <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_SEGMENTO[p.segmento]}`}>{p.segmento}</span>
                 </td>
