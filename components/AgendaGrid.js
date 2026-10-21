@@ -148,6 +148,11 @@ export default function AgendaGrid({
                           )}
                         </div>
                       )}
+                      {turno.consentimientoPendiente === false && (
+                        <div className="mt-0.5 rounded bg-emerald-100 px-1 py-0.5 text-[11px] font-semibold leading-tight text-emerald-900">
+                          ✅ Consentimiento firmado
+                        </div>
+                      )}
                       <div className="text-[11px] opacity-80 leading-tight">
                         {color.etiqueta}
                         {turno.confirmacion === "Confirmado" && color.etiqueta !== "Confirmado" && " · ✓ Confirmado"}
