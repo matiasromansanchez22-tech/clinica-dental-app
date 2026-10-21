@@ -233,6 +233,7 @@ export default function ControlInstalacionesOrtodoncia() {
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-700">
                       {formatoFecha(f.fechaInstalacion)}
                       <span className="block text-gray-500">{f.hecha ? (f.diasDesdeInstalacion !== null ? `hace ${f.diasDesdeInstalacion} d` : "hecha") : "agendada"}</span>
+                      {f.hecha && f.evidencia.length > 0 && <span className="block max-w-[11rem] whitespace-normal text-[11px] text-gray-400">Figura instalada por: {f.evidencia.join(" y ")}</span>}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-700">
                       {f.tipoBrackets || <span className="text-amber-700">sin brackets</span>}
