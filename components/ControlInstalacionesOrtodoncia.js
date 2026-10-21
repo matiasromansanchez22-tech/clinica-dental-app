@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { diaConFecha } from "@/lib/diaHora";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   ESTADOS_INSTALACION,
@@ -90,7 +91,7 @@ export default function ControlInstalacionesOrtodoncia() {
       ...visibles.map((f) => [
         f.paciente, f.ortodoncista, formatoFecha(f.fechaInstalacion), f.hecha ? "Sí" : "Agendada", f.tipoBrackets || "", f.formaPago || "",
         Math.round(f.referencia || 0), Math.round(f.pagado), Math.round(f.falta),
-        f.pagos.map((p) => `${formatoFecha(p.fecha)} ${Math.round(p.importe)}`).join(" | "), f.estado,
+        f.pagos.map((p) => `${diaConFecha(p.fecha)} ${p.hora} ${Math.round(p.importe)} ${p.medio || ""}${p.cargadoPor ? ` (cargó ${p.cargadoPor})` : ""}`).join(" | "), f.estado,
       ]),
     ];
     const url = URL.createObjectURL(new Blob(["﻿" + filas.map((l) => l.map(celdaCSV).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -255,7 +256,8 @@ export default function ControlInstalacionesOrtodoncia() {
                       <p className="text-xs text-gray-500">{f.ortodoncista}</p>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-700">
-                      {formatoFecha(f.fechaInstalacion)}
+                      <strong>{f.turnoInstalacion ? `${diaConFecha(f.turnoInstalacion.fecha)} ${f.turnoInstalacion.hora}` : diaConFecha(f.fechaInstalacion)}</strong>
+                      {f.turnoInstalacion?.consultorio ? <span className="block text-gray-500">consultorio {f.turnoInstalacion.consultorio}</span> : null}
                       <span className="block text-gray-500">{f.hecha ? (f.diasDesdeInstalacion !== null ? `hace ${f.diasDesdeInstalacion} d` : "hecha") : "agendada"}</span>
                       {f.hecha && f.evidencia.length > 0 && <span className="block max-w-[11rem] whitespace-normal text-[11px] text-gray-400">Figura instalada por: {f.evidencia.join(" y ")}</span>}
                     </td>
@@ -269,7 +271,8 @@ export default function ControlInstalacionesOrtodoncia() {
                         ? "—"
                         : f.pagos.map((p, i) => (
                             <span key={i} className="block tabular-nums">
-                              {formatoFecha(p.fecha)} · {pesos(p.importe)} {p.concepto === "Pago adelantado" ? "(adelanto)" : ""}
+                              {diaConFecha(p.fecha)} {p.hora} · {pesos(p.importe)} {p.concepto === "Pago adelantado" ? "(adelanto)" : ""}
+                              <span className="block text-[11px] text-gray-500">{p.medio}{p.cargadoPor ? ` · cargó ${p.cargadoPor}` : ""}</span>
                             </span>
                           ))}
                       {f.pagos.length > 1 && <span className="block font-semibold">Total {pesos(f.pagado)}</span>}

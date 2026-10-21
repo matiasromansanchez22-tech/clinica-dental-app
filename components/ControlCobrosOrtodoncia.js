@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { diaConFecha } from "@/lib/diaHora";
 import { TIPOS_CONTROL, obtenerControlCobrosOrtodoncia } from "@/lib/data/controlCobrosOrtodoncia";
 
 const NOMBRES_MES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -82,10 +83,12 @@ export default function ControlCobrosOrtodoncia() {
 
   function exportar() {
     const filas = [
-      ["Paciente", "Ortodoncista", "Turnos de Control del mes", "Vino", "Debería cobrarse", "Cobrado en controles", "Diferencia", "Situación"],
+      ["Paciente", "Ortodoncista", "Turnos de Control del mes (día, hora, consultorio)", "Vino", "Debería cobrarse", "Cobrado en controles", "Diferencia", "Situación", "Cobros del mes (día, hora de carga, quién)"],
       ...visibles.map((f) => [
-        f.paciente, f.ortodoncista, f.turnos.map((t) => `${formatoDiaMes(t.fecha)} ${t.situacion}`).join(" | "),
+        f.paciente, f.ortodoncista,
+        f.turnos.map((t) => `${diaConFecha(t.fecha)} ${t.hora}${t.consultorio ? ` (cons. ${t.consultorio})` : ""} ${t.situacion}`).join(" | "),
         f.asistio, Math.round(f.esperado), Math.round(f.cobrado), Math.round(f.diferencia), f.tipo,
+        f.cobros.map((c) => `${diaConFecha(c.fecha)} ${c.hora} ${Math.round(c.importe)} ${c.medio || ""} ${c.concepto}${c.cargadoPor ? ` (cargó ${c.cargadoPor})` : ""}`).join(" | "),
       ]),
     ];
     const url = URL.createObjectURL(new Blob(["﻿" + filas.map((l) => l.map(celdaCSV).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -239,14 +242,28 @@ export default function ControlCobrosOrtodoncia() {
                       {f.turnos.length === 0
                         ? "—"
                         : f.turnos.map((t) => (
-                            <span key={t.fecha + t.hora} className="mr-1.5 inline-block">
-                              {formatoDiaMes(t.fecha)} {t.hora} · {t.situacion}
+                            <span key={t.fecha + t.hora} className="mb-0.5 block">
+                              <strong>{diaConFecha(t.fecha)} {t.hora}</strong>
+                              {t.consultorio ? ` · cons. ${t.consultorio}` : ""} · {t.situacion}
                             </span>
                           ))}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-700">{f.esperado ? pesos(f.esperado) : "—"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                      {f.cobrado || f.cobradoTotal ? pesos(f.cobrado || f.cobradoTotal) : f.coberturaPorGrilla ? <span className="text-xs text-gray-500">pagado antes</span> : "—"}
+                    <td className="px-3 py-2 text-right text-gray-700">
+                      {f.cobros.length > 0 ? (
+                        f.cobros.map((c, i) => (
+                          <span key={i} className="mb-0.5 block text-xs tabular-nums">
+                            <strong>{pesos(c.importe)}</strong>
+                            <span className="block text-[11px] text-gray-500">
+                              {diaConFecha(c.fecha)} {c.hora} · {c.medio}{c.concepto !== "Control" ? ` · ${c.concepto}` : ""}{c.cargadoPor ? ` · ${c.cargadoPor}` : ""}
+                            </span>
+                          </span>
+                        ))
+                      ) : f.coberturaPorGrilla ? (
+                        <span className="text-xs text-gray-500">pagado antes</span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className={`px-3 py-2 text-right font-semibold tabular-nums ${f.tipo === TIPOS_CONTROL.SIN_PAGO || f.tipo === TIPOS_CONTROL.DE_MENOS ? "text-red-700" : "text-gray-500"}`}>
                       {f.diferencia ? pesos(f.diferencia) : "—"}
