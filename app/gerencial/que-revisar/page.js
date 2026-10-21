@@ -162,6 +162,34 @@ function QueRevisarContenido() {
           </Seccion>
 
           <Seccion
+            titulo="Pagos con la reserva cargados por la contadora"
+            cantidad={alertas.reservaContadora.length}
+            ayuda="Confirmá que salieron de la reserva. Si en realidad se pagaron con la plata del mes, el Balance Mensual no los está restando: borralo y pedile que lo cargue de nuevo sin tildar la reserva."
+          >
+            {alertas.reservaContadora.map((g) => (
+              <div key={g.clave} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <span className="text-sm text-gray-800">
+                  {g.descripcion || g.categoria} — <strong>{formatoPesos(g.monto)}</strong> el {formatoFecha(g.fecha)} ({g.medioPago}) · cargó {g.cargadoPor}
+                </span>
+                {puedeMarcar && (
+                  <BotonRevisado
+                    texto="Sí, salió de la reserva"
+                    onClick={() =>
+                      revisar(g.clave, "reserva_contadora", "Nota (opcional)", (a) => ({
+                        ...a,
+                        reservaContadora: a.reservaContadora.filter((x) => x.clave !== g.clave),
+                      }))
+                    }
+                  />
+                )}
+              </div>
+            ))}
+            <Link href="/gerencial/gastos" className="text-xs text-brand-brown underline">
+              Ir a Gastos
+            </Link>
+          </Seccion>
+
+          <Seccion
             titulo="Cuentas sin saldo real al día"
             cantidad={alertas.cuentas.length}
             ayuda="Anotá el saldo real de Galicia y Mercado Pago al menos una vez por semana: así cualquier diferencia se encuentra en días y no a fin de mes."

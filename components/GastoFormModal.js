@@ -41,7 +41,7 @@ export default function GastoFormModal({
   onGuardado,
 }) {
   const { perfil } = useAuth();
-  // Lo que paga la Contadora siempre es gasto del mes: no puede salir de la reserva (la base de datos también lo fuerza).
+  // A la Contadora la casilla de la reserva nunca se le tilda sola (ni por Sueldos ni por categoría): la tiene que elegir a propósito.
   const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(gasto?.fecha || fechaDeHoyISO());
   const [categoria, setCategoria] = useState(gasto?.categoria || categoriaInicial || categorias[0]?.nombre || "");
@@ -64,7 +64,7 @@ export default function GastoFormModal({
   // Se tilda solo para Sueldos y las categorías que salen de la reserva; se
   // puede cambiar a mano para cualquier gasto.
   const categoriaElegida = categorias.find((c) => c.nombre === categoria);
-  const desdeReserva = esContador ? false : (reservaManual ?? Boolean(categoriaElegida?.sale_de_reserva || categoria === "Sueldos"));
+  const desdeReserva = reservaManual ?? (esContador ? false : Boolean(categoriaElegida?.sale_de_reserva || categoria === "Sueldos"));
 
   function aplicarSugerencia(sugerencia) {
     if (sugerencia.monto) setMonto(sugerencia.monto);
@@ -151,6 +151,19 @@ export default function GastoFormModal({
     }
     setGuardando(true);
     try {
+      if (!gasto && esContador && desdeReserva) {
+        const seguro = window.confirm(
+          `Vas a cargar este gasto como pagado con la RESERVA del Consultorio.
+
+Se descuenta de la reserva y NO resta del Balance Mensual. Si lo pagaste con la plata del mes, cancelá y destildá la casilla.
+
+¿Confirmás que sale de la reserva?`
+        );
+        if (!seguro) {
+          setGuardando(false);
+          return;
+        }
+      }
       if (!gasto) {
         const parecidos = await buscarPosiblesDuplicados({ tabla: "gastos", fecha, monto, quien: `${descripcion} ${observaciones}` });
         if (parecidos.length > 0 && !window.confirm(mensajeDeDuplicados(parecidos, monto))) {
@@ -374,7 +387,7 @@ export default function GastoFormModal({
             </label>
           </div>
 
-          {!gasto && esContador ? null : !gasto ? (
+          {!gasto ? (
             <label className="flex items-start gap-2 rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-sm text-gray-700">
               <input
                 type="checkbox"
