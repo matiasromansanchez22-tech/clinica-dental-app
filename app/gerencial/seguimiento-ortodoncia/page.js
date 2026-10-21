@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
+import ControlCobrosOrtodoncia from "@/components/ControlCobrosOrtodoncia";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import {
   ESTADOS_ASISTENCIA,
@@ -604,8 +605,14 @@ function PaginaSeguimiento() {
         >
           Evolución mes a mes
         </button>
+        <button
+          onClick={() => setVista("cobros")}
+          className={`px-4 py-1.5 ${vista === "cobros" ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+        >
+          💰 Control de cobros
+        </button>
       </div>
-      {vista === "mes" ? <VistaMes /> : vista === "asistencia" ? <VistaAsistencia /> : <VistaEvolucion />}
+      {vista === "mes" ? <VistaMes /> : vista === "asistencia" ? <VistaAsistencia /> : vista === "cobros" ? <ControlCobrosOrtodoncia /> : <VistaEvolucion />}
     </main>
   );
 }
