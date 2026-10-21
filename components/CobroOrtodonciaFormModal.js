@@ -51,6 +51,8 @@ export default function CobroOrtodonciaFormModal({
   // desarrollo (React Strict Mode).
   const pacienteIdAnterior = useRef(pacienteId);
   const [concepto, setConcepto] = useState("Control");
+  // Si la persona eligió el concepto a mano, no se le cambia solo.
+  const conceptoElegidoAMano = useRef(false);
   const [cantidadControlesAbonados, setCantidadControlesAbonados] = useState(1);
   const [bracketReposicion, setBracketReposicion] = useState("Metálico");
   const [cantidadBrackets, setCantidadBrackets] = useState(1);
@@ -145,6 +147,14 @@ export default function CobroOrtodonciaFormModal({
         : null,
     [paciente, cobrosInstalacion]
   );
+  // Paciente que viene de otra clínica y todavía no pagó la continuación: lo que se le cobra es la continuación (2 controles),
+  // no un control común. Se deja elegido salvo que ya haya algo marcado por el profesional o se haya elegido otro concepto.
+  useEffect(() => {
+    if (!paciente || conceptoElegidoAMano.current || pendienteRealizado) return;
+    if (estadoInstalacion?.esContinuacion && !estadoInstalacion.completa) setConcepto(CONCEPTO_CONTINUACION);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paciente?.id, estadoInstalacion?.esContinuacion, estadoInstalacion?.completa, pendienteRealizado?.id]);
+
   const precioInstalacion =
     concepto === "Instalación (contado)"
       ? precioInstalacionSugerido(paciente?.tipoBrackets, "Contado", precios)
@@ -506,7 +516,10 @@ export default function CobroOrtodonciaFormModal({
             Concepto
             <select
               value={concepto}
-              onChange={(e) => setConcepto(e.target.value)}
+              onChange={(e) => {
+                conceptoElegidoAMano.current = true;
+                setConcepto(e.target.value);
+              }}
               className="rounded-md border border-gray-300 px-2 py-1.5"
             >
               {CONCEPTOS.map((c) => (

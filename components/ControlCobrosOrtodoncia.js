@@ -45,6 +45,9 @@ function textoSinExplicar(f) {
   const esCobroDeMas = f.tipo === TIPOS_CONTROL.DE_MAS;
   // Cobró de más y lo explicado no alcanza: queda plata sin explicar.
   if (esCobroDeMas && resto > 0) {
+    if (f.esContinuacion && f.valorUnitario > 0 && Math.abs(resto - f.valorUnitario) < 1) {
+      return { tono: "text-sky-700", texto: `Paciente de continuación de otra clínica: la continuación se cobra 2 controles (${pesos(f.valorUnitario * 2)}) y acá quedó cargada como Control. Conviene cargarla como "Continuación de ortodoncia".` };
+    }
     if (f.valorUnitario > 0 && resto % f.valorUnitario < 1) {
       const n = Math.round(resto / f.valorUnitario);
       return { tono: "text-amber-700", texto: `Sin explicar: ${monto}, justo ${n === 1 ? "un control" : `${n} controles`} más. ¿Pagó por adelantado un mes más?` };
