@@ -253,7 +253,8 @@ function PaginaRetomar() {
   // "mes": activos sin turno ni visita en el mes en curso. "alejados": no vienen hace más de un mes y no tienen turno a futuro.
   // "retomar": fichas activas sin ningún movimiento (ni cobros, ni visitas, ni pagos en el cuaderno).
   const [criterio, setCriterio] = useState("mes");
-  const [sinNingunTurnoFuturo, setSinNingunTurnoFuturo] = useState(false);
+  // Por defecto se ocultan los que ya tienen turno en un mes que viene: a esos no hace falta escribirles.
+  const [sinNingunTurnoFuturo, setSinNingunTurnoFuturo] = useState(true);
   const [estadoElegido, setEstadoElegido] = useState("pendientes");
   const [ortodoncista, setOrtodoncista] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
@@ -370,7 +371,7 @@ function PaginaRetomar() {
       if (crit === "retomar") return p.segmento === SEGMENTOS.SIN_MOVIMIENTO && !p.proximoTurno;
       if (crit === "faltaron") return estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR && (!sinNingunTurnoFuturo || !p.proximoTurno);
       if (p.segmento === SEGMENTOS.SIN_MOVIMIENTO) return false; // esas fichas van aparte, en "Para retomar"
-      if (crit === "mes") return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO && (!sinNingunTurnoFuturo || !p.proximoTurno);
+      if (crit === "mes") return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO;
       return p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno;
     });
   const conteoPestanas = useMemo(
@@ -382,6 +383,18 @@ function PaginaRetomar() {
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pacientes, mesActual, sinNingunTurnoFuturo]
+  );
+  // Cuántos de la lista actual se están ocultando porque ya tienen un turno agendado más adelante.
+  const ocultosPorTurnoFuturo = useMemo(
+    () =>
+      pacientes.filter(
+        (p) =>
+          p.estado === "Activo" &&
+          p.proximoTurno &&
+          p.segmento !== SEGMENTOS.SIN_MOVIMIENTO &&
+          estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR
+      ).length,
+    [pacientes, mesActual]
   );
   const estadoDe = (p) => gestion[p.id]?.estado || "Por contactar";
   const baseVisible = useMemo(
@@ -469,10 +482,11 @@ function PaginaRetomar() {
             </button>
           ))}
         </div>
-        {(criterio === "mes" || criterio === "faltaron") && (
+        {criterio === "faltaron" && (
           <label className="flex items-center gap-2 text-sm text-gray-700" title="Saca a los que ya tienen turno en un mes que viene">
             <input type="checkbox" checked={sinNingunTurnoFuturo} onChange={(e) => setSinNingunTurnoFuturo(e.target.checked)} />
             Ocultar los que ya tienen turno más adelante
+            {sinNingunTurnoFuturo && ocultosPorTurnoFuturo > 0 && <span className="text-xs text-gray-500">({ocultosPorTurnoFuturo} ocultos)</span>}
           </label>
         )}
       </div>

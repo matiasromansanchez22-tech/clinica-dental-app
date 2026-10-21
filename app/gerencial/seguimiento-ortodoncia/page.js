@@ -61,6 +61,7 @@ const ESTILO_ESTADO_MES = {
   [ESTADOS_MES.ASISTIO]: "bg-emerald-100 text-emerald-800",
   [ESTADOS_MES.FALTA_ASISTIR]: "bg-sky-100 text-sky-800",
   [ESTADOS_MES.TURNO_SIN_ASISTIR]: "bg-amber-100 text-amber-800",
+  [ESTADOS_MES.TURNO_PROXIMO]: "bg-gray-100 text-gray-700",
   [ESTADOS_MES.SIN_TURNO]: "bg-red-100 text-red-800",
 };
 
@@ -187,7 +188,7 @@ function VistaMes() {
         del ortodoncista. La app tiene visitas desde el 26/8; antes de eso solo está el cuaderno.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <Tarjeta
           titulo={ESTADOS_MES.ASISTIO}
           valor={conteo(ESTADOS_MES.ASISTIO)}
@@ -211,6 +212,14 @@ function VistaMes() {
           color="text-amber-700"
           activa={estadoElegido === ESTADOS_MES.TURNO_SIN_ASISTIR}
           onClick={() => alternar(ESTADOS_MES.TURNO_SIN_ASISTIR)}
+        />
+        <Tarjeta
+          titulo={ESTADOS_MES.TURNO_PROXIMO}
+          valor={conteo(ESTADOS_MES.TURNO_PROXIMO)}
+          detalle="No vinieron este mes pero ya tienen turno en un mes que viene: no hace falta escribirles"
+          color="text-gray-700"
+          activa={estadoElegido === ESTADOS_MES.TURNO_PROXIMO}
+          onClick={() => alternar(ESTADOS_MES.TURNO_PROXIMO)}
         />
         <Tarjeta
           titulo={ESTADOS_MES.SIN_TURNO}
@@ -283,6 +292,7 @@ function VistaMes() {
               <th className="px-3 py-2 text-left font-semibold">En {nombreMes(mes)}</th>
               <th className="px-3 py-2 text-left font-semibold">Turnos del mes</th>
               <th className="px-3 py-2 text-left font-semibold">Última visita (app)</th>
+              <th className="px-3 py-2 text-left font-semibold">Próximo turno</th>
               <th className="px-3 py-2 text-left font-semibold">Antigüedad</th>
             </tr>
           </thead>
@@ -306,6 +316,7 @@ function VistaMes() {
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-600">
                   {p.ultimaVisita ? `${formatoFecha(p.ultimaVisita)} (hace ${p.diasDesdeUltimaVisita} d)` : p.ultimoMesPago ? `Cuaderno: ${nombreMes(p.ultimoMesPago)}` : "—"}
                 </td>
+                <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-600">{p.proximoTurno ? formatoFecha(p.proximoTurno) : "—"}</td>
                 <td className="px-3 py-2">
                   <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_SEGMENTO[p.segmento]}`}>{p.segmento}</span>
                 </td>
