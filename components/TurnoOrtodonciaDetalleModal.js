@@ -77,6 +77,34 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar", motivo: resultado.motivo });
   }
 
+  // Si el turno que ocupaba el lugar se canceló o se movió, el sobreturno pasa a ser un turno normal.
+  async function pasarASinSobreturno() {
+    setError(null);
+    setGuardando("pasar-normal");
+    try {
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha);
+      const conflicto = hayConflictoDeHorario({
+        turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
+        consultorio: turnoActual.consultorio,
+        profesionalDeTurnoId: turnoActual.profesionalDeTurnoId,
+        horaInicio: turnoActual.horaInicio,
+        duracionMin: turnoActual.duracionMin,
+        idExcluido: turnoActual.id,
+      });
+      if (conflicto) {
+        setError("Todavía hay otro turno en ese horario: no se puede pasar a turno normal.");
+        return;
+      }
+      const actualizado = await actualizarEstadoTurnoOrtodoncia(turnoActual.id, { sobreturno: false });
+      setTurnoActual(actualizado);
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(null);
+    }
+  }
+
   async function confirmarMovimiento() {
     setError(null);
     setMoviendo(true);
@@ -193,6 +221,20 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           {fecha} · {turnoActual.horaInicio} ({turnoActual.duracionMin} min) · Consultorio {turnoActual.consultorio} ·{" "}
           {turnoActual.concepto} · {turnoActual.profesionalDeTurno}
         </p>
+        {turnoActual.sobreturno && (
+          <div className="mb-3 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            🔁 <strong>Sobreturno:</strong> está agendado encima de otro turno. Si ese turno se cancela o se mueve, pasalo a turno normal.
+            <div className="mt-2">
+              <button
+                onClick={pasarASinSobreturno}
+                disabled={guardando === "pasar-normal"}
+                className="rounded-md border border-amber-700 bg-white px-2 py-1 font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+              >
+                Pasar a turno normal
+              </button>
+            </div>
+          </div>
+        )}
         {turnoActual.tipoOtroOrtodoncista === "Sobreturno" && (
           <div className="mb-3 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             🔁 <strong>Sobreturno:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y se agendó con {turnoActual.profesionalDeTurno} para no perder el lugar

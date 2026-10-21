@@ -20,6 +20,11 @@ export default function TurnoOrtodonciaSoloLecturaModal({ turno, fecha, ortodonc
           {fecha} · {turnoActual.horaInicio} · Consultorio {turnoActual.consultorio}
         </p>
 
+        {turnoActual.sobreturno && (
+          <div className="mb-3 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            🔁 <strong>Sobreturno:</strong> está agendado encima de otro turno, por si ese turno se cancela.
+          </div>
+        )}
         {turnoActual.tipoOtroOrtodoncista === "Sobreturno" && (
           <div className="mb-3 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             🔁 <strong>Sobreturno:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y se agendó con {turnoActual.profesionalDeTurno} para no perder el lugar

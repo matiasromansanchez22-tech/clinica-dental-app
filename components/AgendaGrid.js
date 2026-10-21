@@ -7,24 +7,25 @@ import {
   seMuestraEnGrilla,
 } from "@/lib/agenda";
 
-function construirOcupacion(turnosVisibles, bloques, minutosPorBloque, consultorios) {
+function construirOcupacion(turnosVisibles, bloques, minutosPorBloque, columnas, claveDe = (turno) => turno.consultorio) {
   const ocupacion = {};
-  for (const consultorio of consultorios) ocupacion[consultorio] = {};
+  for (const columna of columnas) ocupacion[columna] = {};
 
   for (const turno of turnosVisibles) {
     const span = bloquesQueOcupa(turno, minutosPorBloque);
     const indiceInicio = bloques.indexOf(turno.horaInicio);
     if (indiceInicio === -1) continue; // el turno arranca fuera del horario mostrado
-    if (!ocupacion[turno.consultorio]) continue; // consultorio fuera de los que muestra esta grilla
+    const clave = claveDe(turno);
+    if (!ocupacion[clave]) continue; // consultorio fuera de los que muestra esta grilla
 
-    ocupacion[turno.consultorio][bloques[indiceInicio]] = {
+    ocupacion[clave][bloques[indiceInicio]] = {
       tipo: "inicio",
       turno,
       span,
     };
     for (let i = 1; i < span; i++) {
       const bloque = bloques[indiceInicio + i];
-      if (bloque) ocupacion[turno.consultorio][bloque] = { tipo: "ocupado" };
+      if (bloque) ocupacion[clave][bloque] = { tipo: "ocupado" };
     }
   }
   return ocupacion;
@@ -40,7 +41,16 @@ export default function AgendaGrid({
   renderSubtitulo,
 }) {
   const turnosVisibles = turnos.filter(seMuestraEnGrilla);
-  const ocupacion = construirOcupacion(turnosVisibles, bloques, minutosPorBloque, consultorios);
+  const sobreturnos = turnosVisibles.filter((t) => t.sobreturno);
+  const ocupacion = construirOcupacion(
+    turnosVisibles.filter((t) => !t.sobreturno),
+    bloques,
+    minutosPorBloque,
+    consultorios
+  );
+  const haySobreturnos = sobreturnos.length > 0;
+  if (haySobreturnos) ocupacion.S = construirOcupacion(sobreturnos, bloques, minutosPorBloque, ["S"], () => "S").S;
+  const columnas = haySobreturnos ? [...consultorios, "S"] : consultorios;
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -48,9 +58,9 @@ export default function AgendaGrid({
         <thead>
           <tr className="bg-brand-brown text-white">
             <th className="w-20 border border-gray-300 px-2 py-2 text-left font-semibold">Hora</th>
-            {consultorios.map((c) => (
+            {columnas.map((c) => (
               <th key={c} className="border border-gray-300 px-2 py-2 text-left font-semibold">
-                Consultorio {c}
+                {c === "S" ? "🔁 Sobreturnos" : `Consultorio ${c}`}
               </th>
             ))}
           </tr>
@@ -61,7 +71,7 @@ export default function AgendaGrid({
               <td className="border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 align-top">
                 {bloque}
               </td>
-              {consultorios.map((consultorio) => {
+              {columnas.map((consultorio) => {
                 const celda = ocupacion[consultorio][bloque];
 
                 if (celda?.tipo === "ocupado") {
@@ -123,6 +133,10 @@ export default function AgendaGrid({
                       </div>
                     </td>
                   );
+                }
+
+                if (consultorio === "S") {
+                  return <td key={consultorio} className="border border-gray-200 bg-amber-50/40 p-1.5 align-top" />;
                 }
 
                 return (

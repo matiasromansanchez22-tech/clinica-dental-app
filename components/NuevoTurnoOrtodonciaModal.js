@@ -5,6 +5,7 @@ import {
   diaSemanaDeFecha,
   generarBloquesHorarios,
   hayConflictoDeHorario,
+  hayConflictoDeSobreturno,
   minutosDesdeHora,
   NOMBRES_DIA_SEMANA,
   seMuestraEnGrilla,
@@ -50,6 +51,8 @@ export default function NuevoTurnoOrtodonciaModal({
   const [observaciones, setObservaciones] = useState("");
   // Prioridad: el paciente es de otra ortodoncista y este turno lo atiende quien se elige abajo.
   const [tipoOtro, setTipoOtro] = useState("");
+  // Sobreturno encimado: se agenda encima de otro turno (por si alguien cancela). Se muestra aparte en la agenda.
+  const [sobreturnoEncimado, setSobreturnoEncimado] = useState(false);
   const [motivoPrioridad, setMotivoPrioridad] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -220,16 +223,24 @@ export default function NuevoTurnoOrtodonciaModal({
     }
 
     const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaLocal);
-    const conflicto = hayConflictoDeHorario({
-      turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
-      consultorio,
-      profesionalDeTurnoId: ortodoncistaId,
-      horaInicio,
-      duracionMin,
-    });
-    if (conflicto) {
-      setErrorMsg("Ese horario ya está ocupado en ese consultorio, o el ortodoncista ya tiene otro turno a esa hora.");
-      return;
+    const visiblesDelDia = turnosDelDia.filter(seMuestraEnGrilla);
+    if (sobreturnoEncimado) {
+      if (hayConflictoDeSobreturno({ turnosVisibles: visiblesDelDia, horaInicio, duracionMin: Number(duracionMin) })) {
+        setErrorMsg("Ya hay otro sobreturno a esa hora: elegí otro horario para este.");
+        return;
+      }
+    } else {
+      const conflicto = hayConflictoDeHorario({
+        turnosVisibles: visiblesDelDia,
+        consultorio,
+        profesionalDeTurnoId: ortodoncistaId,
+        horaInicio,
+        duracionMin,
+      });
+      if (conflicto) {
+        setErrorMsg("Ese horario ya está ocupado en ese consultorio, o el ortodoncista ya tiene otro turno a esa hora. Si querés agendarlo igual, tildá «Es un sobreturno».");
+        return;
+      }
     }
 
     if (esOtroOrtodoncista && !tipoOtro) {
@@ -271,6 +282,7 @@ export default function NuevoTurnoOrtodonciaModal({
         concepto,
         valor: valor ? Number(valor) : null,
         observaciones,
+        sobreturno: sobreturnoEncimado,
         tipoOtroOrtodoncista: esOtroOrtodoncista ? tipoOtro : null,
         ortodoncistaHabitualId: esOtroOrtodoncista ? pacienteExistente.ortodoncistaId : null,
         motivoPrioridad: esOtroOrtodoncista && tipoOtro !== "Cobertura" ? motivoPrioridad.trim() || null : null,
@@ -627,6 +639,13 @@ export default function NuevoTurnoOrtodonciaModal({
                 ))}
             </select>
             <span className="text-xs text-gray-500">Total en la agenda: {duracionMin} minutos.</span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <input type="checkbox" checked={sobreturnoEncimado} onChange={(e) => setSobreturnoEncimado(e.target.checked)} className="mt-0.5" />
+            <span>
+              <strong>🔁 Es un sobreturno:</strong> se agenda encima de otro turno por si alguien cancela. Se muestra aparte en la agenda, en la columna «Sobreturnos», y no bloquea el horario.
+            </span>
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
