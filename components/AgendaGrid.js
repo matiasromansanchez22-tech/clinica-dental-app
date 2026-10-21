@@ -127,6 +127,14 @@ export default function AgendaGrid({
                           📝 {turno.observaciones.trim()}
                         </div>
                       )}
+                      {turno.consentimientoPendiente && (
+                        <div
+                          className="mt-0.5 rounded bg-amber-100 px-1 py-0.5 text-[11px] font-semibold leading-tight text-amber-900"
+                          title="A este paciente le falta firmar el consentimiento"
+                        >
+                          ✍️ Falta firmar el consentimiento
+                        </div>
+                      )}
                       <div className="text-[11px] opacity-80 leading-tight">
                         {color.etiqueta}
                         {turno.confirmacion === "Confirmado" && color.etiqueta !== "Confirmado" && " · ✓ Confirmado"}
