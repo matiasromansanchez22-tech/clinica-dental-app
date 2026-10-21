@@ -22,7 +22,7 @@ import {
 import { obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 import { marcarControlesPagados } from "@/lib/data/controlesOrtodoncia";
-import { registrarContinuacionEnFicha } from "@/lib/data/pacientesOrtodoncia";
+import { aplicarAumentoCuota, registrarContinuacionEnFicha } from "@/lib/data/pacientesOrtodoncia";
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -366,6 +366,16 @@ export default function CobroOrtodonciaFormModal({
           );
         } catch (errFicha) {
           console.error("No se pudo actualizar la ficha del paciente", errFicha);
+        }
+      }
+      // Si se cobró el Control con el aumento confirmado, la ficha pasa a la cuota nueva y el próximo aumento se recalcula solo
+      // (antes esto se hacía a mano en "Aumento de cuota" y la ficha quedaba con el valor viejo y el cartel "Aumentar" prendido).
+      if (concepto === "Control" && debeConfirmarAumento && aumentoConfirmado) {
+        try {
+          await aplicarAumentoCuota(pacienteId, cuotaSugerida, fecha, precios.meses_entre_aumentos ?? 6);
+        } catch (errAumento) {
+          console.error("No se pudo actualizar la cuota del paciente", errAumento);
+          window.alert("El cobro se registró, pero no se pudo actualizar la cuota nueva en la ficha del paciente. Avisale a una dueña.");
         }
       }
       if (concepto === "Control" || concepto === CONCEPTO_CONTINUACION) {
