@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
-import { actualizarEstadoTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
+import { actualizarEstadoTurnoOrtodoncia, cambiarConceptoTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
+import { CONCEPTOS_TURNO_ORTODONCIA } from "@/lib/ortodoncia";
 import QueSeHizoHoyOrtodoncia from "@/components/QueSeHizoHoyOrtodoncia";
 import HistorialClinicoOrtodoncia from "@/components/HistorialClinicoOrtodoncia";
 
@@ -36,6 +37,10 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
   const [mostrarDuracion, setMostrarDuracion] = useState(false);
   const [nuevaDuracion, setNuevaDuracion] = useState(turno.duracionMin);
   const [cambiandoDuracion, setCambiandoDuracion] = useState(false);
+
+  const [mostrarConcepto, setMostrarConcepto] = useState(false);
+  const [nuevoConcepto, setNuevoConcepto] = useState(turno.concepto || "");
+  const [cambiandoConcepto, setCambiandoConcepto] = useState(false);
 
   const [mostrarOrtodoncista, setMostrarOrtodoncista] = useState(false);
   const [nuevoOrtodoncistaId, setNuevoOrtodoncistaId] = useState(turno.profesionalDeTurnoId || "");
@@ -133,6 +138,26 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
       setError(e.message);
     } finally {
       setMoviendo(false);
+    }
+  }
+
+  // Corregir el concepto del turno (por ejemplo, se agendó como Control y es una consulta).
+  async function confirmarCambioConcepto() {
+    setError(null);
+    if (!nuevoConcepto || nuevoConcepto === turnoActual.concepto) {
+      setMostrarConcepto(false);
+      return;
+    }
+    setCambiandoConcepto(true);
+    try {
+      const actualizado = await cambiarConceptoTurnoOrtodoncia(turnoActual, nuevoConcepto);
+      setTurnoActual(actualizado);
+      setMostrarConcepto(false);
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCambiandoConcepto(false);
     }
   }
 
@@ -262,6 +287,48 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             ⭐ <strong>Prioridad:</strong> es paciente de {turnoActual.ortodoncistaHabitual || "otra ortodoncista"} y lo atiende {turnoActual.profesionalDeTurno}
             {turnoActual.motivoPrioridad ? ` — ${turnoActual.motivoPrioridad}` : ""}. Después vuelve con {turnoActual.ortodoncistaHabitual || "su ortodoncista"}.
+          </div>
+        )}
+
+        {!mostrarConcepto ? (
+          <button
+            onClick={() => {
+              setNuevoConcepto(turnoActual.concepto || "");
+              setMostrarConcepto(true);
+            }}
+            className="mb-1 block w-fit text-xs text-blue-600 hover:underline"
+          >
+            Cambiar el concepto del turno ({turnoActual.concepto})
+          </button>
+        ) : (
+          <div className="mb-3 rounded-md border border-brand-mint/40 bg-brand-mint/15 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase text-brand-green">Concepto del turno</p>
+            <select
+              value={nuevoConcepto}
+              onChange={(e) => setNuevoConcepto(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              {CONCEPTOS_TURNO_ORTODONCIA.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-600">
+              Si el nuevo concepto lleva otra duración, cambiala después con «Cambiar duración».
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={confirmarCambioConcepto}
+                disabled={cambiandoConcepto || !nuevoConcepto}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {cambiandoConcepto ? "Guardando..." : "Confirmar cambio"}
+              </button>
+              <button onClick={() => setMostrarConcepto(false)} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
           </div>
         )}
 
