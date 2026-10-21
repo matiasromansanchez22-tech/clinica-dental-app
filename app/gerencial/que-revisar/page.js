@@ -162,6 +162,21 @@ function QueRevisarContenido() {
           </Seccion>
 
           <Seccion
+            titulo="Visitas que quedaron pendientes de pago"
+            cantidad={alertas.pendientesDePago.length}
+            ayuda="Al cerrar el turno se dejaron como pendientes de pago. Siguen acá hasta que el paciente tenga un cobro cargado."
+          >
+            {alertas.pendientesDePago.map((v) => (
+              <p key={v.clave} className="text-sm text-gray-800">
+                <strong>{v.paciente}</strong> — vino el {formatoFecha(v.fecha)}{v.nota ? `: ${v.nota}` : ""}
+              </p>
+            ))}
+            <Link href="/ortodoncia/caja" className="text-xs text-brand-brown underline">
+              Ir a la Caja de Ortodoncia
+            </Link>
+          </Seccion>
+
+          <Seccion
             titulo="Pagos con la reserva cargados por la contadora"
             cantidad={alertas.reservaContadora.length}
             ayuda="Confirmá que salieron de la reserva. Si en realidad se pagaron con la plata del mes, el Balance Mensual no los está restando: borralo y pedile que lo cargue de nuevo sin tildar la reserva."

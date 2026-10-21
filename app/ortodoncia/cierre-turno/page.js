@@ -8,6 +8,8 @@ import ContadorBilletes from "@/components/ContadorBilletes";
 import DetalleEfectivoEsperado from "@/components/DetalleEfectivoEsperado";
 import { calcularMovimientosEfectivoDeCaja } from "@/lib/data/efectivoDeCaja";
 import { CONTEO_VACIO, conteoDesdeCierre, conteoParaGuardar } from "@/lib/billetes";
+import Link from "next/link";
+import { MOTIVOS_SIN_COBRO, justificarVisitaSinCobro, motivoNecesitaNota, obtenerVisitasSinCobroDelDia } from "@/lib/data/visitasSinCobro";
 import {
   calcularTotalesDelDiaOrtodoncia,
   calcularTotalesDelTurnoOrtodoncia,
@@ -26,6 +28,61 @@ const ETIQUETAS = [
   { clave: "qr", label: "QR" },
 ];
 
+// Una visita que vino y no tiene cobro: se resuelve cargando el cobro en Caja o explicando por qué no hay.
+function FilaVisitaSinCobro({ visita, fecha, onResuelta }) {
+  const [motivo, setMotivo] = useState(MOTIVOS_SIN_COBRO[0]);
+  const [nota, setNota] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function resolver() {
+    setGuardando(true);
+    setError(null);
+    try {
+      await justificarVisitaSinCobro({ turnoId: visita.turnoId, pacienteId: visita.pacienteId, fecha, motivo, nota });
+      onResuelta();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+      <p className="text-sm font-medium text-gray-900">
+        {visita.paciente}
+        <span className="font-normal text-gray-500">
+          {" "}
+          · {visita.hora} {visita.concepto} · {visita.ortodoncista}
+        </span>
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select value={motivo} onChange={(e) => setMotivo(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1 text-xs">
+          {MOTIVOS_SIN_COBRO.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <input
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          placeholder={motivoNecesitaNota(motivo) ? "Motivo (obligatorio)" : "Nota (opcional)"}
+          className="min-w-48 flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs"
+        />
+        <button onClick={resolver} disabled={guardando} className="rounded-md bg-brand-brown px-3 py-1 text-xs font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50">
+          {guardando ? "..." : "Resolver"}
+        </button>
+        <Link href="/ortodoncia/caja" className="text-xs text-brand-brown underline">
+          Cargar el cobro
+        </Link>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
+    </div>
+  );
+}
+
 function CierreTurnoOrtodonciaPageContenido() {
   const { user, perfil } = useAuth();
   const esDuena = perfil?.rol === "Duena";
@@ -35,6 +92,7 @@ function CierreTurnoOrtodonciaPageContenido() {
   const [observaciones, setObservaciones] = useState("");
   const [conteo, setConteo] = useState(CONTEO_VACIO);
   const [cierresDelDia, setCierresDelDia] = useState([]);
+  const [visitasSinCobro, setVisitasSinCobro] = useState([]);
   const [movimientos, setMovimientos] = useState(null);
   const [efectivoDelDia, setEfectivoDelDia] = useState(0);
   const [cargando, setCargando] = useState(true);
@@ -52,8 +110,10 @@ function CierreTurnoOrtodonciaPageContenido() {
       obtenerCierresTurnoOrtodonciaDelDia(fecha),
       calcularMovimientosEfectivoDeCaja(fecha, "Ortodoncia"),
       calcularTotalesDelDiaOrtodoncia(fecha),
+      obtenerVisitasSinCobroDelDia(fecha).catch(() => []),
     ])
-      .then(([t, c, delDia, m, totalDia]) => {
+      .then(([t, c, delDia, m, totalDia, sinCobro]) => {
+        setVisitasSinCobro(sinCobro);
         setMovimientos(m);
         setEfectivoDelDia(Number(totalDia.efectivo));
         setTotales(t);
@@ -65,6 +125,14 @@ function CierreTurnoOrtodonciaPageContenido() {
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [fecha, user]);
+
+  async function recargarVisitasSinCobro() {
+    try {
+      setVisitasSinCobro(await obtenerVisitasSinCobroDelDia(fecha));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   async function handleReabrir(c) {
     if (
@@ -209,6 +277,27 @@ function CierreTurnoOrtodonciaPageContenido() {
             </div>
           </div>
 
+          {visitasSinCobro.length > 0 && (
+            <section className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-bold text-amber-900">
+                  ⚠️ Vinieron este día y no tienen cobro ({visitasSinCobro.length})
+                </h2>
+                <button onClick={recargarVisitasSinCobro} className="text-xs text-amber-900 underline">
+                  Ya cargué un cobro: actualizar
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-amber-900">
+                Para cerrar el turno, cada una tiene que quedar resuelta: cargá el cobro en Caja o explicá por qué no hay cobro.
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                {visitasSinCobro.map((v) => (
+                  <FilaVisitaSinCobro key={v.turnoId} visita={v} fecha={fecha} onResuelta={recargarVisitasSinCobro} />
+                ))}
+              </div>
+            </section>
+          )}
+
           <label className="mt-4 flex flex-col gap-1 text-sm text-gray-700">
             Observaciones
             <input
@@ -220,11 +309,16 @@ function CierreTurnoOrtodonciaPageContenido() {
 
           <button
             onClick={handleGuardar}
-            disabled={guardando || totales.cantidadCobros === 0}
+            disabled={guardando || totales.cantidadCobros === 0 || visitasSinCobro.length > 0}
             className="mt-4 rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
           >
             {guardando ? "Guardando..." : cierreExistente ? "Actualizar mi cierre" : "Guardar mi Cierre de Turno"}
           </button>
+          {visitasSinCobro.length > 0 && (
+            <p className="mt-2 text-xs font-medium text-amber-800">
+              Resolvé las {visitasSinCobro.length} visita{visitasSinCobro.length === 1 ? "" : "s"} sin cobro para poder cerrar el turno.
+            </p>
+          )}
           {totales.cantidadCobros === 0 && (
             <p className="mt-2 text-xs text-gray-500">No cargaste cobros este día, no hay nada para cerrar.</p>
           )}
