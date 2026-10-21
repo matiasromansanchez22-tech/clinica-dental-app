@@ -10,6 +10,8 @@ import {
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { subirComprobante, obtenerUrlComprobante } from "@/lib/data/comprobantes";
 import LeerComprobanteIA from "@/components/LeerComprobanteIA";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posiblesDuplicados";
 
 const ESPECIALIDADES = ["", "General", "Ortodoncia"];
 
@@ -38,6 +40,9 @@ export default function GastoFormModal({
   onClose,
   onGuardado,
 }) {
+  const { perfil } = useAuth();
+  // Lo que paga la Contadora siempre es gasto del mes: no puede salir de la reserva (la base de datos también lo fuerza).
+  const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(gasto?.fecha || fechaDeHoyISO());
   const [categoria, setCategoria] = useState(gasto?.categoria || categoriaInicial || categorias[0]?.nombre || "");
   const [especialidad, setEspecialidad] = useState(gasto?.especialidad || especialidadInicial || "");
@@ -59,7 +64,7 @@ export default function GastoFormModal({
   // Se tilda solo para Sueldos y las categorías que salen de la reserva; se
   // puede cambiar a mano para cualquier gasto.
   const categoriaElegida = categorias.find((c) => c.nombre === categoria);
-  const desdeReserva = reservaManual ?? Boolean(categoriaElegida?.sale_de_reserva || categoria === "Sueldos");
+  const desdeReserva = esContador ? false : (reservaManual ?? Boolean(categoriaElegida?.sale_de_reserva || categoria === "Sueldos"));
 
   function aplicarSugerencia(sugerencia) {
     if (sugerencia.monto) setMonto(sugerencia.monto);
@@ -146,6 +151,13 @@ export default function GastoFormModal({
     }
     setGuardando(true);
     try {
+      if (!gasto) {
+        const parecidos = await buscarPosiblesDuplicados({ tabla: "gastos", fecha, monto, quien: `${descripcion} ${observaciones}` });
+        if (parecidos.length > 0 && !window.confirm(mensajeDeDuplicados(parecidos, monto))) {
+          setGuardando(false);
+          return;
+        }
+      }
       const comprobantePath = comprobante ? await subirComprobante(comprobante) : null;
       const datos = {
         fecha,
@@ -362,7 +374,7 @@ export default function GastoFormModal({
             </label>
           </div>
 
-          {!gasto ? (
+          {!gasto && esContador ? null : !gasto ? (
             <label className="flex items-start gap-2 rounded-md border border-brand-tan bg-brand-tan/10 px-3 py-2 text-sm text-gray-700">
               <input
                 type="checkbox"

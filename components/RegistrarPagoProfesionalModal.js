@@ -5,10 +5,14 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import SelectorCobrosALiquidar from "@/components/SelectorCobrosALiquidar";
 import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posiblesDuplicados";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 
 export default function RegistrarPagoProfesionalModal({ profesional, tipo, montoSugerido, onClose, onGuardado }) {
+  const { perfil } = useAuth();
+  const esContador = perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState(Math.round(montoSugerido || 0));
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -28,6 +32,11 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
     }
     setGuardando(true);
     try {
+      const parecidos = await buscarPosiblesDuplicados({ tabla: "pagos_profesionales", fecha, monto, quien: `${profesional.nombre || ""} ${observaciones}`, profesionalId: profesional.profesionalId });
+      if (parecidos.length > 0 && !window.confirm(mensajeDeDuplicados(parecidos, monto))) {
+        setGuardando(false);
+        return;
+      }
       const pago = await crearPagoProfesional({
         fecha,
         profesionalId: profesional.profesionalId,
@@ -35,7 +44,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
         monto: Number(monto),
         medioPago,
         observaciones,
-        desdeReserva,
+        desdeReserva: esContador ? false : desdeReserva,
       });
       if (cobrosElegidos.length > 0) {
         try {
@@ -106,6 +115,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
             </select>
           </label>
 
+          {!esContador && (
           <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <input
               type="checkbox"
@@ -119,6 +129,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
               profesional.
             </span>
           </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Observaciones

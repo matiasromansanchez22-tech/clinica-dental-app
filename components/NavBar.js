@@ -28,6 +28,7 @@ import {
 import { obtenerCantidadAltasParaEscribir } from "@/lib/data/altasOrtodoncia";
 import { obtenerCantidadPrioridadesPorVolver } from "@/lib/data/prioridadesOrtodoncia";
 import { obtenerCantidadConsultasPorContactar } from "@/lib/data/consultasOrtodoncia";
+import { obtenerAlertas } from "@/lib/data/queRevisar";
 
 const GRUPOS = [
   { tipo: "link", href: "/", label: "Inicio" },
@@ -113,6 +114,7 @@ const GRUPOS = [
       { href: "/gerencial/fichas-entre-rios", label: "Fichas Entre Ríos (Swiss Medical / Osde / Sancor)" },
       { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },
       { href: "/gerencial/otros-ingresos", label: "➕ Otros ingresos (Scanner, etc.)" },
+      { href: "/gerencial/que-revisar", label: "🔎 Qué revisar", badgeKey: "queRevisar" },
       { href: "/gerencial/cuentas", label: "🏦 Cuentas (Galicia, Mercado Pago)" },
       { href: "/gerencial/cruce-asor", label: "🔎 Cruce con ASOR" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
@@ -148,6 +150,7 @@ const GRUPOS = [
       { href: "/gerencial/fichas-entre-rios", label: "Fichas Entre Ríos (Swiss Medical / Osde / Sancor)" },
       { href: "/gerencial/pagos-asor", label: "Pagos ASOR" },
       { href: "/gerencial/otros-ingresos", label: "➕ Otros ingresos (Scanner, etc.)" },
+      { href: "/gerencial/que-revisar", label: "🔎 Qué revisar", badgeKey: "queRevisar" },
       { href: "/gerencial/cuentas", label: "🏦 Cuentas (Galicia, Mercado Pago)" },
       { href: "/gerencial/cruce-asor", label: "🔎 Cruce con ASOR" },
       { href: "/gerencial/aumentos-ortodoncia", label: "Aumento de cuota (Ortodoncia)" },
@@ -298,6 +301,13 @@ export default function NavBar() {
     if (perfil?.rol === "Duena" || perfil?.rol === "Odontologo") {
       obtenerVisitasPorCompletarOrtodoncia(perfil.rol === "Odontologo" ? perfil.profesional_id : null)
         .then((visitas) => setBadges((b) => ({ ...b, porCompletarOrtodoncia: visitas.length })))
+        .catch(() => {});
+    }
+
+    // Alertas de posibles errores de carga (pagos duplicados, pacientes sin cobro, cuentas sin saldo real...).
+    if (perfil?.rol === "Duena" || perfil?.rol === "Contador") {
+      obtenerAlertas({ liviano: true })
+        .then((a) => setBadges((b) => ({ ...b, queRevisar: a.total })))
         .catch(() => {});
     }
 

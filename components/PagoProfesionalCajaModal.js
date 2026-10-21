@@ -4,6 +4,7 @@ import { useState } from "react";
 import SelectorCobrosALiquidar from "@/components/SelectorCobrosALiquidar";
 import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
+import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posiblesDuplicados";
 
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 const TIPOS = ["Copago/Particular", "Particular", "Copago"];
@@ -46,6 +47,12 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
     const deCaja = Number(monto) - deReserva;
     setGuardando(true);
     try {
+      const nombreProf = profesionales.find((p) => String(p.id) === String(profesionalId))?.nombre || "";
+      const parecidos = await buscarPosiblesDuplicados({ tabla: "pagos_profesionales", fecha, monto, quien: `${nombreProf} ${observaciones}`, profesionalId });
+      if (parecidos.length > 0 && !window.confirm(mensajeDeDuplicados(parecidos, monto))) {
+        setGuardando(false);
+        return;
+      }
       // El pago se parte en dos: lo que sale de la caja (descuenta del disponible
       // del día) y lo que sale de la reserva (no toca la caja ni lo limpio).
       let pagoCaja = null;
