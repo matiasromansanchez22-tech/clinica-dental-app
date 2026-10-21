@@ -5,6 +5,7 @@ import { generarBloquesHorarios, hayConflictoDeHorario, hayConflictoDeSobreturno
 import { actualizarEstadoTurnoOrtodoncia, cambiarConceptoTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import { CONCEPTOS_TURNO_ORTODONCIA } from "@/lib/ortodoncia";
 import QueSeHizoHoyOrtodoncia from "@/components/QueSeHizoHoyOrtodoncia";
+import AvisoConsentimiento from "@/components/AvisoConsentimiento";
 import HistorialClinicoOrtodoncia from "@/components/HistorialClinicoOrtodoncia";
 
 const bloques = generarBloquesHorarios("08:00", "19:30", 15);
@@ -296,6 +297,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           {fecha} · {turnoActual.horaInicio} ({turnoActual.duracionMin} min) · Consultorio {turnoActual.consultorio} ·{" "}
           {turnoActual.concepto} · {turnoActual.profesionalDeTurno}
         </p>
+        <AvisoConsentimiento pacienteId={turnoActual.pacienteId} esOrtodoncia />
         {turnoActual.sobreturno && (
           <div className="mb-3 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             🔁 <strong>Sobreturno:</strong> está agendado encima de otro turno. Si ese turno se cancela o se mueve, pasalo a turno normal.

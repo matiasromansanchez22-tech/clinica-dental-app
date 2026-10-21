@@ -12,6 +12,7 @@ import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import PlanTratamiento from "@/components/PlanTratamiento";
 import Odontograma from "@/components/Odontograma";
 import AlertaAntecedentes from "@/components/AlertaAntecedentes";
+import AvisoConsentimiento from "@/components/AvisoConsentimiento";
 
 const bloques = generarBloquesHorarios("08:00", "20:00", 30);
 const MAX_PRESTACIONES_TURNO = 4;
@@ -308,6 +309,7 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
         </p>
 
         <AlertaAntecedentes pacienteId={turnoActual.pacienteId} />
+        <AvisoConsentimiento pacienteId={turnoActual.pacienteId} />
 
         {!mostrarProfesional ? (
           <button
