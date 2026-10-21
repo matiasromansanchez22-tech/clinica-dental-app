@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { generarBloquesHorarios, hayConflictoDeHorario, seMuestraEnGrilla } from "@/lib/agenda";
+import { generarBloquesHorarios, hayConflictoDeHorario, hayConflictoDeSobreturno, seMuestraEnGrilla } from "@/lib/agenda";
 import { actualizarEstadoTurnoOrtodoncia, cambiarConceptoTurnoOrtodoncia, obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import { CONCEPTOS_TURNO_ORTODONCIA } from "@/lib/ortodoncia";
 import QueSeHizoHoyOrtodoncia from "@/components/QueSeHizoHoyOrtodoncia";
@@ -38,6 +38,8 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
   const [nuevaDuracion, setNuevaDuracion] = useState(turno.duracionMin);
   const [cambiandoDuracion, setCambiandoDuracion] = useState(false);
 
+  // Cuando un cambio choca con otro turno, se ofrece hacerlo igual como sobreturno (encimado): acá queda el cambio pendiente.
+  const [ofrecerSobreturno, setOfrecerSobreturno] = useState(null);
   const [mostrarConcepto, setMostrarConcepto] = useState(false);
   const [nuevoConcepto, setNuevoConcepto] = useState(turno.concepto || "");
   const [cambiandoConcepto, setCambiandoConcepto] = useState(false);
@@ -82,6 +84,50 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     aplicarCambio("reprogramar", { estado: "Reprogramado", confirmacion: "Reprogramar", motivo: resultado.motivo });
   }
 
+  // Si se cambia a la ortodoncista habitual del paciente, el turno deja de ser prioridad/sobreturno de "otra ortodoncista".
+  function marcasAlCambiarA(ortodoncistaId) {
+    if (ortodoncistaId && ortodoncistaId === turnoActual.ortodoncistaHabitualId) {
+      return { tipo_otro_ortodoncista: null, prioridad: false, ortodoncista_habitual_id: null, motivo_prioridad: null };
+    }
+    return {};
+  }
+
+  // Aplica un cambio (otro horario u otra ortodoncista) dejando el turno como sobreturno encimado.
+  async function aplicarComoSobreturno(cambios) {
+    setError(null);
+    setGuardando("sobreturno");
+    try {
+      const fechaDestino = cambios.fecha || turnoActual.fecha || fecha;
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaDestino);
+      const horaDestino = cambios.hora_inicio || turnoActual.horaInicio;
+      if (
+        hayConflictoDeSobreturno({
+          turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
+          horaInicio: horaDestino,
+          duracionMin: turnoActual.duracionMin,
+          idExcluido: turnoActual.id,
+        })
+      ) {
+        setError("Ya hay otro sobreturno a esa hora: elegí otro horario.");
+        return;
+      }
+      const actualizado = await actualizarEstadoTurnoOrtodoncia(turnoActual.id, { ...cambios, sobreturno: true });
+      setTurnoActual(actualizado);
+      setOfrecerSobreturno(null);
+      setMostrarOrtodoncista(false);
+      if (cambios.fecha && cambios.fecha !== (turnoActual.fecha || fecha)) {
+        onCambiado();
+        onClose();
+        return;
+      }
+      onCambiado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(null);
+    }
+  }
+
   // Si el turno que ocupaba el lugar se canceló o se movió, el sobreturno pasa a ser un turno normal.
   async function pasarASinSobreturno() {
     setError(null);
@@ -112,6 +158,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
 
   async function confirmarMovimiento() {
     setError(null);
+    setOfrecerSobreturno(null);
     setMoviendo(true);
     try {
       const turnosDestino = await obtenerTurnosOrtodonciaPorFecha(nuevaFecha);
@@ -125,6 +172,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
       });
       if (conflicto) {
         setError("Ese horario ya está ocupado en ese consultorio, o el ortodoncista ya tiene otro turno a esa hora.");
+        setOfrecerSobreturno({ fecha: nuevaFecha, hora_inicio: nuevaHora, consultorio: Number(nuevoConsultorio) });
         return;
       }
       await actualizarEstadoTurnoOrtodoncia(turnoActual.id, {
@@ -165,6 +213,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
   // que ese ortodoncista no tenga otro turno a la misma hora.
   async function confirmarCambioOrtodoncista() {
     setError(null);
+    setOfrecerSobreturno(null);
     if (!nuevoOrtodoncistaId) return;
     if (nuevoOrtodoncistaId === turnoActual.profesionalDeTurnoId) {
       setMostrarOrtodoncista(false);
@@ -183,9 +232,10 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
       });
       if (conflicto) {
         setError("Ese ortodoncista ya tiene otro turno a esa hora.");
+        setOfrecerSobreturno({ ortodoncista_id: nuevoOrtodoncistaId, ...marcasAlCambiarA(nuevoOrtodoncistaId) });
         return;
       }
-      const actualizado = await actualizarEstadoTurnoOrtodoncia(turnoActual.id, { ortodoncista_id: nuevoOrtodoncistaId });
+      const actualizado = await actualizarEstadoTurnoOrtodoncia(turnoActual.id, { ortodoncista_id: nuevoOrtodoncistaId, ...marcasAlCambiarA(nuevoOrtodoncistaId) });
       setTurnoActual(actualizado);
       setMostrarOrtodoncista(false);
       onCambiado();
@@ -290,6 +340,16 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
           </div>
         )}
 
+        {!turnoActual.sobreturno && (
+          <button
+            onClick={() => {
+              if (window.confirm("¿Marcar este turno como sobreturno? Pasa a la columna «Sobreturnos» de la agenda y deja de ocupar el lugar.")) aplicarComoSobreturno({});
+            }}
+            className="mb-1 block w-fit text-xs text-blue-600 hover:underline"
+          >
+            Marcar este turno como sobreturno
+          </button>
+        )}
         {!mostrarConcepto ? (
           <button
             onClick={() => {
@@ -378,6 +438,20 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
 
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+        )}
+        {ofrecerSobreturno && (
+          <div className="mb-4 rounded-md border-2 border-dashed border-amber-600 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            ¿Querés hacerlo igual como <strong>🔁 sobreturno</strong>? Queda encimado en ese horario y se muestra en la columna «Sobreturnos» de la agenda; si el otro turno se cancela, lo pasás a turno normal.
+            <div className="mt-2">
+              <button
+                onClick={() => aplicarComoSobreturno(ofrecerSobreturno)}
+                disabled={guardando === "sobreturno"}
+                className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {guardando === "sobreturno" ? "Guardando..." : "Sí, hacerlo como sobreturno"}
+              </button>
+            </div>
+          </div>
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500">
