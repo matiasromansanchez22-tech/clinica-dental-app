@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { ESTADOS_INSTALACION, INICIO_APP_INSTALACIONES, obtenerControlInstalacionesOrtodoncia } from "@/lib/data/controlInstalacionesOrtodoncia";
+import {
+  ESTADOS_INSTALACION,
+  INICIO_APP_INSTALACIONES,
+  RESULTADOS_REVISION,
+  guardarRevisionInstalacion,
+  obtenerControlInstalacionesOrtodoncia,
+} from "@/lib/data/controlInstalacionesOrtodoncia";
 
 function pesos(n) {
   return `$${Math.round(Number(n) || 0).toLocaleString("es-AR")}`;
@@ -28,6 +34,7 @@ const ESTILO_ESTADO = {
   [ESTADOS_INSTALACION.COMPLETA_MENOS]: "bg-violet-100 text-violet-800",
   [ESTADOS_INSTALACION.AGENDADA]: "bg-gray-100 text-gray-700",
   [ESTADOS_INSTALACION.SIN_REFERENCIA]: "bg-gray-100 text-gray-700",
+  [ESTADOS_INSTALACION.REVISADA]: "bg-gray-200 text-gray-700",
 };
 
 function Tarjeta({ titulo, valor, detalle, color, activa, onClick }) {
@@ -89,6 +96,18 @@ export default function ControlInstalacionesOrtodoncia() {
     a.download = "control-instalaciones-ortodoncia.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function revisar(id, resultado) {
+    setError(null);
+    try {
+      const guardada = await guardarRevisionInstalacion(id, resultado, null);
+      // Se recarga para que las tarjetas y la situación reflejen la revisión.
+      setDatos(await obtenerControlInstalacionesOrtodoncia(desde));
+      return guardada;
+    } catch (e) {
+      setError(e.message.includes("revision_instalaciones") ? "Falta activar las revisiones (migración 162)." : e.message);
+    }
   }
 
   const r = datos?.resumen;
@@ -160,6 +179,7 @@ export default function ControlInstalacionesOrtodoncia() {
               activa={estado === ESTADOS_INSTALACION.COMPLETA_MENOS}
               onClick={() => alternar(ESTADOS_INSTALACION.COMPLETA_MENOS)}
             />
+            <Tarjeta titulo="Revisadas por las dueñas" valor={r.revisadas} color="text-gray-700" detalle="Anotadas como ya instaladas, no instaladas o pagadas por otro lado" activa={estado === ESTADOS_INSTALACION.REVISADA} onClick={() => alternar(ESTADOS_INSTALACION.REVISADA)} />
             <Tarjeta titulo={ESTADOS_INSTALACION.COMPLETA} valor={r.completas} color="text-emerald-700" activa={estado === ESTADOS_INSTALACION.COMPLETA} onClick={() => alternar(ESTADOS_INSTALACION.COMPLETA)} />
             <Tarjeta
               titulo="Datos que faltan en la ficha"
@@ -221,6 +241,7 @@ export default function ControlInstalacionesOrtodoncia() {
                   <th className="px-3 py-2 text-left font-semibold">Pagos registrados</th>
                   <th className="px-3 py-2 text-right font-semibold">Falta</th>
                   <th className="px-3 py-2 text-left font-semibold">Situación</th>
+                  <th className="px-3 py-2 text-left font-semibold">Revisión</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,6 +274,21 @@ export default function ControlInstalacionesOrtodoncia() {
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-gray-700">{f.falta ? pesos(f.falta) : "—"}</td>
                     <td className="px-3 py-2">
                       <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTILO_ESTADO[f.estado]}`}>{f.estado}</span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={f.revision?.resultado || ""}
+                        onChange={(e) => revisar(f.id, e.target.value)}
+                        title="Si el control marca algo que en realidad está bien, anotá por qué: deja de contar como alerta"
+                        className="w-44 rounded-md border border-gray-300 px-1.5 py-1 text-xs"
+                      >
+                        <option value="">(sin revisar)</option>
+                        {RESULTADOS_REVISION.map((x) => (
+                          <option key={x} value={x}>
+                            {x}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                   </tr>
                 ))}
