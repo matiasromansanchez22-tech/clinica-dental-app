@@ -429,6 +429,11 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
             </label>
           </div>
 
+          {!proximaPrestacion && !altaPaciente && (
+            <p className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+              Para activar el botón, elegí qué se hace en el próximo turno, o tildá que el paciente está de alta.
+            </p>
+          )}
           <button
             type="button"
             onClick={marcarRealizado}

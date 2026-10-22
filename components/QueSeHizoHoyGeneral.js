@@ -153,11 +153,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   async function enviarACaja() {
     setError(null);
     setMensaje(null);
-    if (pasosElegidos.length === 0 && aparte.length === 0) {
+    if (pasosElegidos.length === 0 && aparteConSeleccion.length === 0) {
       setError("Elegí qué hiciste hoy antes de enviar a caja.");
       return;
     }
-    if (aparte.length > 0 && turno.cobertura === "Particular" && (!formaPago || !cuotasPago)) {
+    if (aparteConSeleccion.length > 0 && turno.cobertura === "Particular" && (!formaPago || !cuotasPago)) {
       setError("Indicá cómo va a pagar el paciente (efectivo o transferencia, al contado o en 2 veces) antes de enviar a caja.");
       return;
     }
@@ -189,7 +189,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         primero = false;
         setPasosElegidos((actual) => actual.filter((n) => n !== nombre));
       }
-      for (const a of aparte) {
+      for (const a of aparteConSeleccion) {
         await marcarPrestacionAdHocRealizada({
           catalogoId: a.catalogoId,
           prestacion: a.prestacion,
@@ -209,6 +209,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         primero = false;
         setAparte((actual) => actual.filter((x) => x.clave !== a.clave));
       }
+      setCatalogoIdElegido("");
+      setCantidadElegida(1);
+      setPrecioElegido("");
       await marcarTurnoFinalizado();
       setNotaProximoTurno("");
       setCargoExtraDescripcion("");
@@ -230,7 +233,21 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const pasosSinMarcar = pasos.filter((p) => !p.realizadoId && !p.cobrado && !pasosElegidos.includes(p.nombre));
   const sugerenciaPago = planActivo ? calcularSugerenciaPago(planActivo) : null;
   const linkCobrar = `/caja?pacienteId=${turno.pacienteId}&profesionalId=${profesionalId || ""}&abrir=1`;
-  const cantidadAEnviar = pasosElegidos.length + aparte.length;
+  // Lo que está elegido en el desplegable y todavía no se agregó con "+ Agregar" también cuenta: se suma solo al enviar a caja.
+  const itemElegido = catalogo?.find((c) => c.id === catalogoIdElegido);
+  const aparteConSeleccion = itemElegido
+    ? [
+        ...aparte,
+        {
+          clave: "seleccion-actual",
+          catalogoId: itemElegido.id,
+          prestacion: itemElegido.prestacion,
+          cantidad: Number(cantidadElegida) || 1,
+          precio: precioElegido === "" ? null : Number(precioElegido),
+        },
+      ]
+    : aparte;
+  const cantidadAEnviar = pasosElegidos.length + aparteConSeleccion.length;
   const hayCatalogo = catalogo?.length > 0;
 
   if (!turno.pacienteId) return null;
@@ -541,7 +558,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           </div>
 
           <div className="mt-4 border-t border-gray-100 pt-3">
-            {aparte.length > 0 && turno.cobertura === "Particular" && (
+            {aparteConSeleccion.length > 0 && turno.cobertura === "Particular" && (
               <div className="mb-3 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
                 <p className="font-semibold">💳 ¿Cómo va a pagar el paciente?</p>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
