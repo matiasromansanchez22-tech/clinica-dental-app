@@ -16,6 +16,7 @@ export default function NomencladorPage() {
   const [obrasSociales, setObrasSociales] = useState([]);
   const [obraSocial, setObraSocial] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [busquedaCodigo, setBusquedaCodigo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filas, setFilas] = useState([]);
   const [porcentajeParticular, setPorcentajeParticular] = useState(80);
@@ -64,7 +65,22 @@ export default function NomencladorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obraSocial, busqueda]);
 
-  const filasFiltradas = filas.filter((f) => !filtroCategoria || f.categoria === filtroCategoria);
+  // Código: se ignoran puntos, comas y ceros al principio ("01.01", "0101" y "101" encuentran lo mismo); empieza con lo que se escribe.
+  const soloDigitos = (c) => String(c ?? "").replace(/\D/g, "").replace(/^0+/, "");
+  const codigoBuscado = busquedaCodigo.trim();
+  const porCategoria = filas.filter((f) => !filtroCategoria || f.categoria === filtroCategoria);
+  const q = soloDigitos(codigoBuscado);
+  // Si se escribe el código completo con punto, coma o cero al principio ("01.01", "0101") se busca ese código justo; si no hay, o se escribe de otra forma, los que empiezan igual.
+  const exactos = (/[.,]/.test(codigoBuscado) || /^0/.test(codigoBuscado)) && q ? porCategoria.filter((f) => soloDigitos(f.codigo) === q) : [];
+  const filasFiltradas = (
+    !codigoBuscado
+      ? porCategoria
+      : /[a-zA-Z]/.test(codigoBuscado)
+        ? porCategoria.filter((f) => String(f.codigo ?? "").toLowerCase().includes(codigoBuscado.toLowerCase()))
+        : exactos.length > 0
+          ? exactos
+          : porCategoria.filter((f) => !q || soloDigitos(f.codigo).startsWith(q))
+  ).sort((a, b) => (codigoBuscado ? Number(soloDigitos(a.codigo) || 0) - Number(soloDigitos(b.codigo) || 0) : 0));
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -97,9 +113,16 @@ export default function NomencladorPage() {
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar prestación o código..."
+          placeholder="Buscar prestación..."
           disabled={!obraSocial}
           className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+        />
+        <input
+          value={busquedaCodigo}
+          onChange={(e) => setBusquedaCodigo(e.target.value)}
+          placeholder="Buscar por código..."
+          disabled={!obraSocial}
+          className="w-44 rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
         />
         <select
           value={filtroCategoria}
