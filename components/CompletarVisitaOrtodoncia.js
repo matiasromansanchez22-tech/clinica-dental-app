@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { CONCEPTOS_TURNO_ORTODONCIA, TIPOS_BRACKET_ORTODONCIA } from "@/lib/ortodoncia";
+import { useEffect, useState } from "react";
+import { CONCEPTOS_TURNO_ORTODONCIA, GOMAS_INTERMAXILAR, TIPOS_BRACKET_ORTODONCIA } from "@/lib/ortodoncia";
+import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { completarVisitaOrtodoncia } from "@/lib/data/prestacionesRealizadas";
 
 // Formulario para completar una visita de Ortodoncia que la secretaria ya cobró antes de que el
@@ -12,6 +13,9 @@ export default function CompletarVisitaOrtodoncia({ visita, onCompletado }) {
   const [bracketReposicion, setBracketReposicion] = useState(TIPOS_BRACKET_ORTODONCIA[0]);
   const [cantidadBrackets, setCantidadBrackets] = useState(1);
   const [altaPaciente, setAltaPaciente] = useState(false);
+  // Gomas intermaxilares entregadas en esta visita (claves de GOMAS_INTERMAXILAR): se cobran aparte.
+  const [gomasElegidas, setGomasElegidas] = useState([]);
+  const [precios, setPrecios] = useState({});
   const [proximaPrestacion, setProximaPrestacion] = useState("");
   const [tiempoProximoTurno, setTiempoProximoTurno] = useState("");
   const [notaProximoTurno, setNotaProximoTurno] = useState("");
@@ -20,6 +24,14 @@ export default function CompletarVisitaOrtodoncia({ visita, onCompletado }) {
 
   // Si la secretaria ya cobró el bracket junto con el control, no se vuelve a pedir.
   const bracketYaCobrado = Boolean(visita.bracketReposicion);
+
+  useEffect(() => {
+    obtenerConfiguracionOrtodoncia()
+      .then(setPrecios)
+      .catch(() => {});
+  }, []);
+
+  const gomasConPrecio = GOMAS_INTERMAXILAR.map((g) => ({ ...g, precio: Number(precios[g.clave]) || g.precioPorDefecto }));
 
   async function guardar() {
     setError(null);
@@ -38,6 +50,7 @@ export default function CompletarVisitaOrtodoncia({ visita, onCompletado }) {
         proximaPrestacionNombre: proximaPrestacion || null,
         proximaPrestacionTiempoMin: tiempoProximoTurno ? Number(tiempoProximoTurno) : null,
         alta: altaPaciente,
+        gomas: gomasConPrecio.filter((g) => gomasElegidas.includes(g.clave)).map(({ etiqueta, precio }) => ({ etiqueta, precio })),
       });
       onCompletado?.();
     } catch (e) {
@@ -94,6 +107,24 @@ export default function CompletarVisitaOrtodoncia({ visita, onCompletado }) {
           )}
         </div>
       )}
+
+      <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+        <p className="mb-1 text-xs text-gray-600">Gomas intermaxilares (secretaría las cobra aparte)</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {gomasConPrecio.map((g) => (
+            <label key={g.clave} className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={gomasElegidas.includes(g.clave)}
+                onChange={(e) =>
+                  setGomasElegidas((actual) => (e.target.checked ? [...actual, g.clave] : actual.filter((c) => c !== g.clave)))
+                }
+              />
+              {g.etiqueta} (${g.precio.toLocaleString("es-AR")})
+            </label>
+          ))}
+        </div>
+      </div>
 
       <div className="border-t border-gray-100 pt-2">
         <p className="mb-1 text-xs font-semibold text-gray-700">¿Qué vas a realizar la próxima vez?</p>
