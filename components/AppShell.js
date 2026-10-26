@@ -8,7 +8,9 @@ import CapturaErrores from "@/components/CapturaErrores";
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
-  const esLogin = pathname === "/login";
+  // Páginas que se abren sin iniciar sesión y sin el menú del sistema: el login y las páginas públicas del plan de referidos
+  // (la que se abre con el QR del cartel y el cartel para imprimir).
+  const esLogin = pathname === "/login" || pathname === "/referidos" || pathname === "/referidos/cartel";
 
   return (
     <AuthProvider>
