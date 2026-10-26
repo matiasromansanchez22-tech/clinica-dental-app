@@ -32,6 +32,17 @@ const GRUPOS = [
       { clave: "precio_gomas_intermaxilar_1_8", etiqueta: "Gomas intermaxilar 1/8" },
     ],
   },
+  {
+    titulo: "Plan de referidos",
+    filas: [
+      { clave: "referidos_descuento_instalacion_contado", etiqueta: "Descuento en la instalación del paciente nuevo — si paga todo de contado" },
+      { clave: "referidos_descuento_instalacion_2_cuotas", etiqueta: "Descuento en la instalación del paciente nuevo — si paga en 2 veces (se descuenta de la 1.ª cuota)" },
+      { clave: "referidos_porcentaje_descuento_control", etiqueta: "Descuento en un control para quien recomendó", unidad: "%" },
+      { clave: "referidos_cada_cuantos_control_sin_costo", etiqueta: "Cada cuántos referidos que empiezan es un control sin costo", unidad: "" },
+      { clave: "referidos_tope_premios_por_anio", etiqueta: "Máximo de premios por paciente por año", unidad: "" },
+      { clave: "referidos_vigencia_dias", etiqueta: "Días que dura el descuento en el control", unidad: "días" },
+    ],
+  },
 ];
 
 const CAMPOS = GRUPOS.flatMap((g) => g.filas);
@@ -113,7 +124,7 @@ export default function CatalogoOrtodonciaPage() {
                   <div key={f.clave} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <span className="text-sm text-gray-700">{f.etiqueta}</span>
                     <div className="flex items-center gap-1 text-sm text-gray-500">
-                      $
+                      {f.unidad === undefined ? "$" : ""}
                       <input
                         type="number"
                         min={0}
@@ -121,6 +132,7 @@ export default function CatalogoOrtodonciaPage() {
                         onChange={(e) => set(f.clave, e.target.value)}
                         className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right"
                       />
+                      {f.unidad ? f.unidad : ""}
                     </div>
                   </div>
                 ))}

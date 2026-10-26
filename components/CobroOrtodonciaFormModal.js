@@ -24,6 +24,13 @@ import { obtenerTurnosOrtodonciaPorFecha } from "@/lib/data/turnosOrtodoncia";
 import { aplicarSaldoAFavor, obtenerSaldoAFavor } from "@/lib/data/saldosAFavor";
 import { marcarControlesPagados } from "@/lib/data/controlesOrtodoncia";
 import { aplicarAumentoCuota, registrarContinuacionEnFicha } from "@/lib/data/pacientesOrtodoncia";
+import {
+  marcarPremioAplicado,
+  montoDescuentoControl,
+  obtenerConfigReferidos,
+  obtenerPremiosDisponibles,
+  registrarInicioInstalacionReferido,
+} from "@/lib/data/referidos";
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -72,6 +79,9 @@ export default function CobroOrtodonciaFormModal({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [aumentoConfirmado, setAumentoConfirmado] = useState(false);
+  // Plan de referidos: premios que tiene el paciente para usar en este cobro, y si se aplican.
+  const [premios, setPremios] = useState({ referido: null, referidor: null });
+  const [aplicarPremio, setAplicarPremio] = useState(true);
   // Todo lo que el ortodoncista marcó como "hecho" y todavía no se cobró
   // (puede ser más de una visita) — se usa la más reciente para
   // pre-completar el formulario, pero se cierran TODAS al cobrar, para
@@ -109,7 +119,13 @@ export default function CobroOrtodonciaFormModal({
     setMontoAFavorAplicado(0);
     setMontoAAplicarInput("");
     setCobrosInstalacion([]);
+    setPremios({ referido: null, referidor: null });
+    setAplicarPremio(true);
     if (!pacienteId) return;
+    obtenerConfigReferidos()
+      .then((cfg) => obtenerPremiosDisponibles(pacienteId, cfg))
+      .then(setPremios)
+      .catch(() => {});
     obtenerSaldoAFavor(pacienteId, true)
       .then(setSaldoAFavor)
       .catch(() => {});
@@ -165,6 +181,26 @@ export default function CobroOrtodonciaFormModal({
   const precioContinuacion =
     concepto === CONCEPTO_CONTINUACION ? precioContinuacionSugerido(paciente?.tipoBrackets, precios) : null;
 
+  // Plan de referidos: descuento que corresponde a este cobro.
+  //  · Instalación de un paciente que llegó recomendado: de contado, el monto completo; en 2 cuotas, solo en la primera.
+  //  · Control de un paciente que recomendó a alguien que ya empezó la instalación: mitad (o el control completo) de UN control.
+  const esCobroInstalacion = concepto === "Instalación (contado)" || concepto === "Instalación (2 cuotas)";
+  const esPrimeraCuota = !cobrosInstalacion.some((c) => c.concepto === "Instalación (2 cuotas)");
+  const valorControlParaDescuento = debeConfirmarAumento && aumentoConfirmado ? cuotaSugerida : Number(paciente?.valorControl || 0);
+  let descuentoReferidoDisponible = 0;
+  let rolPremio = null;
+  let referidoRefId = null;
+  if (premios.referido && esCobroInstalacion && (concepto === "Instalación (contado)" || esPrimeraCuota)) {
+    descuentoReferidoDisponible = concepto === "Instalación (contado)" ? premios.referido.montoContado : premios.referido.monto2Cuotas;
+    rolPremio = "referido";
+    referidoRefId = premios.referido.id;
+  } else if (premios.referidor && concepto === "Control" && Number(cantidadControlesAbonados) === 1) {
+    descuentoReferidoDisponible = montoDescuentoControl(premios.referidor, valorControlParaDescuento);
+    rolPremio = "referidor";
+    referidoRefId = premios.referidor.id;
+  }
+  const descuentoReferido = aplicarPremio ? descuentoReferidoDisponible : 0;
+
   // El importe que corresponde cobrar con lo que está cargado en el formulario.
   function calcularImporteSugerido() {
     if (!paciente) return 0;
@@ -182,7 +218,7 @@ export default function CobroOrtodonciaFormModal({
     } else if (concepto === CONCEPTO_CONTINUACION) {
       base = precioContinuacion || 0;
     }
-    return Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado);
+    return Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado - descuentoReferido);
   }
 
   // Cuando a un paciente le toca el aumento, el monto del Control queda fijado en la cuota nueva:
@@ -207,6 +243,7 @@ export default function CobroOrtodonciaFormModal({
     montoAFavorAplicado,
     precioInstalacion,
     precioContinuacion,
+    descuentoReferido,
   ]);
 
   function aplicarSaldo() {
@@ -296,6 +333,7 @@ export default function CobroOrtodonciaFormModal({
     try {
       const observacionesFinal = [
         observaciones || null,
+        descuentoReferido > 0 ? `Descuento por referido: -$${descuentoReferido.toLocaleString("es-AR")}` : null,
         cargoExtraMonto ? `Cargo extra: ${cargoExtraDescripcion || "(sin descripción)"} ($${Number(cargoExtraMonto).toLocaleString("es-AR")})` : null,
       ]
         .filter(Boolean)
@@ -319,7 +357,25 @@ export default function CobroOrtodonciaFormModal({
         medioPago,
         desglosePago: pagoMixto ? desglosePago.map((p) => ({ medio: p.medio, monto: Number(p.monto) })) : null,
         observaciones: observacionesFinal || null,
+        descuentoReferido,
+        referidoRef: referidoRefId,
       });
+      // Plan de referidos: el descuento queda como usado, y si es el primer cobro de instalación se habilita el premio de quien lo recomendó.
+      if (descuentoReferido > 0) {
+        try {
+          await marcarPremioAplicado({ referidoRefId, rol: rolPremio, monto: descuentoReferido, cajaOrtodonciaId: cobro.id, fecha });
+        } catch (errPremio) {
+          console.error("No se pudo marcar el premio como usado", errPremio);
+          window.alert("El cobro se registró, pero no se pudo marcar el descuento por referido como usado. Avisale a una dueña.");
+        }
+      }
+      if (esCobroInstalacion) {
+        try {
+          await registrarInicioInstalacionReferido(pacienteId, fecha);
+        } catch (errInicio) {
+          console.error("No se pudo habilitar el premio de quien lo recomendó", errInicio);
+        }
+      }
       if (pendientesRealizados.length > 0) {
         await marcarPendientesOrtodonciaComoCobrados(
           pendientesRealizados.map((p) => p.id),
@@ -721,6 +777,21 @@ export default function CobroOrtodonciaFormModal({
               />
             </div>
           </div>
+
+          {descuentoReferidoDisponible > 0 && (
+            <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              <p className="font-semibold">🤝 Plan de referidos</p>
+              <p className="mt-0.5 text-xs">
+                {rolPremio === "referido"
+                  ? `Este paciente llegó recomendado por ${premios.referido.referidor}: tiene $${descuentoReferidoDisponible.toLocaleString("es-AR")} de descuento en la instalación${concepto === "Instalación (2 cuotas)" ? " (en la primera cuota)" : " (de contado)"}.`
+                  : `Este paciente recomendó a ${premios.referidor.referido}: tiene ${premios.referidor.tipo === "Control sin costo" ? "un control sin costo" : "la mitad de un control"} (-$${descuentoReferidoDisponible.toLocaleString("es-AR")}). Vence el ${premios.referidor.vence?.split("-").reverse().join("/")}.`}
+              </p>
+              <label className="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium">
+                <input type="checkbox" checked={aplicarPremio} onChange={(e) => setAplicarPremio(e.target.checked)} />
+                Aplicar el descuento en este cobro
+              </label>
+            </div>
+          )}
 
           {saldoAFavor > 0 && (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

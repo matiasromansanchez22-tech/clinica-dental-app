@@ -16,6 +16,8 @@ import {
 } from "@/lib/data/pacientesOrtodoncia";
 import HistorialClinicoOrtodoncia from "@/components/HistorialClinicoOrtodoncia";
 import SaldoAFavor from "@/components/SaldoAFavor";
+import ReferidoPorPacienteCampo from "@/components/ReferidoPorPacienteCampo";
+import { guardarReferidor } from "@/lib/data/referidos";
 
 const TIPOS_BRACKETS = ["Metalicos", "Porcelana"];
 const ESTADOS_PACIENTE = ["Consulta", "Activo", "Inactivo", "Finalizado", "Abandonó"];
@@ -93,6 +95,8 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
       : VACIO
   );
   const [guardando, setGuardando] = useState(false);
+  // Quién lo recomendó (plan de referidos): undefined = sin cambios, null = se sacó, id = paciente elegido.
+  const [referidorElegido, setReferidorElegido] = useState(undefined);
   const [borrando, setBorrando] = useState(false);
   const [error, setError] = useState(null);
   const [duplicados, setDuplicados] = useState([]);
@@ -164,11 +168,14 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
     setGuardando(true);
     try {
       const datos = { ...form, mesesEntreAumentos: config.meses_entre_aumentos || 6 };
+      let pacienteGuardado;
       if (paciente) {
-        await actualizarPacienteOrtodoncia(paciente.id, datos);
+        pacienteGuardado = await actualizarPacienteOrtodoncia(paciente.id, datos);
       } else {
-        await crearPacienteOrtodoncia(datos);
+        pacienteGuardado = await crearPacienteOrtodoncia(datos);
       }
+      // Plan de referidos: solo si se tocó quién lo recomendó (undefined = sin cambios).
+      if (referidorElegido !== undefined && pacienteGuardado?.id) await guardarReferidor(pacienteGuardado.id, referidorElegido);
       onGuardado();
     } catch (err) {
       setError(err.message);
@@ -507,6 +514,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
             </label>
+            <ReferidoPorPacienteCampo pacienteId={paciente?.id} onChange={setReferidorElegido} />
           </div>
 
           <hr className="border-gray-200" />
