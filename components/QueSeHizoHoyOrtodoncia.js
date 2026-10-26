@@ -5,6 +5,7 @@ import {
   CONCEPTO_CONTINUACION,
   CONCEPTOS_ORTODONCIA,
   CONCEPTOS_TURNO_ORTODONCIA,
+  GOMAS_INTERMAXILAR,
   precioContinuacionSugerido,
   TIPOS_BRACKET_ORTODONCIA,
 } from "@/lib/ortodoncia";
@@ -38,6 +39,8 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
   const [bracketReposicion, setBracketReposicion] = useState(TIPOS_BRACKET_ORTODONCIA[0]);
   const [cantidadBrackets, setCantidadBrackets] = useState(1);
   const [notaProximoTurno, setNotaProximoTurno] = useState("");
+  // Gomas intermaxilares elegidas (claves de GOMAS_INTERMAXILAR): se suman al cargo extra de la visita.
+  const [gomasElegidas, setGomasElegidas] = useState([]);
   const [cargoExtraDescripcion, setCargoExtraDescripcion] = useState("");
   const [cargoExtraMonto, setCargoExtraMonto] = useState("");
   const [proximaPrestacion, setProximaPrestacion] = useState("");
@@ -104,6 +107,9 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargando, visitaPorCompletar, pendiente, visitaCobrada]);
 
+  const precioGoma = (g) => Number(preciosCatalogo[g.clave]) || g.precioPorDefecto;
+  const gomasSeleccionadas = GOMAS_INTERMAXILAR.filter((g) => gomasElegidas.includes(g.clave));
+
   async function marcarRealizado() {
     setError(null);
     if (!proximaPrestacion && !altaPaciente) {
@@ -126,8 +132,11 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
         bracketReposicion: concepto === "Control" && seDespegoBracket ? bracketReposicion : null,
         cantidadBrackets: concepto === "Control" && seDespegoBracket ? cantidadBrackets : null,
         notaProximoTurno: notaProximoTurno.trim() || null,
-        cargoExtraDescripcion: cargoExtraDescripcion.trim() || null,
-        cargoExtraMonto: cargoExtraMonto ? Number(cargoExtraMonto) : null,
+        // Gomas elegidas + cargo extra escrito a mano: una sola descripción y un solo monto.
+        cargoExtraDescripcion:
+          [...gomasSeleccionadas.map((g) => g.etiqueta), cargoExtraDescripcion.trim()].filter(Boolean).join(" + ") || null,
+        cargoExtraMonto:
+          gomasSeleccionadas.reduce((suma, g) => suma + precioGoma(g), 0) + (cargoExtraMonto ? Number(cargoExtraMonto) : 0) || null,
         proximaPrestacionNombre: altaPaciente ? null : proximaPrestacion || null,
         proximaPrestacionTiempoMin: !altaPaciente && tiempoProximoTurno ? Number(tiempoProximoTurno) : null,
         alta: altaPaciente,
@@ -141,6 +150,7 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
       setNotaProximoTurno("");
       setCargoExtraDescripcion("");
       setCargoExtraMonto("");
+      setGomasElegidas([]);
       setProximaPrestacion("");
       setTiempoProximoTurno("");
       setAltaPaciente(false);
@@ -337,6 +347,21 @@ export default function QueSeHizoHoyOrtodoncia({ turno, fecha, onTurnoActualizad
           )}
 
           <div className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+            <p className="mb-1 text-xs text-gray-600">Gomas intermaxilares (se suman al total)</p>
+            <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
+              {GOMAS_INTERMAXILAR.map((g) => (
+                <label key={g.clave} className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={gomasElegidas.includes(g.clave)}
+                    onChange={(e) =>
+                      setGomasElegidas((actual) => (e.target.checked ? [...actual, g.clave] : actual.filter((c) => c !== g.clave)))
+                    }
+                  />
+                  {g.etiqueta} (${precioGoma(g).toLocaleString("es-AR")})
+                </label>
+              ))}
+            </div>
             <p className="mb-1 text-xs text-gray-600">Cargo extra (opcional, se suma al total)</p>
             <div className="flex items-center gap-2">
               <input

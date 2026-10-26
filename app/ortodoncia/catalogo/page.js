@@ -25,6 +25,13 @@ const GRUPOS = [
       { clave: "precio_bracket_porcelana", etiqueta: "Porcelana" },
     ],
   },
+  {
+    titulo: "Gomas intermaxilares (las elige el ortodoncista en el control)",
+    filas: [
+      { clave: "precio_gomas_intermaxilar_1_4", etiqueta: "Gomas intermaxilar 1/4" },
+      { clave: "precio_gomas_intermaxilar_1_8", etiqueta: "Gomas intermaxilar 1/8" },
+    ],
+  },
 ];
 
 const CAMPOS = GRUPOS.flatMap((g) => g.filas);
