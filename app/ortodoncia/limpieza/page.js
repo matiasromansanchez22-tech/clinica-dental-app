@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
-import { ESTADOS_DESTINO, GRUPOS_LIMPIEZA, aplicarEstadoEnLote, deshacerEstadoEnLote, obtenerCandidatosLimpieza } from "@/lib/data/limpiezaOrtodoncia";
+import {
+  DIAS_SIN_VOLVER_A_LA_LISTA,
+  ESTADOS_DESTINO,
+  GRUPOS_LIMPIEZA,
+  OPCION_SIGUE,
+  aplicarEstadoEnLote,
+  deshacerEstadoEnLote,
+  marcarSiguenEnTratamiento,
+  obtenerCandidatosLimpieza,
+} from "@/lib/data/limpiezaOrtodoncia";
 
 const NOMBRES_MES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -86,14 +95,17 @@ function LimpiezaContenido() {
     const ids = elegidosVisibles.map((f) => f.id);
     if (ids.length === 0) return;
     const ejemplo = elegidosVisibles.slice(0, 3).map((f) => f.nombre).join(", ");
+    const sigue = estadoDestino === OPCION_SIGUE;
     const ok = window.confirm(
-      `Vas a pasar a ${ids.length} paciente${ids.length > 1 ? "s" : ""} a «${estadoDestino}» (${ejemplo}${ids.length > 3 ? "..." : ""}).\n\nDejan de aparecer en el seguimiento de Ortodoncia. Se puede deshacer ahora mismo o reactivar después desde la ficha.\n\n¿Confirmás?`
+      sigue
+        ? `Vas a marcar a ${ids.length} paciente${ids.length > 1 ? "s" : ""} como «sigue en tratamiento» (${ejemplo}${ids.length > 3 ? "..." : ""}).\n\nSiguen como Activos y no vuelven a esta lista durante ${DIAS_SIN_VOLVER_A_LA_LISTA} días.\n\n¿Confirmás?`
+        : `Vas a pasar a ${ids.length} paciente${ids.length > 1 ? "s" : ""} a «${estadoDestino}» (${ejemplo}${ids.length > 3 ? "..." : ""}).\n\nDejan de aparecer en el seguimiento de Ortodoncia. Se puede deshacer ahora mismo o reactivar después desde la ficha.\n\n¿Confirmás?`
     );
     if (!ok) return;
     setAplicando(true);
     setError(null);
     try {
-      const r = await aplicarEstadoEnLote(ids, estadoDestino);
+      const r = sigue ? await marcarSiguenEnTratamiento(ids) : await aplicarEstadoEnLote(ids, estadoDestino);
       setResultado({ estado: estadoDestino, nombres: Object.fromEntries(elegidosVisibles.map((f) => [f.id, f.nombre])), ...r });
       setElegidos(new Set());
       cargar();
@@ -136,7 +148,10 @@ function LimpiezaContenido() {
       {resultado && (
         <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           <p className="font-medium">
-            ✅ {resultado.cambiados.length} paciente{resultado.cambiados.length === 1 ? "" : "s"} pasado{resultado.cambiados.length === 1 ? "" : "s"} a «{resultado.estado}».
+            ✅ {resultado.cambiados.length} paciente{resultado.cambiados.length === 1 ? "" : "s"}{" "}
+            {resultado.estado === OPCION_SIGUE
+              ? `marcado${resultado.cambiados.length === 1 ? "" : "s"} como «sigue en tratamiento»: no vuelve${resultado.cambiados.length === 1 ? "" : "n"} a esta lista por ${DIAS_SIN_VOLVER_A_LA_LISTA} días.`
+              : `pasado${resultado.cambiados.length === 1 ? "" : "s"} a «${resultado.estado}».`}
             {resultado.cambiados.length > 0 && (
               <button onClick={deshacer} disabled={aplicando} className="ml-3 rounded border border-emerald-400 bg-white px-2 py-0.5 text-xs font-medium hover:bg-emerald-100">
                 Deshacer
@@ -175,6 +190,7 @@ function LimpiezaContenido() {
               <label className="flex items-center gap-1.5 text-sm text-gray-700">
                 Pasar a
                 <select value={estadoDestino} onChange={(e) => setEstadoDestino(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+                  <option value={OPCION_SIGUE}>{OPCION_SIGUE} (no cambia el estado)</option>
                   {ESTADOS_DESTINO.map((e) => (
                     <option key={e} value={e}>
                       {e}
@@ -187,10 +203,19 @@ function LimpiezaContenido() {
                 disabled={aplicando || elegidosVisibles.length === 0}
                 className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {aplicando ? "Aplicando..." : `Pasar ${elegidosVisibles.length || ""} a ${estadoDestino}`}
+                {aplicando
+                  ? "Aplicando..."
+                  : estadoDestino === OPCION_SIGUE
+                    ? `Marcar ${elegidosVisibles.length || ""} como en tratamiento`
+                    : `Pasar ${elegidosVisibles.length || ""} a ${estadoDestino}`}
               </button>
             </div>
           </div>
+          {estadoDestino === OPCION_SIGUE && (
+            <p className="mt-1 text-xs text-gray-500">
+              Para los que en realidad siguen viniendo: quedan como Activos y no vuelven a esta lista durante {DIAS_SIN_VOLVER_A_LA_LISTA} días.
+            </p>
+          )}
           {estadoDestino === "Consulta" && (
             <p className="mt-1 text-xs text-gray-500">«Consulta» es para quienes nunca arrancaron el tratamiento: pasan a la lista de Consultas, y si empiezan la instalación vuelven a Activo solos.</p>
           )}
