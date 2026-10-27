@@ -26,6 +26,7 @@ const FORMAS_PAGO = ["Contado", "2 Cuotas"];
 const ORIGENES_PACIENTE = ["Nuevo", "Continuación de otra clínica"];
 
 const VACIO = {
+  esOrtopedia: false,
   nombre: "",
   whatsapp: "",
   fechaNacimiento: "",
@@ -62,6 +63,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   const [form, setForm] = useState(
     paciente
       ? {
+          esOrtopedia: Boolean(paciente.esOrtopedia),
           nombre: paciente.nombre || "",
           whatsapp: paciente.whatsapp || "",
           fechaNacimiento: paciente.fechaNacimiento || "",
@@ -358,6 +360,13 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 ))}
               </select>
             </label>
+            <label className="col-span-2 flex cursor-pointer items-start gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900">
+              <input type="checkbox" checked={Boolean(form.esOrtopedia)} onChange={(e) => set("esOrtopedia", e.target.checked)} className="mt-0.5" />
+              <span>
+                <strong>Paciente de ortopedia</strong>
+                <span className="block text-xs">Queda afuera del seguimiento de ortodoncia, la limpieza, Retomar, la tarjeta de fidelidad y el plan de referidos.</span>
+              </span>
+            </label>
             <label className="flex flex-col gap-1 text-sm text-gray-700">
               Estado del paciente
               <select
@@ -515,8 +524,8 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
                 className="rounded-md border border-gray-300 px-2 py-1.5"
               />
             </label>
-            <ReferidoPorPacienteCampo pacienteId={paciente?.id} onChange={setReferidorElegido} />
-            <FidelidadPacienteCampo pacienteId={paciente?.id} />
+            {!form.esOrtopedia && <ReferidoPorPacienteCampo pacienteId={paciente?.id} onChange={setReferidorElegido} />}
+            {!form.esOrtopedia && <FidelidadPacienteCampo pacienteId={paciente?.id} />}
           </div>
 
           <hr className="border-gray-200" />

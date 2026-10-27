@@ -288,6 +288,11 @@ function PacientesOrtodonciaContenido() {
                 >
                   <td className="px-3 py-2 font-medium text-gray-900">
                     {p.nombre}
+                    {p.esOrtopedia && (
+                      <span title="Paciente de ortopedia: no cuenta en el seguimiento de ortodoncia, la tarjeta ni los referidos" className="ml-1.5 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                        ortopedia
+                      </span>
+                    )}
                     {p.estadoPaciente === "Consulta" && (
                       <>
                         <span

@@ -22,7 +22,7 @@ export default function ReferidoPorPacienteCampo({ pacienteId, onChange }) {
 
   const porNombre = useMemo(() => {
     const m = new Map();
-    for (const p of pacientes) if (p.id !== pacienteId) m.set(p.nombre.trim().toLowerCase(), p);
+    for (const p of pacientes) if (p.id !== pacienteId && !p.esOrtopedia) m.set(p.nombre.trim().toLowerCase(), p);
     return m;
   }, [pacientes, pacienteId]);
 
@@ -68,7 +68,7 @@ export default function ReferidoPorPacienteCampo({ pacienteId, onChange }) {
           />
           <datalist id="pacientes-ortodoncia-referidos">
             {pacientes
-              .filter((p) => p.id !== pacienteId)
+              .filter((p) => p.id !== pacienteId && !p.esOrtopedia)
               .map((p) => (
                 <option key={p.id} value={p.nombre} />
               ))}
