@@ -82,6 +82,7 @@ const GRUPOS = [
       { href: "/ortodoncia/consultas", label: "🩺 Consultas (hasta la instalación)", badgeKey: "consultasPorContactar", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/prioridades", label: "⭐ Prioridades (de otra ortodoncista)", badgeKey: "prioridadesPorVolver", ocultarRoles: ["Laboratorio"] },
       { href: "/ortodoncia/altas", label: "🏁 Altas (seguimiento cada 6 meses)", badgeKey: "altasParaEscribir", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/limpieza", label: "🧹 Limpieza de pacientes", ocultarRoles: ["Secretaria", "Odontologo", "Laboratorio", "Contador", "CM", "Asistente"] },
       { href: "/ortodoncia/catalogo", label: "Catálogo" },
       { href: "/ortodoncia/controles", label: "Controles" },
       { href: "/ortodoncia/cuentas-por-cobrar", label: "Cuentas por cobrar", badgeKey: "cobrarOrtodoncia", ocultarRoles: ["Odontologo", "Laboratorio"] },
