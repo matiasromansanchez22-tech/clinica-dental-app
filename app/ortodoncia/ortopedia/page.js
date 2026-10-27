@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
-import { calcularEdad } from "@/lib/ortodoncia";
+import { calcularCuotaConAumento, calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerPacientesOrtopedia } from "@/lib/data/ortopedia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
@@ -55,10 +55,23 @@ function PacientesOrtopediaContenido() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
+  const porcentajeAumento = config.aumento_porcentaje ?? 25;
+
   const resumen = useMemo(() => {
     const activos = pacientes.filter((p) => p.estadoPaciente === "Activo").length;
     return { total: pacientes.length, activos, otros: pacientes.length - activos };
   }, [pacientes]);
+
+  // Igual que en Ortodoncia: cuántos están al día con el aumento de la cuota del control, cuántos lo tienen próximo o vencido.
+  const resumenAumento = useMemo(() => {
+    const conteo = { "Al día": 0, "Próximo aumento": 0, Aumentar: 0, "Sin definir": 0 };
+    for (const p of pacientes) {
+      if (p.estadoPaciente !== "Activo") continue;
+      conteo[calcularEstadoAumento(p.proximoAumento).texto] += 1;
+    }
+    return conteo;
+  }, [pacientes]);
+  const sinCuota = useMemo(() => pacientes.filter((p) => p.estadoPaciente === "Activo" && !Number(p.valorControl)).length, [pacientes]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -78,6 +91,16 @@ function PacientesOrtopediaContenido() {
         Para pasar a un paciente de ortodoncia a esta lista, abrí su ficha y tildá «Paciente de ortopedia».
       </p>
 
+      {!cargando && !busqueda && (
+        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+          <span className="rounded-md bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">🟢 Al día: {resumenAumento["Al día"]}</span>
+          <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">🟡 Próximo aumento: {resumenAumento["Próximo aumento"]}</span>
+          <span className="rounded-md bg-red-50 px-3 py-1.5 font-medium text-red-700">🔴 Aumentar (vencido): {resumenAumento["Aumentar"]}</span>
+          <span className="rounded-md bg-gray-100 px-3 py-1.5 font-medium text-gray-500">⚪ Sin fecha de aumento: {resumenAumento["Sin definir"]}</span>
+          {sinCuota > 0 && <span className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-700">💲 Sin cuota por control cargada: {sinCuota}</span>}
+        </div>
+      )}
+
       <input
         type="search"
         value={busqueda}
@@ -89,7 +112,7 @@ function PacientesOrtopediaContenido() {
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
           <thead>
             <tr className="bg-brand-brown text-white">
               <th className="px-3 py-2 text-left font-semibold">Paciente</th>
@@ -99,24 +122,30 @@ function PacientesOrtopediaContenido() {
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Próximo turno</th>
               <th className="px-3 py-2 text-left font-semibold">Última visita</th>
+              <th className="px-3 py-2 text-right font-semibold">Cuota por control</th>
+              <th className="px-3 py-2 text-left font-semibold">Próximo aumento</th>
+              <th className="px-3 py-2 text-left font-semibold">Estado del aumento</th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && pacientes.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={10} className="px-3 py-4 text-center text-gray-500">
                   {busqueda ? "No se encontraron pacientes de ortopedia con ese nombre." : "Todavía no hay pacientes de ortopedia cargados."}
                 </td>
               </tr>
             )}
-            {pacientes.map((p) => (
+            {pacientes.map((p) => {
+              const aumento = calcularEstadoAumento(p.proximoAumento);
+              const cuotaNueva = p.valorControl && (aumento.texto === "Aumentar" || aumento.texto === "Próximo aumento") ? calcularCuotaConAumento(p.valorControl, porcentajeAumento) : null;
+              return (
               <tr key={p.id} onClick={() => setPacienteEnEdicion(p)} className="cursor-pointer border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium text-gray-900">{p.nombre}</td>
                 <td className="px-3 py-2 text-gray-600">{p.fechaNacimiento ? `${calcularEdad(p.fechaNacimiento)} años` : "—"}</td>
@@ -136,8 +165,15 @@ function PacientesOrtopediaContenido() {
                   )}
                 </td>
                 <td className="px-3 py-2 tabular-nums text-gray-600">{formatoFecha(p.ultimaVisita)}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{p.valorControl ? `$${Number(p.valorControl).toLocaleString("es-AR")}` : "—"}</td>
+                <td className="px-3 py-2 tabular-nums text-gray-600">{formatoFecha(p.proximoAumento)}</td>
+                <td className={`px-3 py-2 font-medium ${aumento.color}`}>
+                  {aumento.emoji} {aumento.texto}
+                  {cuotaNueva ? <span className="block text-xs font-normal text-gray-500">cuota nueva ${Number(cuotaNueva).toLocaleString("es-AR")}</span> : null}
+                </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
