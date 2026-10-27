@@ -75,6 +75,7 @@ const GRUPOS = [
       { href: "/ortodoncia/reprogramar", label: "Turnos a reprogramar", badgeKey: "ortodoncia" },
       { href: "/ortodoncia/cancelados", label: "Turnos cancelados" },
       { href: "/ortodoncia/pacientes", label: "Pacientes" },
+      { href: "/ortodoncia/ortopedia", label: "🦴 Pacientes Ortopedia" },
       { href: "/consentimientos", label: "✍️ Consentimientos pendientes", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/retomar", label: "📲 Retomar tratamiento", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/referidos", label: "🤝 Plan de referidos", ocultarRoles: ["Odontologo", "Laboratorio"] },

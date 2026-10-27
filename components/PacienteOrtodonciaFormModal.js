@@ -59,7 +59,7 @@ const VACIO = {
   atm: "",
 };
 
-export default function PacienteOrtodonciaFormModal({ paciente, profesionales, config, onClose, onGuardado }) {
+export default function PacienteOrtodonciaFormModal({ paciente, profesionales, config, onClose, onGuardado, esOrtopediaInicial = false }) {
   const [form, setForm] = useState(
     paciente
       ? {
@@ -95,7 +95,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
           medicacion: paciente.medicacion || "",
           atm: paciente.atm || "",
         }
-      : VACIO
+      : { ...VACIO, esOrtopedia: Boolean(esOrtopediaInicial) }
   );
   const [guardando, setGuardando] = useState(false);
   // Quién lo recomendó (plan de referidos): undefined = sin cambios, null = se sacó, id = paciente elegido.

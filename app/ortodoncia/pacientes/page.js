@@ -68,8 +68,10 @@ function PacientesOrtodonciaContenido() {
   // Los que vinieron solo a una consulta (todavía no decidieron tratarse)
   // quedan aparte: no tiene sentido pedirles brackets, cuota o aumento de
   // algo que ni empezó, y ensuciaban esas estadísticas.
-  const pacientesEnTratamiento = useMemo(() => pacientes.filter((p) => p.estadoPaciente !== "Consulta"), [pacientes]);
-  const pacientesEnConsulta = useMemo(() => pacientes.filter((p) => p.estadoPaciente === "Consulta"), [pacientes]);
+  // Los de ortopedia tienen su propia lista (Pacientes Ortopedia); acá solo aparecen si se los busca por nombre.
+  const pacientesEnTratamiento = useMemo(() => pacientes.filter((p) => p.estadoPaciente !== "Consulta" && !p.esOrtopedia), [pacientes]);
+  const pacientesEnConsulta = useMemo(() => pacientes.filter((p) => p.estadoPaciente === "Consulta" && !p.esOrtopedia), [pacientes]);
+  const cantidadOrtopedia = useMemo(() => pacientes.filter((p) => p.esOrtopedia).length, [pacientes]);
 
   const resumenAumento = useMemo(() => {
     const conteo = { "Al día": 0, "Próximo aumento": 0, Aumentar: 0, "Sin definir": 0 };
@@ -128,7 +130,7 @@ function PacientesOrtodonciaContenido() {
               ? "Cargando..."
               : `${pacientesEnTratamiento.length} en tratamiento${busqueda ? " (filtrado)" : ""}${
                   pacientesEnConsulta.length > 0 ? ` · ${pacientesEnConsulta.length} en consulta` : ""
-                }`}
+                }${cantidadOrtopedia > 0 ? ` · ${cantidadOrtopedia} de ortopedia (en Pacientes Ortopedia)` : ""}`}
           </p>
         </div>
         <button
