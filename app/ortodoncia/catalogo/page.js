@@ -43,6 +43,15 @@ const GRUPOS = [
       { clave: "referidos_vigencia_dias", etiqueta: "Días que dura el descuento en el control", unidad: "días" },
     ],
   },
+  {
+    titulo: "Tarjeta de fidelidad (visitas seguidas)",
+    filas: [
+      { clave: "fidelidad_visitas_descuento", etiqueta: "Visitas seguidas para ganar el descuento en un control", unidad: "visitas" },
+      { clave: "fidelidad_porcentaje_descuento", etiqueta: "Descuento en ese control", unidad: "%" },
+      { clave: "fidelidad_visitas_control_gratis", etiqueta: "Visitas seguidas para ganar un control sin costo (la tarjeta vuelve a empezar)", unidad: "visitas" },
+      { clave: "fidelidad_vigencia_dias", etiqueta: "Días que dura el premio para usarlo", unidad: "días" },
+    ],
+  },
 ];
 
 const CAMPOS = GRUPOS.flatMap((g) => g.filas);

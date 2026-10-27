@@ -2,16 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { CONFIG_REFERIDOS_POR_DEFECTO, obtenerConfigReferidos } from "@/lib/data/referidos";
+import { CONFIG_FIDELIDAD_POR_DEFECTO, obtenerConfigFidelidad } from "@/lib/data/fidelidad";
 import { pesosAR } from "@/lib/planReferidos";
 
 // Página pública del plan de referidos de Ortodoncia (se abre con el QR del cartel, sin iniciar sesión). Los montos y las
 // condiciones salen de la misma configuración que usa el sistema, así que siempre coinciden con lo que se descuenta.
 export default function PlanReferidosPublico() {
   const [cfg, setCfg] = useState(CONFIG_REFERIDOS_POR_DEFECTO);
+  const [fid, setFid] = useState(CONFIG_FIDELIDAD_POR_DEFECTO);
 
   useEffect(() => {
     obtenerConfigReferidos()
       .then(setCfg)
+      .catch(() => {});
+    obtenerConfigFidelidad()
+      .then(setFid)
       .catch(() => {});
   }, []);
 
@@ -89,8 +94,35 @@ export default function PlanReferidosPublico() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-3xl px-5 pt-10">
+        <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Además</p>
+        <h2 className="font-heading mt-1 text-2xl font-extrabold text-brand-brown">Tarjeta de fidelidad</h2>
+        <p className="mt-2 max-w-xl text-brand-charcoal/85">
+          Venir a tus controles también tiene premio. Cada vez que asistís, te marcamos una visita en tu tarjeta.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border-2 border-brand-brown bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">{fid.fidelidad_visitas_descuento} visitas seguidas</p>
+            <p className="font-heading mt-3 text-3xl font-extrabold text-brand-brown">{fid.fidelidad_porcentaje_descuento}% de descuento</p>
+            <p className="mt-1 text-brand-charcoal/80">en tu control siguiente.</p>
+          </div>
+          <div className="rounded-2xl bg-brand-green p-6 text-brand-cream shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-cream/80">{fid.fidelidad_visitas_control_gratis} visitas seguidas</p>
+            <p className="font-heading mt-3 text-3xl font-extrabold">Un control gratis</p>
+            <p className="mt-1 text-brand-cream/90">en tu control siguiente. Después, la tarjeta vuelve a empezar.</p>
+          </div>
+        </div>
+        <ul className="mt-4 list-disc space-y-1.5 pl-5 text-sm text-brand-charcoal/85">
+          <li>Cuentan los controles de ortodoncia a los que asistís. Si faltás sin avisar, la cuenta vuelve a cero.</li>
+          <li>Si cancelás o reprogramás avisando, no perdés tus visitas.</li>
+          <li>El premio se usa en el control que sigue y dura {fid.fidelidad_vigencia_dias} días desde que lo ganás.</li>
+          <li>Es independiente del plan de referidos, pero en un mismo control se aplica un solo beneficio: el que más descuenta. El otro queda para el control siguiente.</li>
+          <li>Tu cuenta queda registrada en el sistema de la clínica: si perdés la tarjeta de papel, no perdés tus visitas.</li>
+        </ul>
+      </section>
+
       <section className="mx-auto max-w-3xl px-5 py-10">
-        <h2 className="font-heading text-xl font-extrabold text-brand-brown">Condiciones</h2>
+        <h2 className="font-heading text-xl font-extrabold text-brand-brown">Condiciones del plan de referidos</h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-brand-charcoal/85">
           <li>El plan es para pacientes <strong>nuevos de ortodoncia</strong> que llegan recomendados por un paciente de la clínica.</li>
           <li>Los beneficios se habilitan cuando el paciente recomendado <strong>comienza su instalación</strong>.</li>

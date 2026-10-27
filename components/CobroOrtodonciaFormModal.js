@@ -31,6 +31,7 @@ import {
   obtenerPremiosDisponibles,
   registrarInicioInstalacionReferido,
 } from "@/lib/data/referidos";
+import { marcarFidelidadAplicada, montoDescuentoFidelidad, obtenerFidelidadDePaciente, premioUsable } from "@/lib/data/fidelidad";
 
 const CONCEPTOS = CONCEPTOS_ORTODONCIA;
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
@@ -82,6 +83,8 @@ export default function CobroOrtodonciaFormModal({
   // Plan de referidos: premios que tiene el paciente para usar en este cobro, y si se aplican.
   const [premios, setPremios] = useState({ referido: null, referidor: null });
   const [aplicarPremio, setAplicarPremio] = useState(true);
+  // Tarjeta de fidelidad: racha y premios del paciente.
+  const [fidelidad, setFidelidad] = useState({ cfg: null, racha: null, premios: [] });
   // Todo lo que el ortodoncista marcó como "hecho" y todavía no se cobró
   // (puede ser más de una visita) — se usa la más reciente para
   // pre-completar el formulario, pero se cierran TODAS al cobrar, para
@@ -121,10 +124,14 @@ export default function CobroOrtodonciaFormModal({
     setCobrosInstalacion([]);
     setPremios({ referido: null, referidor: null });
     setAplicarPremio(true);
+    setFidelidad({ cfg: null, racha: null, premios: [] });
     if (!pacienteId) return;
     obtenerConfigReferidos()
       .then((cfg) => obtenerPremiosDisponibles(pacienteId, cfg))
       .then(setPremios)
+      .catch(() => {});
+    obtenerFidelidadDePaciente(pacienteId)
+      .then(setFidelidad)
       .catch(() => {});
     obtenerSaldoAFavor(pacienteId, true)
       .then(setSaldoAFavor)
@@ -199,7 +206,14 @@ export default function CobroOrtodonciaFormModal({
     rolPremio = "referidor";
     referidoRefId = premios.referidor.id;
   }
-  const descuentoReferido = aplicarPremio ? descuentoReferidoDisponible : 0;
+  // Tarjeta de fidelidad: premio ganado en una visita anterior (50% en un control, o control sin costo). En un mismo
+  // control se aplica un solo beneficio — el que más descuenta — y el otro queda para el control siguiente.
+  const premioFidelidad = concepto === "Control" && Number(cantidadControlesAbonados) === 1 && fidelidad.cfg ? premioUsable(fidelidad.premios, fecha) : null;
+  const descuentoFidelidadDisponible = premioFidelidad ? montoDescuentoFidelidad(premioFidelidad, valorControlParaDescuento, fidelidad.cfg) : 0;
+  const usaFidelidad = descuentoFidelidadDisponible > 0 && (descuentoReferidoDisponible === 0 || descuentoFidelidadDisponible > descuentoReferidoDisponible);
+  const beneficioQueQueda = descuentoFidelidadDisponible > 0 && descuentoReferidoDisponible > 0 ? (usaFidelidad ? "el del plan de referidos" : "el de la tarjeta de fidelidad") : null;
+  const descuentoReferido = aplicarPremio && !usaFidelidad ? descuentoReferidoDisponible : 0;
+  const descuentoFidelidad = aplicarPremio && usaFidelidad ? descuentoFidelidadDisponible : 0;
 
   // El importe que corresponde cobrar con lo que está cargado en el formulario.
   function calcularImporteSugerido() {
@@ -218,7 +232,7 @@ export default function CobroOrtodonciaFormModal({
     } else if (concepto === CONCEPTO_CONTINUACION) {
       base = precioContinuacion || 0;
     }
-    return Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado - descuentoReferido);
+    return Math.max(0, base + Number(cargoExtraMonto || 0) - montoAFavorAplicado - descuentoReferido - descuentoFidelidad);
   }
 
   // Cuando a un paciente le toca el aumento, el monto del Control queda fijado en la cuota nueva:
@@ -244,6 +258,7 @@ export default function CobroOrtodonciaFormModal({
     precioInstalacion,
     precioContinuacion,
     descuentoReferido,
+    descuentoFidelidad,
   ]);
 
   function aplicarSaldo() {
@@ -313,7 +328,9 @@ export default function CobroOrtodonciaFormModal({
         return;
       }
     }
-    if (!importe || Number(importe) <= 0) {
+    // Un control sin costo (premio de referidos o de la tarjeta de fidelidad) se registra con importe $0.
+    const esControlSinCosto = Number(importe) === 0 && descuentoReferido + descuentoFidelidad > 0;
+    if (!esControlSinCosto && (!importe || Number(importe) <= 0)) {
       setError("El importe tiene que ser mayor a cero.");
       return;
     }
@@ -334,6 +351,7 @@ export default function CobroOrtodonciaFormModal({
       const observacionesFinal = [
         observaciones || null,
         descuentoReferido > 0 ? `Descuento por referido: -$${descuentoReferido.toLocaleString("es-AR")}` : null,
+        descuentoFidelidad > 0 ? `Descuento por tarjeta de fidelidad: -$${descuentoFidelidad.toLocaleString("es-AR")}` : null,
         cargoExtraMonto ? `Cargo extra: ${cargoExtraDescripcion || "(sin descripción)"} ($${Number(cargoExtraMonto).toLocaleString("es-AR")})` : null,
       ]
         .filter(Boolean)
@@ -359,7 +377,18 @@ export default function CobroOrtodonciaFormModal({
         observaciones: observacionesFinal || null,
         descuentoReferido,
         referidoRef: referidoRefId,
+        descuentoFidelidad,
+        fidelidadRef: premioFidelidad?.id || null,
       });
+      // Tarjeta de fidelidad: el premio queda como usado (no se puede usar dos veces).
+      if (descuentoFidelidad > 0) {
+        try {
+          await marcarFidelidadAplicada({ premioId: premioFidelidad.id, monto: descuentoFidelidad, cajaOrtodonciaId: cobro.id, fecha });
+        } catch (errFid) {
+          console.error("No se pudo marcar el premio de la tarjeta como usado", errFid);
+          window.alert("El cobro se registró, pero no se pudo marcar el premio de la tarjeta de fidelidad como usado. Avisale a una dueña.");
+        }
+      }
       // Plan de referidos: el descuento queda como usado, y si es el primer cobro de instalación se habilita el premio de quien lo recomendó.
       if (descuentoReferido > 0) {
         try {
@@ -790,6 +819,24 @@ export default function CobroOrtodonciaFormModal({
                 <input type="checkbox" checked={aplicarPremio} onChange={(e) => setAplicarPremio(e.target.checked)} />
                 Aplicar el descuento en este cobro
               </label>
+            </div>
+          )}
+
+          {descuentoFidelidadDisponible > 0 && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <p className="font-semibold">🎟️ Tarjeta de fidelidad</p>
+              <p className="mt-0.5 text-xs">
+                {usaFidelidad
+                  ? `Este paciente ganó ${premioFidelidad.tipo === "Control sin costo" ? "un control sin costo" : `${fidelidad.cfg.fidelidad_porcentaje_descuento}% de descuento en un control`} (${premioFidelidad.nivel} visitas seguidas): -$${descuentoFidelidadDisponible.toLocaleString("es-AR")}. Vence el ${premioFidelidad.vence?.split("-").reverse().join("/")}.`
+                  : "Este paciente también tiene un premio de la tarjeta de fidelidad, pero en este control se aplica el del plan de referidos (descuenta más). La tarjeta queda para el próximo control."}
+              </p>
+              {usaFidelidad && (
+                <label className="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium">
+                  <input type="checkbox" checked={aplicarPremio} onChange={(e) => setAplicarPremio(e.target.checked)} />
+                  Aplicar el descuento en este cobro
+                </label>
+              )}
+              {usaFidelidad && beneficioQueQueda && <p className="mt-1 text-xs">También tiene {beneficioQueQueda}: queda para el próximo control.</p>}
             </div>
           )}
 

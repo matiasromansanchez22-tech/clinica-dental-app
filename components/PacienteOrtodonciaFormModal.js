@@ -17,6 +17,7 @@ import {
 import HistorialClinicoOrtodoncia from "@/components/HistorialClinicoOrtodoncia";
 import SaldoAFavor from "@/components/SaldoAFavor";
 import ReferidoPorPacienteCampo from "@/components/ReferidoPorPacienteCampo";
+import FidelidadPacienteCampo from "@/components/FidelidadPacienteCampo";
 import { guardarReferidor } from "@/lib/data/referidos";
 
 const TIPOS_BRACKETS = ["Metalicos", "Porcelana"];
@@ -515,6 +516,7 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
               />
             </label>
             <ReferidoPorPacienteCampo pacienteId={paciente?.id} onChange={setReferidorElegido} />
+            <FidelidadPacienteCampo pacienteId={paciente?.id} />
           </div>
 
           <hr className="border-gray-200" />

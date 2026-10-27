@@ -78,6 +78,7 @@ const GRUPOS = [
       { href: "/consentimientos", label: "✍️ Consentimientos pendientes", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/retomar", label: "📲 Retomar tratamiento", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/referidos", label: "🤝 Plan de referidos", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/fidelidad", label: "🎟️ Tarjeta de fidelidad", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/consultas", label: "🩺 Consultas (hasta la instalación)", badgeKey: "consultasPorContactar", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/prioridades", label: "⭐ Prioridades (de otra ortodoncista)", badgeKey: "prioridadesPorVolver", ocultarRoles: ["Laboratorio"] },
       { href: "/ortodoncia/altas", label: "🏁 Altas (seguimiento cada 6 meses)", badgeKey: "altasParaEscribir", ocultarRoles: ["Odontologo", "Laboratorio"] },
