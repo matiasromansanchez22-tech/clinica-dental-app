@@ -827,7 +827,7 @@ export default function CobroOrtodonciaFormModal({
               <p className="font-semibold">🎟️ Tarjeta de fidelidad</p>
               <p className="mt-0.5 text-xs">
                 {usaFidelidad
-                  ? `Este paciente ganó ${premioFidelidad.tipo === "Control sin costo" ? "un control sin costo" : `${fidelidad.cfg.fidelidad_porcentaje_descuento}% de descuento en un control`} (${premioFidelidad.nivel} visitas seguidas): -$${descuentoFidelidadDisponible.toLocaleString("es-AR")}. Vence el ${premioFidelidad.vence?.split("-").reverse().join("/")}.`
+                  ? `Es su visita N.º ${premioFidelidad.nivel} seguida: ${premioFidelidad.tipo === "Control sin costo" ? "este control es sin costo" : `${fidelidad.cfg.fidelidad_porcentaje_descuento}% de descuento en este control`} (-$${descuentoFidelidadDisponible.toLocaleString("es-AR")}). Vence el ${premioFidelidad.vence?.split("-").reverse().join("/")}.`
                   : "Este paciente también tiene un premio de la tarjeta de fidelidad, pero en este control se aplica el del plan de referidos (descuenta más). La tarjeta queda para el próximo control."}
               </p>
               {usaFidelidad && (

@@ -2,9 +2,9 @@
 --
 -- Cómo funciona:
 --  · Cada control de ortodoncia al que el paciente asiste suma una visita seguida.
---  · A las 5 visitas seguidas: 50% de descuento en el control siguiente.
---  · A las 10 visitas seguidas: el control siguiente es sin costo. Después la tarjeta vuelve a empezar.
---  · Faltar sin avisar vuelve la racha a cero. Cancelar o reprogramar avisando no la rompe ni suma.
+--  · El control N.º 5 seguido tiene 50% de descuento, y el N.º 10 seguido es sin costo. Después la tarjeta vuelve a empezar.
+--  · El premio se habilita al asistir a la visita anterior (la 4.ª y la 9.ª) y se usa en el cobro de esa visita.
+--  · Faltar sin avisar vuelve la racha a cero y hace perder el premio que esperaba. Cancelar o reprogramar avisando no la rompe ni suma.
 --  · Es independiente del plan de referidos, pero en un mismo control se aplica un solo beneficio
 --    (el que más descuenta); el otro queda para el control siguiente.
 --  · Los premios se anotan acá apenas se alcanzan, para que una falta posterior no los borre.

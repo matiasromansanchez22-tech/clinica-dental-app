@@ -102,21 +102,21 @@ export default function PlanReferidosPublico() {
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl border-2 border-brand-brown bg-white p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">{fid.fidelidad_visitas_descuento} visitas seguidas</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">En tu control N.º {fid.fidelidad_visitas_descuento}</p>
             <p className="font-heading mt-3 text-3xl font-extrabold text-brand-brown">{fid.fidelidad_porcentaje_descuento}% de descuento</p>
-            <p className="mt-1 text-brand-charcoal/80">en tu control siguiente.</p>
+            <p className="mt-1 text-brand-charcoal/80">si venís a tus {fid.fidelidad_visitas_descuento} controles seguidos.</p>
           </div>
           <div className="rounded-2xl bg-brand-green p-6 text-brand-cream shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand-cream/80">{fid.fidelidad_visitas_control_gratis} visitas seguidas</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-cream/80">En tu control N.º {fid.fidelidad_visitas_control_gratis}</p>
             <p className="font-heading mt-3 text-3xl font-extrabold">Un control gratis</p>
-            <p className="mt-1 text-brand-cream/90">en tu control siguiente. Después, la tarjeta vuelve a empezar.</p>
+            <p className="mt-1 text-brand-cream/90">si venís a tus {fid.fidelidad_visitas_control_gratis} controles seguidos. Después, la tarjeta vuelve a empezar.</p>
           </div>
         </div>
         <ul className="mt-4 list-disc space-y-1.5 pl-5 text-sm text-brand-charcoal/85">
-          <li>Cuentan los controles de ortodoncia a los que asistís. Si faltás sin avisar, la cuenta vuelve a cero.</li>
+          <li>Cuentan los controles de ortodoncia a los que asistís. Si faltás sin avisar antes de llegar al control del premio, la cuenta vuelve a cero y se pierde.</li>
           <li>Si cancelás o reprogramás avisando, no perdés tus visitas.</li>
-          <li>El premio se usa en el control que sigue y dura {fid.fidelidad_vigencia_dias} días desde que lo ganás.</li>
-          <li>Es independiente del plan de referidos, pero en un mismo control se aplica un solo beneficio: el que más descuenta. El otro queda para el control siguiente.</li>
+          <li>El descuento se aplica en ese mismo control, el día que venís. Tenés {fid.fidelidad_vigencia_dias} días desde tu control anterior para llegar.</li>
+          <li>Es independiente del plan de referidos, pero en un mismo control se aplica un solo beneficio: el que más descuenta. El otro queda para el control siguiente, si todavía está vigente.</li>
           <li>Tu cuenta queda registrada en el sistema de la clínica: si perdés la tarjeta de papel, no perdés tus visitas.</li>
         </ul>
       </section>

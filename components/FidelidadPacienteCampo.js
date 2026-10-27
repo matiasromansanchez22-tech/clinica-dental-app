@@ -43,7 +43,8 @@ export default function FidelidadPacienteCampo({ pacienteId }) {
 
   if (!pacienteId || !datos) return null;
   const { cfg, racha, premios } = datos;
-  const habilitados = premios.filter((p) => p.estado === "Habilitado");
+  const habilitados = premios.filter((p) => p.estado === "Habilitado" && !p.roto);
+  const perdidos = premios.filter((p) => p.estado === "Habilitado" && p.roto);
   const usados = premios.filter((p) => p.estado === "Aplicado");
 
   return (
@@ -59,7 +60,13 @@ export default function FidelidadPacienteCampo({ pacienteId }) {
       </div>
       {habilitados.map((p) => (
         <p key={p.id} className="mt-1.5 text-xs font-medium">
-          🎁 {p.tipo === "Control sin costo" ? "Control sin costo" : `${cfg.fidelidad_porcentaje_descuento}% de descuento en un control`} — se usa en la próxima visita (hasta el {formatoFecha(p.vence)}).
+          🎁 {p.ganadoEn ? `Premio de su visita ${p.nivel}` : `En su próxima visita (la ${p.nivel}.ª)`}:{" "}
+          {p.tipo === "Control sin costo" ? "control sin costo" : `${cfg.fidelidad_porcentaje_descuento}% de descuento en el control`} (hasta el {formatoFecha(p.vence)}).
+        </p>
+      ))}
+      {perdidos.map((p) => (
+        <p key={p.id} className="mt-1 text-xs text-red-700">
+          Perdió el premio de la visita {p.nivel} porque faltó sin avisar.
         </p>
       ))}
       {usados.length > 0 && <p className="mt-1 text-xs">Premios ya usados: {usados.length}.</p>}

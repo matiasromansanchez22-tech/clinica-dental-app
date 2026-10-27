@@ -38,12 +38,10 @@ function FidelidadContenido() {
   const filas = useMemo(() => {
     if (!datos) return [];
     return datos.filas.map((f) => {
-      const habilitados = f.premios.filter((p) => p.estado === "Habilitado" && (!p.vence || p.vence >= hoy));
+      const habilitados = f.premios.filter((p) => p.estado === "Habilitado" && !p.roto && (!p.vence || p.vence >= hoy));
       const usados = f.premios.filter((p) => p.estado === "Aplicado");
-      const { visitasDescuento, visitasGratis } = f.racha;
-      // Le falta una sola visita para el próximo premio (la 5.ª o la 10.ª).
-      const aPunto = f.racha.progreso === visitasDescuento - 1 || f.racha.progreso === visitasGratis - 1;
-      return { ...f, habilitados, usados, aPunto };
+      const perdidos = f.premios.filter((p) => p.estado === "Habilitado" && p.roto);
+      return { ...f, habilitados, usados, perdidos };
     });
   }, [datos, hoy]);
 
@@ -51,7 +49,7 @@ function FidelidadContenido() {
     () => ({
       enCurso: filas.filter((f) => f.racha.progreso > 0).length,
       habilitados: filas.filter((f) => f.habilitados.length > 0),
-      aPunto: filas.filter((f) => f.aPunto),
+      perdidos: filas.reduce((a, f) => a + f.perdidos.length, 0),
       usados: filas.reduce((a, f) => a + f.usados.length, 0),
       descontado: filas.reduce((a, f) => a + f.usados.reduce((b, p) => b + Number(p.monto || 0), 0), 0),
     }),
@@ -63,7 +61,7 @@ function FidelidadContenido() {
     return filas
       .filter((f) => {
         if (filtro === "habilitados") return f.habilitados.length > 0;
-        if (filtro === "apunto") return f.aPunto;
+        if (filtro === "perdidos") return f.perdidos.length > 0;
         if (filtro === "usados") return f.usados.length > 0;
         return f.racha.progreso > 0 || f.habilitados.length > 0 || f.usados.length > 0 || f.racha.completoUltima;
       })
@@ -88,9 +86,10 @@ function FidelidadContenido() {
         <>
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <p>
-              <strong>Las reglas:</strong> {cfg.fidelidad_visitas_descuento} controles seguidos dan {cfg.fidelidad_porcentaje_descuento}% de descuento en el control siguiente, y{" "}
-              {cfg.fidelidad_visitas_control_gratis} seguidos dan un control sin costo (después la tarjeta vuelve a empezar). Faltar sin avisar vuelve la cuenta a
-              cero; cancelar o reprogramar avisando no la rompe ni suma. Cada premio dura {cfg.fidelidad_vigencia_dias} días. En un mismo control se aplica un solo
+              <strong>Las reglas:</strong> el control N.º {cfg.fidelidad_visitas_descuento} seguido tiene {cfg.fidelidad_porcentaje_descuento}% de descuento, y el N.º{" "}
+              {cfg.fidelidad_visitas_control_gratis} seguido es sin costo (después la tarjeta vuelve a empezar). Para llegar a esa visita no hay que haber faltado sin avisar:
+              si falta, la cuenta vuelve a cero y pierde el premio. Cancelar o reprogramar avisando no la rompe ni suma. El premio se habilita al asistir a la visita anterior y dura{" "}
+              {cfg.fidelidad_vigencia_dias} días. En un mismo control se aplica un solo
               beneficio (el que más descuenta), también cuando coincide con el plan de referidos. Se cuenta desde el {formatoFecha(fechaDesdeConfig(cfg))}.
             </p>
           </div>
@@ -98,16 +97,9 @@ function FidelidadContenido() {
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
             <Tarjeta titulo="Con tarjeta en curso" valor={resumen.enCurso} detalle="Vienen sumando visitas seguidas" activa={filtro === "todos"} onClick={() => setFiltro("todos")} />
             <Tarjeta
-              titulo="A una visita de un premio"
-              valor={resumen.aPunto.length}
-              detalle="Si vienen en su próximo turno, ganan"
-              activa={filtro === "apunto"}
-              onClick={() => setFiltro(filtro === "apunto" ? "todos" : "apunto")}
-            />
-            <Tarjeta
-              titulo="Premios para usar"
+              titulo="Premio en su próxima visita"
               valor={resumen.habilitados.length}
-              detalle="Se aplican solos en su próximo cobro"
+              detalle="Ya vinieron a la visita anterior (la 4.ª o la 9.ª)"
               activa={filtro === "habilitados"}
               onClick={() => setFiltro(filtro === "habilitados" ? "todos" : "habilitados")}
             />
@@ -117,6 +109,13 @@ function FidelidadContenido() {
               detalle={`${pesos(resumen.descontado)} descontados en total`}
               activa={filtro === "usados"}
               onClick={() => setFiltro(filtro === "usados" ? "todos" : "usados")}
+            />
+            <Tarjeta
+              titulo="Premios perdidos"
+              valor={resumen.perdidos}
+              detalle="Faltaron sin avisar antes de la visita del premio"
+              activa={filtro === "perdidos"}
+              onClick={() => setFiltro(filtro === "perdidos" ? "todos" : "perdidos")}
             />
           </div>
 
@@ -172,7 +171,7 @@ function FidelidadContenido() {
                     <td className="px-3 py-2 text-xs">
                       {f.habilitados.map((p) => (
                         <p key={p.id} className="font-medium text-emerald-800">
-                          🎁 {p.tipo === "Control sin costo" ? "Control sin costo" : `${cfg.fidelidad_porcentaje_descuento}% en un control`} · hasta el {formatoFecha(p.vence)}
+                          🎁 {p.ganadoEn ? "Visita" : "Próxima visita"} N.º {p.nivel}: {p.tipo === "Control sin costo" ? "control sin costo" : `${cfg.fidelidad_porcentaje_descuento}% de descuento`} · hasta el {formatoFecha(p.vence)}
                         </p>
                       ))}
                       {f.usados.map((p) => (
@@ -183,6 +182,11 @@ function FidelidadContenido() {
                       {f.premios.filter((p) => p.estado === "Vencido").map((p) => (
                         <p key={p.id} className="text-red-700">
                           Venció: {p.tipo === "Control sin costo" ? "control sin costo" : `${cfg.fidelidad_porcentaje_descuento}%`} ({formatoFecha(p.vence)})
+                        </p>
+                      ))}
+                      {f.perdidos.map((p) => (
+                        <p key={p.id} className="text-red-700">
+                          Perdió el premio de la visita {p.nivel} (faltó sin avisar)
                         </p>
                       ))}
                       {f.premios.length === 0 && <span className="text-gray-400">—</span>}
