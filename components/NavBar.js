@@ -147,6 +147,7 @@ const GRUPOS = [
       { href: "/gerencial/balance-especialidades", label: "⚖️ Balance por especialidad" },
       { href: "/gerencial/profesionales", label: "Profesionales" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)", badgeKey: "cierreDiario" },
+      { href: "/gerencial/detalle-del-dia", label: "🔍 Detalle del día (plata de punta a punta)" },
       { href: "/gerencial/limpio-diario", label: "💵 Lo que queda limpio" },
       { href: "/gerencial/cierre-mensual", label: "🔒 Cierre de Mes", badgeKey: "cierreMes" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
