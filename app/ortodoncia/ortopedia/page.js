@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import NoContador from "@/components/NoContador";
 import PacienteOrtodonciaFormModal from "@/components/PacienteOrtodonciaFormModal";
-import { calcularCuotaConAumento, calcularEdad, calcularEstadoAumento } from "@/lib/ortodoncia";
+import { calcularCuotaConAumento, calcularEdad, calcularEstadoAumento, cuotaControlSugerida } from "@/lib/ortodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerPacientesOrtopedia } from "@/lib/data/ortopedia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
@@ -144,7 +144,7 @@ function PacientesOrtopediaContenido() {
             )}
             {pacientes.map((p) => {
               const aumento = calcularEstadoAumento(p.proximoAumento);
-              const cuotaNueva = p.valorControl && (aumento.texto === "Aumentar" || aumento.texto === "Próximo aumento") ? calcularCuotaConAumento(p.valorControl, porcentajeAumento) : null;
+              const cuotaNueva = p.valorControl && (aumento.texto === "Aumentar" || aumento.texto === "Próximo aumento") ? calcularCuotaConAumento(p.valorControl, porcentajeAumento, cuotaControlSugerida(p.tipoBrackets, config)) : null;
               return (
               <tr key={p.id} onClick={() => setPacienteEnEdicion(p)} className="cursor-pointer border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium text-gray-900">{p.nombre}</td>

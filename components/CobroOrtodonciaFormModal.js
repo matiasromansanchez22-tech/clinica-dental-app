@@ -107,7 +107,7 @@ export default function CobroOrtodonciaFormModal({
   );
   const porcentajeAumento = precios.aumento_porcentaje ?? 25;
   const cuotaSugerida = paciente?.valorControl
-    ? calcularCuotaConAumento(paciente.valorControl, porcentajeAumento)
+    ? calcularCuotaConAumento(paciente.valorControl, porcentajeAumento, cuotaControlSugerida(paciente.tipoBrackets, precios))
     : 0;
   const debeConfirmarAumento = estadoAumento?.texto === "Aumentar";
 
