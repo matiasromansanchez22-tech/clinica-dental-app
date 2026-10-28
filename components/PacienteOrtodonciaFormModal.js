@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   calcularEdad,
   calcularEstadoInstalacion,
@@ -136,12 +136,19 @@ export default function PacienteOrtodonciaFormModal({ paciente, profesionales, c
   const esContinuacion = form.origenPaciente === "Continuación de otra clínica";
   const estadoInstalacion = calcularEstadoInstalacion(form.formaPagoInstalacion, cobrosInstalacion, form.origenPaciente);
 
+  // Los precios sugeridos del catálogo se cargan cuando se ELIGE o se CAMBIA el tipo de brackets o la forma de pago. Al
+  // abrir la ficha de un paciente que ya los tiene no se tocan: antes se pisaba la cuota de control y la cuota inicial
+  // de todos con el precio de catálogo (60.000 / 70.000), y al cobrar el aumento del 25% se aplicaba sobre ese valor.
+  const comboInicial = useRef({ tipoBrackets: form.tipoBrackets, formaPagoInstalacion: form.formaPagoInstalacion });
   useEffect(() => {
+    const sinCambios = form.tipoBrackets === comboInicial.current.tipoBrackets && form.formaPagoInstalacion === comboInicial.current.formaPagoInstalacion;
+    if (paciente?.id && sinCambios) return;
     if (!form.tipoBrackets || !form.formaPagoInstalacion) return;
     setForm((f) => ({
       ...f,
       cuotaInicial: cuotaInicialSugerida ? String(cuotaInicialSugerida) : f.cuotaInicial,
-      valorControl: valorControlSugerido ? String(valorControlSugerido) : f.valorControl,
+      // En un paciente que ya existe, una cuota de control ya cargada no se pisa nunca con el precio de catálogo.
+      valorControl: paciente?.id && f.valorControl ? f.valorControl : valorControlSugerido ? String(valorControlSugerido) : f.valorControl,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.tipoBrackets, form.formaPagoInstalacion]);
