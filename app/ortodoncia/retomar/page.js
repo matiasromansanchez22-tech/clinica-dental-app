@@ -54,6 +54,12 @@ const ORDEN_SEGMENTO = {
   [SEGMENTOS.SIN_MOVIMIENTO]: 3,
 };
 
+// "Viene seguido": tiene una visita registrada en los últimos ~2 meses (un control salteado todavía no lo aleja).
+const DIAS_VIENE_SEGUIDO = 70;
+function vieneSeguido(p) {
+  return p.diasDesdeUltimaVisita !== null && p.diasDesdeUltimaVisita <= DIAS_VIENE_SEGUIDO;
+}
+
 function tieneWhatsApp(p) {
   return Boolean(p.whatsapp && String(p.whatsapp).trim());
 }
@@ -255,6 +261,8 @@ function PaginaRetomar() {
   const [criterio, setCriterio] = useState("mes");
   // Por defecto se ocultan los que ya tienen turno en un mes que viene: a esos no hace falta escribirles.
   const [sinNingunTurnoFuturo, setSinNingunTurnoFuturo] = useState(true);
+  // En "No asistieron": los que vienen seguido (vinieron en los últimos ~2 meses) van separados de los más viejos.
+  const [faltaronGrupo, setFaltaronGrupo] = useState("seguido"); // "seguido" | "viejos"
   const [estadoElegido, setEstadoElegido] = useState("pendientes");
   const [ortodoncista, setOrtodoncista] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
@@ -365,11 +373,13 @@ function PaginaRetomar() {
   //  · "mes": activos que no vinieron ni tienen turno en el mes en curso (la misma lista de "Sin turno este mes").
   //  · "alejados": activos que no vinieron en el último mes y no tienen turno a futuro.
   const mesActual = fechaDeHoyISO().slice(0, 7);
+  const esDeFaltaron = (p) =>
+    estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR && (!sinNingunTurnoFuturo || !p.proximoTurno);
   const candidatosDe = (crit) =>
     pacientes.filter((p) => {
       if (p.estado !== "Activo") return false;
       if (crit === "retomar") return p.segmento === SEGMENTOS.SIN_MOVIMIENTO && !p.proximoTurno;
-      if (crit === "faltaron") return estadoEnElMes(p, mesActual) === ESTADOS_MES.TURNO_SIN_ASISTIR && (!sinNingunTurnoFuturo || !p.proximoTurno);
+      if (crit === "faltaron") return esDeFaltaron(p) && vieneSeguido(p) === (faltaronGrupo === "seguido");
       if (p.segmento === SEGMENTOS.SIN_MOVIMIENTO) return false; // esas fichas van aparte, en "Para retomar"
       if (crit === "mes") return estadoEnElMes(p, mesActual) === ESTADOS_MES.SIN_TURNO;
       return p.segmento !== SEGMENTOS.AL_DIA && !p.proximoTurno;
@@ -382,8 +392,10 @@ function PaginaRetomar() {
       faltaron: candidatosDe("faltaron").length,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pacientes, mesActual, sinNingunTurnoFuturo]
+    [pacientes, mesActual, sinNingunTurnoFuturo, faltaronGrupo]
   );
+  const faltaronSeguido = pacientes.filter((p) => p.estado === "Activo" && esDeFaltaron(p) && vieneSeguido(p)).length;
+  const faltaronViejos = pacientes.filter((p) => p.estado === "Activo" && esDeFaltaron(p) && !vieneSeguido(p)).length;
   // Cuántos de la lista actual se están ocultando porque ya tienen un turno agendado más adelante.
   const ocultosPorTurnoFuturo = pacientes.filter(
     (p) =>
@@ -396,7 +408,7 @@ function PaginaRetomar() {
   const baseVisible = useMemo(
     () => candidatosDe(criterio),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pacientes, criterio, mesActual, sinNingunTurnoFuturo]
+    [pacientes, criterio, mesActual, sinNingunTurnoFuturo, faltaronGrupo]
   );
   const ortodoncistas = useMemo(() => [...new Set(baseVisible.map((p) => p.ortodoncista))].sort((a, b) => a.localeCompare(b, "es")), [baseVisible]);
   const conteoEstados = useMemo(() => {
@@ -479,6 +491,22 @@ function PaginaRetomar() {
             </button>
           ))}
         </div>
+        {criterio === "faltaron" && (
+          <div className="flex overflow-hidden rounded-md border border-gray-300 text-sm">
+            {[
+              ["seguido", `Vienen seguido (${faltaronSeguido})`],
+              ["viejos", `Hace más que no vienen (${faltaronViejos})`],
+            ].map(([clave, etiqueta]) => (
+              <button
+                key={clave}
+                onClick={() => setFaltaronGrupo(clave)}
+                className={`px-3 py-1.5 ${faltaronGrupo === clave ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+        )}
         {criterio === "faltaron" && (
           <label className="flex items-center gap-2 text-sm text-gray-700" title="Saca a los que ya tienen turno en un mes que viene">
             <input type="checkbox" checked={sinNingunTurnoFuturo} onChange={(e) => setSinNingunTurnoFuturo(e.target.checked)} />
