@@ -37,15 +37,30 @@ export default function PlanReferidosPublico() {
       </header>
 
       <section className="mx-auto max-w-3xl px-5 pb-6 pt-8">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Plan de referidos</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Beneficios de ortodoncia</p>
         <h1 className="font-heading mt-2 text-4xl font-extrabold leading-tight text-brand-brown sm:text-5xl">
-          Recomendá tu sonrisa.
+          Premiamos a quienes cumplen
           <br />
-          Los dos ganan.
+          y a quienes nos recomiendan.
         </h1>
-        <p className="mt-4 max-w-xl text-lg text-brand-charcoal/80">
-          Si venís a la clínica y nos recomendás a alguien que empieza su tratamiento de ortodoncia, los dos tienen un descuento.
-        </p>
+        <p className="mt-4 max-w-xl text-lg text-brand-charcoal/80">Dos beneficios, cada uno con su propósito. Podés tener los dos.</p>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <a href="#cumplidores" className="rounded-2xl bg-brand-brown p-5 text-brand-cream shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-tan">Tarjeta de fidelidad</p>
+            <p className="font-heading mt-1.5 text-2xl font-extrabold leading-tight">Premiamos al paciente cumplidor</p>
+            <p className="mt-1 text-sm text-brand-cream/90">Si venís a tus controles seguidos, tenés descuento y un control gratis.</p>
+          </a>
+          <a href="#referidos" className="rounded-2xl border-2 border-brand-brown bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">Plan de referidos</p>
+            <p className="font-heading mt-1.5 text-2xl font-extrabold leading-tight text-brand-brown">Premiamos tus recomendaciones</p>
+            <p className="mt-1 text-sm text-brand-charcoal/80">Si recomendás a alguien y empieza su tratamiento, los dos ganan.</p>
+          </a>
+        </div>
+      </section>
+
+      <section id="referidos" className="mx-auto max-w-3xl px-5 pb-3 pt-2">
+        <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Plan de referidos · Premiamos tus recomendaciones</p>
       </section>
 
       <section className="mx-auto grid max-w-3xl gap-4 px-5 sm:grid-cols-2">
@@ -94,8 +109,8 @@ export default function PlanReferidosPublico() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-5 pt-10">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Además</p>
+      <section id="cumplidores" className="mx-auto max-w-3xl px-5 pt-10">
+        <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Premiamos al paciente cumplidor</p>
         <h2 className="font-heading mt-1 text-2xl font-extrabold text-brand-brown">Tarjeta de fidelidad</h2>
         <p className="mt-2 max-w-xl text-brand-charcoal/85">
           Venir a tus controles también tiene premio. Cada vez que asistís, te marcamos una visita en tu tarjeta.
