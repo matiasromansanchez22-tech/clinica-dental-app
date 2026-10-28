@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { obtenerDetalleDelDia } from "@/lib/data/detalleDelDia";
+import { MOTIVOS_SIN_COBRO, MOTIVOS_SIN_COBRO_GENERAL, justificarVisitaSinCobro, motivoNecesitaNota } from "@/lib/data/visitasSinCobro";
 
 const pesos = (n) => `$${Math.round(Number(n || 0)).toLocaleString("es-AR")}`;
 const formatoFecha = (f) => (f ? f.split("-").reverse().join("/") : "—");
@@ -41,6 +42,79 @@ function Seccion({ titulo, subtitulo, children }) {
       {subtitulo && <p className="mt-0.5 text-sm text-gray-500">{subtitulo}</p>}
       <div className="mt-2">{children}</div>
     </section>
+  );
+}
+
+// Para anotar por qué alguien que vino no pagó ese día (o cambiar el motivo ya anotado).
+function MotivoSinCobro({ paciente, fecha, onGuardado }) {
+  const turno = paciente.turnos.find((t) => t.vino) || paciente.turnos[0];
+  const justificada = turno?.justificada || null;
+  const motivos = turno?.tipo === "general" ? MOTIVOS_SIN_COBRO_GENERAL : MOTIVOS_SIN_COBRO;
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState(justificada?.motivo || motivos[0]);
+  const [nota, setNota] = useState(justificada?.nota || "");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState(null);
+  if (!turno) return null;
+
+  async function guardar() {
+    setGuardando(true);
+    setError(null);
+    try {
+      await justificarVisitaSinCobro({ turnoId: turno.id, pacienteId: turno.pacienteId, fecha, motivo, nota, sistema: turno.tipo });
+      setAbierto(false);
+      onGuardado();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="mt-1">
+      {justificada && !abierto && (
+        <p className="text-sky-700">
+          📝 Motivo: <strong>{justificada.motivo}</strong>
+          {justificada.nota ? ` — ${justificada.nota}` : ""}{" "}
+          <button type="button" onClick={() => setAbierto(true)} className="underline">
+            cambiar
+          </button>
+        </p>
+      )}
+      {!justificada && !abierto && (
+        <button type="button" onClick={() => setAbierto(true)} className="rounded border border-red-300 bg-white px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-50">
+          📝 Anotar por qué no pagó
+        </button>
+      )}
+      {abierto && (
+        <div className="mt-1 rounded-md border border-gray-300 bg-white p-2">
+          <select value={motivo} onChange={(e) => setMotivo(e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-xs">
+            {motivos.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <textarea
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            rows={2}
+            placeholder={motivoNecesitaNota(motivo) ? "Explicá el motivo (obligatorio)" : "Nota (opcional)"}
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+          />
+          {error && <p className="mt-1 text-red-700">{error}</p>}
+          <div className="mt-1 flex gap-2">
+            <button type="button" onClick={guardar} disabled={guardando} className="rounded bg-brand-brown px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+              {guardando ? "Guardando..." : "Guardar"}
+            </button>
+            <button type="button" onClick={() => setAbierto(false)} className="rounded border border-gray-300 px-2 py-1 text-xs">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -132,6 +206,8 @@ function DetalleContenido() {
   const [error, setError] = useState(null);
   const [solo, setSolo] = useState("todos");
 
+  const [version, setVersion] = useState(0);
+
   useEffect(() => {
     let vigente = true;
     obtenerDetalleDelDia(fecha)
@@ -145,7 +221,7 @@ function DetalleContenido() {
     return () => {
       vigente = false;
     };
-  }, [fecha]);
+  }, [fecha, version]);
 
   function cambiarFecha(f) {
     setDatos(null);
@@ -215,11 +291,11 @@ function DetalleContenido() {
       {datos && (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Tarjeta titulo="Vinieron" valor={datos.resumen.pacientesQueVinieron} detalle={`${datos.resumen.conCobro} con cobro o facturación`} />
+            <Tarjeta titulo="Vinieron" valor={datos.resumen.pacientesQueVinieron} detalle={`${datos.resumen.conCobro} con cobro o facturación${datos.resumen.sinCobroJustificadas ? ` · ${datos.resumen.sinCobroJustificadas} sin cobro con motivo anotado` : ""}`} />
             <Tarjeta
               titulo="Vinieron sin cobro"
               valor={datos.resumen.sinCobro}
-              detalle={datos.resumen.sinCobro === 0 ? "Todos pagaron o están justificados" : "Revisar abajo"}
+              detalle={datos.resumen.sinCobro === 0 ? "Todos pagaron o están justificados" : "Falta anotar el motivo (abajo)"}
               tono={datos.resumen.sinCobro === 0 ? "ok" : "mal"}
             />
             <Tarjeta titulo="Cobrado en Caja" valor={pesos(datos.resumen.totalCobros)} detalle={datos.medios.filter((m) => datos.resumen.cobrosPorMedio[m === "Mercado Pago" ? "mercado_pago" : m === "Débito" ? "debito" : m === "Crédito" ? "credito" : m.toLowerCase()] > 0).map((m) => `${m} ${pesos(datos.resumen.cobrosPorMedio[m === "Mercado Pago" ? "mercado_pago" : m === "Débito" ? "debito" : m === "Crédito" ? "credito" : m.toLowerCase()])}`).join(" · ") || "—"} />
@@ -383,7 +459,7 @@ function DetalleContenido() {
                               <span className="block text-xs text-gray-500">{[...new Set(p.cobros.flatMap((c) => c.partes.map((x) => x.medio)))].join(" + ")}</span>
                             </>
                           ) : (
-                            <span className={sinCobro ? "font-semibold text-red-700" : "text-gray-400"}>{sinCobro ? "Sin cobro" : "—"}</span>
+                            <span className={sinCobro && !p.turnos.some((t) => t.justificada) ? "font-semibold text-red-700" : "text-gray-400"}>{sinCobro ? "Sin cobro" : "—"}</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
@@ -412,11 +488,12 @@ function DetalleContenido() {
                               {ICONO_ALERTA[a.nivel]} {a.texto}
                             </p>
                           ))}
-                          {p.info.map((t, i) => (
+                          {p.info.filter((t) => !t.startsWith("Visita sin cobro justificada")).map((t, i) => (
                             <p key={i} className="text-sky-700">
                               🔵 {t}
                             </p>
                           ))}
+                          {sinCobro && <MotivoSinCobro paciente={p} fecha={datos.fecha} onGuardado={() => setVersion((v) => v + 1)} />}
                         </td>
                       </tr>
                     );
