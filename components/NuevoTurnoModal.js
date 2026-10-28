@@ -156,7 +156,12 @@ export default function NuevoTurnoModal({
             {
               itemId: pendiente.proxima_prestacion_catalogo_id || "",
               prestacion: pendiente.proxima_prestacion_nombre,
-              tiempoEstimadoMin: pendiente.proxima_prestacion_tiempo_min || 0,
+              // Si la anotación no trajo el tiempo, se toma el del Catálogo (por id o, si no, por nombre).
+              tiempoEstimadoMin:
+                pendiente.proxima_prestacion_tiempo_min ||
+                catalogoPorId.get(pendiente.proxima_prestacion_catalogo_id)?.tiempo_estimado_min ||
+                catalogoCompleto.find((c) => c.prestacion === pendiente.proxima_prestacion_nombre)?.tiempo_estimado_min ||
+                0,
             },
           ]);
         })
