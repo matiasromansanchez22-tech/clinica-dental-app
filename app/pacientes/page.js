@@ -309,7 +309,9 @@ function PacientesContenido() {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-gray-600">
-                  {p.tipoPaciente === "Particular" ? "Particular" : `${p.tipoPaciente} · ${p.obraSocial || ""}`}
+                  {p.tipoPaciente === "Particular"
+                    ? "Particular"
+                    : `${p.tipoPaciente} · ${p.obraSocial || ""}${p.planObraSocial ? ` (${p.planObraSocial})` : ""}`}
                 </td>
                 <td className="px-3 py-2 text-gray-600">{p.profesionalResponsable || "—"}</td>
                 <td className="px-3 py-2">

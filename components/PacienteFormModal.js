@@ -19,6 +19,7 @@ import {
   obtenerFamiliaresDePaciente,
   obtenerPacientes,
   RELACIONES_FAMILIARES,
+  CONDICIONES_IVA,
 } from "@/lib/data/pacientes";
 
 const COMO_NOS_CONOCIO = ["Instagram", "Facebook", "Google", "Referido", "Obra Social", "Cartel", "Página Web", "Otro"];
@@ -32,6 +33,8 @@ const VACIO = {
   fechaNacimiento: "",
   tipoPaciente: "Particular",
   obraSocial: "",
+  planObraSocial: "",
+  condicionIva: "",
   numeroAfiliado: "",
   estado: "Activo",
   email: "",
@@ -145,6 +148,8 @@ export default function PacienteFormModal({
       fechaNacimiento: p.fechaNacimiento || "",
       tipoPaciente: p.tipoPaciente || "Particular",
       obraSocial: p.obraSocial || "",
+      planObraSocial: p.planObraSocial || "",
+      condicionIva: p.condicionIva || "",
       numeroAfiliado: p.numeroAfiliado || "",
       estado: p.estado || "Activo",
       email: p.email || "",
@@ -434,6 +439,15 @@ export default function PacienteFormModal({
                   </datalist>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-gray-700">
+                  Plan de la obra social
+                  <input
+                    value={form.planObraSocial}
+                    onChange={(e) => set("planObraSocial", e.target.value)}
+                    placeholder="Ej.: 210, Plata, Integral"
+                    className="rounded-md border border-gray-300 px-2 py-1.5"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm text-gray-700">
                   N.º de afiliado
                   <input
                     value={form.numeroAfiliado}
@@ -443,6 +457,22 @@ export default function PacienteFormModal({
                 </label>
               </>
             )}
+
+            <label className="flex flex-col gap-1 text-sm text-gray-700">
+              Condición frente al IVA
+              <select
+                value={form.condicionIva}
+                onChange={(e) => set("condicionIva", e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1.5"
+              >
+                <option value="">Sin cargar</option>
+                {CONDICIONES_IVA.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {paciente && (
