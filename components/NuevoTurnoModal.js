@@ -604,7 +604,11 @@ export default function NuevoTurnoModal({
                   Cobertura: {pacienteExistente.tipo_paciente}
                   {pacienteExistente.obra_social ? ` · ${pacienteExistente.obra_social}` : ""}
                 </span>
+                {pacienteExistente.tipo_paciente !== "Particular" && (
+                  <span>Plan: {pacienteExistente.plan_obra_social || <span className="text-amber-700">sin cargar</span>}</span>
+                )}
                 {pacienteExistente.numero_afiliado && <span>N.º afiliado: {pacienteExistente.numero_afiliado}</span>}
+                <span>Condición de IVA: {pacienteExistente.condicion_iva || <span className="text-amber-700">sin cargar</span>}</span>
                 <span>Profesional habitual: {pacienteExistente.profesional_responsable?.nombre || "—"}</span>
                 {pacienteExistente.localidad && <span>Localidad: {pacienteExistente.localidad}</span>}
                 {pacienteExistente.email && <span>Email: {pacienteExistente.email}</span>}
