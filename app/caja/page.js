@@ -50,13 +50,16 @@ function CajaPageContenido() {
   const [mostrarNuevaTransferencia, setMostrarNuevaTransferencia] = useState(false);
   const [transferencias, setTransferencias] = useState([]);
   const [cobroEnEdicion, setCobroEnEdicion] = useState(null);
-  const [liquidaciones, setLiquidaciones] = useState({});
+  const [liquidaciones, setLiquidaciones] = useState(null); // { para: cobros a los que corresponde, mapa }
 
   // Qué cobros del día ya se le liquidaron al profesional ("Liquidado ✓").
   const cargarLiquidaciones = (lista) =>
     obtenerLiquidacionesDeCobros("general", lista.map((c) => c.id))
-      .then(setLiquidaciones)
-      .catch(() => setLiquidaciones({}));
+      .then((mapa) => setLiquidaciones({ para: lista, mapa }))
+      .catch(() => setLiquidaciones(null));
+
+  // Solo vale si se cargó para los cobros que se están mostrando (así no aparece "falta liquidar" mientras carga).
+  const liquidacionesActuales = liquidaciones && liquidaciones.para === cobros ? liquidaciones.mapa : null;
 
   useEffect(() => {
     cargarLiquidaciones(cobros);
@@ -451,7 +454,8 @@ function CajaPageContenido() {
                 <td className="px-3 py-2 font-medium text-gray-900">
                   {c.paciente}
                   <MarcaLiquidado
-                    liquidacion={liquidaciones[c.id]}
+                    liquidacion={liquidacionesActuales?.[c.id]}
+                    pendienteDe={liquidacionesActuales && !liquidacionesActuales[c.id] && c.profesionalAtencion && c.profesionalAtencion !== "—" ? c.profesionalAtencion : null}
                     onQuitar={
                       esDuena
                         ? async () => {

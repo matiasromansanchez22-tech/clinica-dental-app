@@ -13,7 +13,19 @@ function pesos(n) {
 // "Liquidado ✓" de un cobro: ya se le pagó al profesional lo que corresponde a este
 // paciente. `liquidacion` viene de obtenerLiquidacionesDeCobros ({ fecha, profesional }).
 // Si se pasa `onQuitar`, aparece una ✕ para sacar la marca (por si se tildó por error).
-export default function MarcaLiquidado({ liquidacion, onQuitar }) {
+// Si el cobro todavía no se liquidó y se pasa `pendienteDe` (el nombre de quien atendió), muestra
+// "Falta liquidar a ..." para que se vea a simple vista qué pacientes faltan.
+export default function MarcaLiquidado({ liquidacion, onQuitar, pendienteDe }) {
+  if (!liquidacion && pendienteDe) {
+    return (
+      <span
+        className="ml-1.5 inline-flex items-center rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-medium text-rose-800"
+        title={`Todavía no se le liquidó a ${pendienteDe} lo que le corresponde por este paciente`}
+      >
+        ⏳ Falta liquidar a {pendienteDe}
+      </span>
+    );
+  }
   if (!liquidacion) return null;
   // Se le pagó solo una parte: sigue pendiente, figura cuánto falta.
   if (liquidacion.parcial) {

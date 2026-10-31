@@ -165,6 +165,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
                 tratamientoSaldado={tratamientoSaldado}
                 onTratamientoSaldadoChange={setTratamientoSaldado}
                 montoPago={monto}
+                montoSugerido={montoSugerido}
                 obligatorio
                 sinPacientes={sinPacientes}
                 onSinPacientesChange={setSinPacientes}

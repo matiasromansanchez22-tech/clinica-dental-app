@@ -65,9 +65,11 @@ function FilaCobro({ cobro, tildado, onAlternar, sangria }) {
         )}
       </span>
       <span className="shrink-0 text-right text-gray-700">
-        <span className="block font-medium tabular-nums">{formatoPesos(cobro.monto)}</span>
+        <span className="block font-semibold tabular-nums text-brand-brown">
+          {cobro.falta > 0 ? `Le corresponde ${formatoPesos(cobro.falta)}` : "Sin valor"}
+        </span>
         <span className="block text-[10px] text-gray-400">
-          {formatoFecha(cobro.fecha)} · {cobro.cobertura}
+          Cobró {formatoPesos(cobro.monto)} · {formatoFecha(cobro.fecha)} · {cobro.cobertura}
         </span>
       </span>
     </label>
@@ -157,6 +159,7 @@ export default function SelectorCobrosALiquidar({
   tratamientoSaldado,
   onTratamientoSaldadoChange,
   montoPago,
+  montoSugerido,
   obligatorio = false,
   sinPacientes = false,
   onSinPacientesChange,
@@ -203,6 +206,7 @@ export default function SelectorCobrosALiquidar({
   const suma = sumaDeSeleccion(seleccion);
   const hayParciales = seleccion.some((s) => s.modo === "parte");
   const diferencia = (Number(montoPago) || 0) - suma;
+  const coincide = montoPago === undefined || !(Number(montoPago) > 0) ? null : Math.abs(diferencia) <= TOLERANCIA_SUMA;
 
   const nuevoItem = (c) => ({
     clave: c.clave,
@@ -260,45 +264,6 @@ export default function SelectorCobrosALiquidar({
         </label>
       )}
 
-      {seleccion.length > 0 && (
-        <>
-          <ul className="mt-1.5 rounded-md border border-gray-200 bg-white">
-            {seleccion.map((s) => (
-              <CuentaDelCobro
-                key={s.clave}
-                item={s}
-                onCambiar={(cambios) => cambiarItem(s.clave, cambios)}
-                onQuitar={() => onChange(seleccion.filter((x) => x.clave !== s.clave))}
-              />
-            ))}
-          </ul>
-          {montoPago !== undefined && (
-            <p className={`mt-1 text-[11px] ${Math.abs(diferencia) > TOLERANCIA_SUMA ? "font-medium text-amber-700" : "text-gray-500"}`}>
-              Suma de lo tildado: {formatoPesos(suma)} · Monto del pago: {formatoPesos(Number(montoPago) || 0)}
-              {Math.abs(diferencia) > TOLERANCIA_SUMA &&
-                (diferencia > 0
-                  ? ` — sobran ${formatoPesos(diferencia)}: tildá más pacientes o ajustá los montos.`
-                  : ` — se tildó ${formatoPesos(-diferencia)} de más: revisá los montos.`)}
-            </p>
-          )}
-        </>
-      )}
-
-      {seleccion.length > 0 && !hayParciales && onTratamientoSaldadoChange && (
-        <label className="mt-1.5 flex cursor-pointer items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-900">
-          <input
-            type="checkbox"
-            checked={Boolean(tratamientoSaldado)}
-            onChange={(e) => onTratamientoSaldadoChange(e.target.checked)}
-            className="mt-0.5 shrink-0"
-          />
-          <span>
-            <strong>Con este pago se saldó todo el tratamiento.</strong> El paciente pagó todo y a la profesional se le pagó el
-            total: queda como <strong>Tratamiento saldado ✓</strong>.
-          </span>
-        </label>
-      )}
-
       {abierto && !sinPacientes && (
         <>
           <p className="mt-1.5 text-[11px] text-gray-500">
@@ -330,7 +295,7 @@ export default function SelectorCobrosALiquidar({
                   );
                 }
                 const tildados = g.cobros.filter((c) => claves.has(c.clave)).length;
-                const totalGrupo = g.cobros.reduce((a, c) => a + c.monto, 0);
+                const totalGrupo = g.cobros.reduce((a, c) => a + c.falta, 0);
                 return (
                   <li key={g.paciente} className="border-b border-gray-100 last:border-b-0">
                     <label className="flex cursor-pointer items-center gap-2 bg-gray-50 px-2 py-1.5 text-xs hover:bg-brand-tan/20">
@@ -346,7 +311,7 @@ export default function SelectorCobrosALiquidar({
                       <span className="min-w-0 flex-1 font-medium text-gray-900">
                         {g.paciente} <span className="font-normal text-gray-400">· {g.cobros.length} cobros</span>
                       </span>
-                      <span className="shrink-0 font-medium tabular-nums text-gray-700">{formatoPesos(totalGrupo)}</span>
+                      <span className="shrink-0 font-semibold tabular-nums text-brand-brown">Le corresponde {formatoPesos(totalGrupo)}</span>
                     </label>
                     {g.cobros.map((c) => (
                       <FilaCobro key={c.clave} cobro={c} sangria tildado={claves.has(c.clave)} onAlternar={() => alternarCobro(c)} />
@@ -358,6 +323,70 @@ export default function SelectorCobrosALiquidar({
           )}
         </>
       )}
+
+      {seleccion.length > 0 && (
+        <>
+          <ul className="mt-1.5 rounded-md border border-gray-200 bg-white">
+            {seleccion.map((s) => (
+              <CuentaDelCobro
+                key={s.clave}
+                item={s}
+                onCambiar={(cambios) => cambiarItem(s.clave, cambios)}
+                onQuitar={() => onChange(seleccion.filter((x) => x.clave !== s.clave))}
+              />
+            ))}
+          </ul>
+          <div
+            className={`mt-1.5 rounded-md border px-3 py-2 text-xs ${
+              coincide === false ? "border-amber-300 bg-amber-50 text-amber-900" : coincide ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-gray-300 bg-white text-gray-800"
+            }`}
+          >
+            <p className="flex items-baseline justify-between gap-2">
+              <span>
+                Total a pagar ({pacientesElegidos} paciente{pacientesElegidos === 1 ? "" : "s"})
+              </span>
+              <strong className="text-base tabular-nums">{formatoPesos(suma)}</strong>
+            </p>
+            {montoPago !== undefined && (
+              <p className="mt-0.5 flex items-baseline justify-between gap-2">
+                <span>Monto del pago que estás cargando</span>
+                <span className="font-medium tabular-nums">{formatoPesos(Number(montoPago) || 0)}</span>
+              </p>
+            )}
+            {montoSugerido > 0 && (
+              <p className="mt-0.5 flex items-baseline justify-between gap-2">
+                <span>Según Producción, le corresponde</span>
+                <span className="font-medium tabular-nums">{formatoPesos(montoSugerido)}</span>
+              </p>
+            )}
+            {coincide !== null && (
+              <p className="mt-1 font-semibold">
+                {coincide
+                  ? "✓ Coincide con el monto del pago"
+                  : diferencia > 0
+                    ? `⚠ No coincide: el pago es ${formatoPesos(diferencia)} más que lo tildado. Tildá más pacientes o corregí el monto.`
+                    : `⚠ No coincide: lo tildado es ${formatoPesos(-diferencia)} más que el pago. Revisá los montos.`}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {seleccion.length > 0 && !hayParciales && onTratamientoSaldadoChange && (
+        <label className="mt-1.5 flex cursor-pointer items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-900">
+          <input
+            type="checkbox"
+            checked={Boolean(tratamientoSaldado)}
+            onChange={(e) => onTratamientoSaldadoChange(e.target.checked)}
+            className="mt-0.5 shrink-0"
+          />
+          <span>
+            <strong>Con este pago se saldó todo el tratamiento.</strong> El paciente pagó todo y a la profesional se le pagó el
+            total: queda como <strong>Tratamiento saldado ✓</strong>.
+          </span>
+        </label>
+      )}
+
     </div>
   );
 }
