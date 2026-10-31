@@ -279,6 +279,12 @@ function PagosAProfesionales() {
                             {f.cobrosCubiertos.map((c, i) => (
                               <span key={i} className="block">
                                 {c.paciente} — {c.detalle} ({formatoFecha(c.fecha)}, {formatoPesos(c.monto)})
+                                {c.parcial && (
+                                  <strong className="text-amber-700">
+                                    {" "}
+                                    — PARTE: se le pagó {formatoPesos(c.montoPagado ?? 0)} de {formatoPesos(c.honorarios ?? 0)}
+                                  </strong>
+                                )}
                               </span>
                             ))}
                           </span>

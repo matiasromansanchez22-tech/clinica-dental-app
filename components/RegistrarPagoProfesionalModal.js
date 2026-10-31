@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import SelectorCobrosALiquidar from "@/components/SelectorCobrosALiquidar";
+import SelectorCobrosALiquidar, { cobrosParaMarcar, errorDeSeleccion } from "@/components/SelectorCobrosALiquidar";
 import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
 import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posiblesDuplicados";
@@ -17,6 +17,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
   const [desdeReserva, setDesdeReserva] = useState(false);
   const [cobrosElegidos, setCobrosElegidos] = useState([]);
   const [tratamientoSaldado, setTratamientoSaldado] = useState(false);
+  const [sinPacientes, setSinPacientes] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,6 +27,25 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
     if (!monto || Number(monto) <= 0) {
       setError("El monto tiene que ser mayor a cero.");
       return;
+    }
+    // Los pagos de copago/particular tienen que decir qué pacientes cubren (y si se pagó el total o una parte).
+    if (tipo !== "Obra Social") {
+      if (cobrosElegidos.length === 0) {
+        if (!sinPacientes) {
+          setError("Tildá los pacientes que cubre este pago, o indicá que no es por pacientes puntuales.");
+          return;
+        }
+        if (!observaciones.trim()) {
+          setError("Explicá en Observaciones de qué es este pago.");
+          return;
+        }
+      } else {
+        const problema = errorDeSeleccion(cobrosElegidos);
+        if (problema) {
+          setError(problema);
+          return;
+        }
+      }
     }
     setGuardando(true);
     try {
@@ -45,7 +65,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
       });
       if (cobrosElegidos.length > 0) {
         try {
-          await marcarCobrosLiquidados(pago.id, cobrosElegidos, { tratamientoSaldado });
+          await marcarCobrosLiquidados(pago.id, cobrosParaMarcar(cobrosElegidos), { tratamientoSaldado });
         } catch (errMarca) {
           window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
         }
@@ -60,7 +80,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-heading text-lg font-bold text-brand-brown">Registrar pago</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
@@ -144,6 +164,10 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
                 onChange={setCobrosElegidos}
                 tratamientoSaldado={tratamientoSaldado}
                 onTratamientoSaldadoChange={setTratamientoSaldado}
+                montoPago={monto}
+                obligatorio
+                sinPacientes={sinPacientes}
+                onSinPacientesChange={setSinPacientes}
               />
             </div>
           )}

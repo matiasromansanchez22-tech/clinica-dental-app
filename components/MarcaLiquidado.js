@@ -6,11 +6,31 @@ function formatoFecha(fechaISO) {
   return `${dia}/${mes}`;
 }
 
+function pesos(n) {
+  return `$${Math.round(Number(n) || 0).toLocaleString("es-AR")}`;
+}
+
 // "Liquidado ✓" de un cobro: ya se le pagó al profesional lo que corresponde a este
 // paciente. `liquidacion` viene de obtenerLiquidacionesDeCobros ({ fecha, profesional }).
 // Si se pasa `onQuitar`, aparece una ✕ para sacar la marca (por si se tildó por error).
 export default function MarcaLiquidado({ liquidacion, onQuitar }) {
   if (!liquidacion) return null;
+  // Se le pagó solo una parte: sigue pendiente, figura cuánto falta.
+  if (liquidacion.parcial) {
+    return (
+      <span
+        className="ml-1.5 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
+        title={`Se le pagó una parte: ${pesos(liquidacion.pagado)} de ${pesos(liquidacion.honorarios)}${liquidacion.profesional ? ` a ${liquidacion.profesional}` : ""}`}
+      >
+        Parcial — falta {pesos(liquidacion.falta)}
+        {onQuitar && (
+          <button onClick={onQuitar} aria-label="Quitar marca de liquidado" className="text-amber-600 hover:text-red-600">
+            ✕
+          </button>
+        )}
+      </span>
+    );
+  }
   return (
     <span
       className={`ml-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${

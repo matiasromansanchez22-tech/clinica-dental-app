@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerHistorialPagos } from "@/lib/data/historialPagos";
+import { obtenerLiquidacionesParcialesPendientes } from "@/lib/data/cobrosLiquidados";
 import { obtenerProduccionPorProfesional } from "@/lib/data/produccionProfesionales";
 
 const NOMBRES_MES = [
@@ -48,11 +49,11 @@ function descargarCSV(nombreArchivo, lineas) {
 }
 
 // Une, por profesional, lo que le correspondía en el mes (Producción) con lo que se le pagó (Historial de pagos).
-function armarBalance(produccion, pagos) {
+function armarBalance(produccion, pagos, parciales) {
   const porProfesional = new Map();
   const entradaDe = (id, nombre) => {
     if (!porProfesional.has(id)) {
-      porProfesional.set(id, { id, nombre, correspondia: 0, osPendiente: 0, pagos: [], pagado: 0, pagadoConDetalle: 0 });
+      porProfesional.set(id, { id, nombre, correspondia: 0, osPendiente: 0, pagos: [], pagado: 0, pagadoConDetalle: 0, parciales: [] });
     }
     return porProfesional.get(id);
   };
@@ -68,8 +69,13 @@ function armarBalance(produccion, pagos) {
     e.pagado += p.monto;
     if (p.cobrosCubiertos.length > 0) e.pagadoConDetalle += p.monto;
   }
+  // Cobros que se le pagaron en parte y todavía falta completar (de cualquier mes).
+  for (const c of parciales) {
+    const e = porProfesional.get(c.profesionalId);
+    if (e) e.parciales.push(c);
+  }
   return [...porProfesional.values()]
-    .filter((e) => e.correspondia > 0 || e.osPendiente > 0 || e.pagos.length > 0)
+    .filter((e) => e.correspondia > 0 || e.osPendiente > 0 || e.pagos.length > 0 || e.parciales.length > 0)
     .map((e) => ({ ...e, saldo: e.correspondia - e.pagado }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
@@ -139,6 +145,12 @@ function TarjetaProfesional({ e }) {
                         {p.cobrosCubiertos.map((c, i) => (
                           <span key={i} className="block text-xs">
                             <strong>{c.paciente}</strong> — {c.detalle} ({formatoFecha(c.fecha)}, {formatoPesos(c.monto)})
+                            {c.parcial && (
+                              <span className="font-semibold text-amber-700">
+                                {" "}
+                                · PARTE: se le pagó {formatoPesos(c.montoPagado ?? 0)} de {formatoPesos(c.honorarios ?? 0)}
+                              </span>
+                            )}
                           </span>
                         ))}
                       </>
@@ -149,6 +161,19 @@ function TarjetaProfesional({ e }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {e.parciales.length > 0 && (
+        <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-semibold text-amber-900">
+            Pagos parciales: falta completar {formatoPesos(e.parciales.reduce((s, c) => s + c.falta, 0))}
+          </p>
+          {e.parciales.map((c) => (
+            <p key={c.clave} className="mt-0.5 text-xs text-amber-900">
+              <strong>{c.paciente}</strong> — {c.detalle} ({formatoFecha(c.fecha)}): se le pagó {formatoPesos(c.pagado)} de {formatoPesos(c.honorarios)} ·{" "}
+              <strong>falta {formatoPesos(c.falta)}</strong>
+            </p>
+          ))}
         </div>
       )}
       {sinDetalle > 0 && (
@@ -173,9 +198,14 @@ function Contenido() {
     let vigente = true;
     setCargando(true);
     setError(null);
-    Promise.all([obtenerProduccionPorProfesional(desde, hasta), obtenerHistorialPagos(desde, hasta)])
-      .then(([produccion, pagos]) => {
-        if (vigente) setBalance(armarBalance(produccion, pagos));
+    Promise.all([
+      obtenerProduccionPorProfesional(desde, hasta),
+      obtenerHistorialPagos(desde, hasta),
+      // Si todavía no se corrió la migración de pagos parciales, la pantalla se ve igual, sin esa parte.
+      obtenerLiquidacionesParcialesPendientes().catch(() => []),
+    ])
+      .then(([produccion, pagos, parciales]) => {
+        if (vigente) setBalance(armarBalance(produccion, pagos, parciales));
       })
       .catch((e) => vigente && setError(e.message))
       .finally(() => vigente && setCargando(false));
@@ -199,12 +229,14 @@ function Contenido() {
   const saldoTotal = textoSaldo(totales.correspondia - totales.pagado);
 
   function descargar() {
-    const lineas = [["Mes", "Profesional", "Fecha del pago", "Tipo", "Medio", "Salió de", "Monto del pago", "Paciente", "Detalle", "Fecha del cobro", "Monto cobrado"]];
+    const lineas = [["Mes", "Profesional", "Fecha del pago", "Tipo", "Medio", "Salió de", "Monto del pago", "Paciente", "Detalle", "Fecha del cobro", "Monto cobrado", "Estado", "Le correspondía", "Se le pagó por este paciente"]];
     for (const e of visibles) {
       for (const p of e.pagos) {
         const base = [nombreMes(mes), e.nombre, formatoFecha(p.fecha), p.tipo, p.medioPago, p.salioDe, p.monto];
-        if (p.cobrosCubiertos.length === 0) lineas.push([...base, "(sin detalle de pacientes)", "", "", ""]);
-        else for (const c of p.cobrosCubiertos) lineas.push([...base, c.paciente, c.detalle, formatoFecha(c.fecha), c.monto]);
+        if (p.cobrosCubiertos.length === 0) lineas.push([...base, "(sin detalle de pacientes)", "", "", "", "", "", ""]);
+        else
+          for (const c of p.cobrosCubiertos)
+            lineas.push([...base, c.paciente, c.detalle, formatoFecha(c.fecha), c.monto, c.parcial ? "Parcial" : "Total", c.honorarios ?? "", c.montoPagado ?? ""]);
       }
     }
     descargarCSV(`liquidaciones-profesionales-${mes}.csv`, lineas);

@@ -476,7 +476,7 @@ function DetalleContenido() {
                           {p.cobros.length > 0 && (
                             <p className={p.pendientesLiquidar === 0 ? "text-emerald-700" : "text-gray-600"}>
                               {p.pendientesLiquidar === 0 ? "✅ Liquidado al profesional" : `⏳ ${p.pendientesLiquidar} cobro${p.pendientesLiquidar > 1 ? "s" : ""} sin liquidar`}
-                              {p.cobros.filter((c) => c.liquidado).map((c, i) => (
+                              {p.cobros.filter((c) => c.liquidado && !c.liquidado.parcial).map((c, i) => (
                                 <span key={i} className="block text-gray-400">
                                   pagado el {formatoFecha(c.liquidado.fecha)}
                                 </span>

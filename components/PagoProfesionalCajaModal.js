@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import SelectorCobrosALiquidar from "@/components/SelectorCobrosALiquidar";
+import SelectorCobrosALiquidar, { cobrosParaMarcar, errorDeSeleccion } from "@/components/SelectorCobrosALiquidar";
 import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
 import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posiblesDuplicados";
@@ -21,6 +21,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
   const [montoReservaManual, setMontoReservaManual] = useState(null);
   const [cobrosElegidos, setCobrosElegidos] = useState([]);
   const [tratamientoSaldado, setTratamientoSaldado] = useState(false);
+  const [sinPacientes, setSinPacientes] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -45,6 +46,23 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
       return;
     }
     const deCaja = Number(monto) - deReserva;
+    // Hay que decir qué pacientes cubre el pago (y si se pagó el total o una parte).
+    if (cobrosElegidos.length === 0) {
+      if (!sinPacientes) {
+        setError("Tildá los pacientes que cubre este pago, o indicá que no es por pacientes puntuales.");
+        return;
+      }
+      if (!observaciones.trim()) {
+        setError("Explicá en Observaciones de qué es este pago.");
+        return;
+      }
+    } else {
+      const problema = errorDeSeleccion(cobrosElegidos);
+      if (problema) {
+        setError(problema);
+        return;
+      }
+    }
     setGuardando(true);
     try {
       const nombreProf = profesionales.find((p) => String(p.id) === String(profesionalId))?.nombre || "";
@@ -69,7 +87,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
       // si todo salió de ahí). Si esto falla el pago ya está registrado: se avisa.
       if (cobrosElegidos.length > 0) {
         try {
-          await marcarCobrosLiquidados((pagoCaja || pagoReserva).id, cobrosElegidos, { tratamientoSaldado });
+          await marcarCobrosLiquidados((pagoCaja || pagoReserva).id, cobrosParaMarcar(cobrosElegidos), { tratamientoSaldado });
         } catch (errMarca) {
           window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
         }
@@ -111,6 +129,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
                 setProfesionalId(e.target.value);
                 setCobrosElegidos([]);
                 setTratamientoSaldado(false);
+                setSinPacientes(false);
               }}
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900"
             >
@@ -194,7 +213,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
           </p>
 
           <label className="col-span-2 flex flex-col gap-0.5 text-xs text-gray-600">
-            Observaciones (opcional)
+            Observaciones{sinPacientes ? "" : " (opcional)"}
             <input
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
@@ -208,6 +227,10 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
             onChange={setCobrosElegidos}
             tratamientoSaldado={tratamientoSaldado}
             onTratamientoSaldadoChange={setTratamientoSaldado}
+            montoPago={monto}
+            obligatorio
+            sinPacientes={sinPacientes}
+            onSinPacientesChange={setSinPacientes}
           />
 
           <div className="col-span-2 mt-1 flex justify-end gap-2">
