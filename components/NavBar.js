@@ -139,6 +139,7 @@ const GRUPOS = [
     label: "Gerencial",
     soloDuena: true,
     items: [
+      { href: "/gerencial/rutina", label: "🗓 Mi rutina semanal" },
       { href: "/gerencial/comparativa-mecanicos", label: "🔧 Comparativa de mecánicos" },
       { href: "/gerencial/cuentas-mecanicos", label: "🔧 Cuentas por mecánico" },
       { href: "/gerencial/rentabilidad-diaria", label: "📅 Rentabilidad diaria por profesional" },
