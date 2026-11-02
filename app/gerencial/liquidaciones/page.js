@@ -199,45 +199,201 @@ const ESTILO_ESTADO = {
 };
 const TEXTO_ESTADO = { liquidado: "Liquidado ✓", parcial: "Parcial", pendiente: "Falta liquidar" };
 
+// Los dos bloques de la pestaña: los pacientes particulares y los de obra social.
+const BLOQUES = [
+  {
+    id: "particular",
+    titulo: "Pacientes particulares",
+    ayuda: "Incluye ortodoncia y a los pacientes de obra social que pagaron como particulares.",
+  },
+  {
+    id: "obra_social",
+    titulo: "Pacientes de obra social",
+    ayuda: "El copago que cobró la clínica al paciente. Lo que paga la obra social se liquida a mes vencido y se lleva aparte.",
+  },
+];
+
 function sumar(lista, campo) {
   return lista.reduce((s, c) => s + c[campo], 0);
 }
 
-// Todos los pacientes que pagaron en el mes, por profesional, con su estado: liquidado, parcial o pendiente.
-// Sirve para controlar que lo que se le liquidó coincida con lo que le corresponde.
+// Un bloque (particulares u obra social): sus totales y, por profesional, los pacientes con su estado.
+function BloquePacientes({ bloque, cobros, estado, q }) {
+  const porProfesional = useMemo(() => {
+    const mapa = new Map();
+    for (const c of cobros) {
+      if (!mapa.has(c.profesionalId)) mapa.set(c.profesionalId, { id: c.profesionalId, nombre: c.profesional, cobros: [] });
+      mapa.get(c.profesionalId).cobros.push(c);
+    }
+    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [cobros]);
+
+  const faltan = cobros.filter((c) => c.estado !== "liquidado");
+  return (
+    <section className="mt-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-brand-brown pb-1">
+        <h2 className="text-xl font-bold text-brand-brown">{bloque.titulo}</h2>
+        <p className="text-sm text-gray-600">
+          {cobros.length} cobro{cobros.length === 1 ? "" : "s"} · {faltan.length} sin liquidar por completo
+        </p>
+      </div>
+      <p className="mt-1 text-xs text-gray-500">{bloque.ayuda}</p>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <Cifra titulo="Le corresponde" valor={formatoPesos(sumar(cobros, "honorarios"))} />
+        <Cifra titulo="Liquidado" valor={formatoPesos(sumar(cobros, "liquidado"))} tono="ok" />
+        <Cifra titulo="Falta liquidar" valor={formatoPesos(sumar(cobros, "falta"))} tono={sumar(cobros, "falta") > 500 ? "alerta" : "ok"} />
+      </div>
+
+      {cobros.length === 0 && <p className="mt-4 text-sm text-gray-500">No hay cobros de este tipo en el mes.</p>}
+      {porProfesional.map((g) => {
+        const filas = g.cobros.filter((c) => (estado === "todos" || c.estado === estado) && (!q || c.paciente.toLowerCase().includes(q)));
+        if (filas.length === 0) return null;
+        return (
+          <div key={g.id} className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 break-inside-avoid">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-base font-bold text-gray-900">{g.nombre}</h3>
+              <p className="text-xs text-gray-600">
+                Le corresponde <strong>{formatoPesos(sumar(g.cobros, "honorarios"))}</strong> · Liquidado <strong>{formatoPesos(sumar(g.cobros, "liquidado"))}</strong> · Falta{" "}
+                <strong className={sumar(g.cobros, "falta") > 500 ? "text-rose-700" : ""}>{formatoPesos(sumar(g.cobros, "falta"))}</strong>
+              </p>
+            </div>
+            <div className="mt-2 overflow-x-auto rounded-md border border-gray-200 bg-white">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr className="bg-brand-brown text-white">
+                    <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+                    <th className="px-3 py-2 text-left font-semibold">Paciente</th>
+                    <th className="px-3 py-2 text-left font-semibold">Detalle</th>
+                    <th className="px-3 py-2 text-right font-semibold">Cobró</th>
+                    <th className="px-3 py-2 text-right font-semibold">Le corresponde</th>
+                    <th className="px-3 py-2 text-left font-semibold">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((c) => (
+                    <tr key={c.clave} className="border-t border-gray-100 align-top">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-800">{formatoFecha(c.fecha)}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900">{c.paciente}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600">
+                        {c.detalle}
+                        <span className="block text-[11px] text-gray-400">{c.cobertura}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatoPesos(c.monto)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-gray-900">{formatoPesos(c.honorarios)}</td>
+                      <td className="px-3 py-2 text-xs">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTILO_ESTADO[c.estado]}`}>{TEXTO_ESTADO[c.estado]}</span>
+                        {c.estado === "liquidado" && c.fechaLiquidacion && <span className="block text-gray-500">el {formatoFecha(c.fechaLiquidacion)}</span>}
+                        {c.estado === "parcial" && (
+                          <span className="block text-amber-700">
+                            se le pagó {formatoPesos(c.liquidado)} · falta {formatoPesos(c.falta)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+// Control de cada profesional contra Producción, con los dos bloques juntos.
+function ControlContraProduccion({ balance, cobros }) {
+  const filas = useMemo(() => {
+    const mapa = new Map();
+    for (const c of cobros) {
+      if (!mapa.has(c.profesionalId)) mapa.set(c.profesionalId, { id: c.profesionalId, nombre: c.profesional, hon: 0, falta: 0 });
+      const e = mapa.get(c.profesionalId);
+      e.hon += c.honorarios;
+      e.falta += c.falta;
+    }
+    return [...mapa.values()]
+      .map((e) => {
+        const b = balance.find((x) => x.id === e.id);
+        const sinTildar = b ? b.pagado - b.pagadoConDetalle : 0;
+        return { ...e, produccion: b?.correspondia ?? 0, pagado: b?.pagado ?? 0, sinTildar, faltaReal: Math.max(0, e.falta - sinTildar) };
+      })
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [balance, cobros]);
+
+  if (filas.length === 0) return null;
+  return (
+    <section className="mt-6">
+      <h2 className="text-lg font-bold text-brand-brown">¿Coincide todo? Control por profesional</h2>
+      <p className="text-xs text-gray-500">
+        Suma los pacientes particulares y de obra social de cada profesional y los compara con Producción y con lo que se le pagó en el mes.
+      </p>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
+          <thead>
+            <tr className="bg-brand-brown text-white">
+              <th className="px-3 py-2 text-left font-semibold">Profesional</th>
+              <th className="px-3 py-2 text-right font-semibold">Según Producción</th>
+              <th className="px-3 py-2 text-right font-semibold">Suma por pacientes</th>
+              <th className="px-3 py-2 text-right font-semibold">Se le pagó</th>
+              <th className="px-3 py-2 text-right font-semibold">…sin tildar pacientes</th>
+              <th className="px-3 py-2 text-right font-semibold">Falta liquidar</th>
+              <th className="px-3 py-2 text-right font-semibold">Falta real (aprox.)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => {
+              const dif = Math.abs(f.produccion - f.hon);
+              return (
+                <tr key={f.id} className="border-t border-gray-100">
+                  <td className="px-3 py-2 font-medium text-gray-900">{f.nombre}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(f.produccion)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${dif > 1000 ? "font-semibold text-amber-700" : "text-emerald-700"}`}>
+                    {formatoPesos(f.hon)}
+                    <span className="block text-[11px] font-normal">{dif > 1000 ? `difiere ${formatoPesos(dif)}` : "coincide ✓"}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(f.pagado)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-gray-600">{formatoPesos(f.sinTildar)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatoPesos(f.falta)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-gray-900">{formatoPesos(f.faltaReal)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1 text-[11px] text-gray-500">
+        «Falta real» descuenta lo que se pagó sin tildar pacientes, suponiendo que corresponde a estos cobros. Es una aproximación para los pagos anteriores al tildado obligatorio.
+      </p>
+    </section>
+  );
+}
+
+// Los pacientes del mes en dos bloques (particulares y obra social), cada uno con su estado: liquidado, parcial o pendiente.
 function PestanaPacientes({ balance, cobros, profesionalElegido, estado, setEstado, busqueda, setBusqueda }) {
   const q = busqueda.trim().toLowerCase();
-  const grupos = useMemo(() => {
-    const porProfesional = new Map();
-    for (const c of cobros) {
-      if (profesionalElegido !== "todos" && c.profesionalId !== profesionalElegido) continue;
-      if (!porProfesional.has(c.profesionalId)) porProfesional.set(c.profesionalId, { id: c.profesionalId, nombre: c.profesional, cobros: [] });
-      porProfesional.get(c.profesionalId).cobros.push(c);
-    }
-    return [...porProfesional.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [cobros, profesionalElegido]);
-
-  const todos = grupos.flatMap((g) => g.cobros);
-  const cuenta = (e) => todos.filter((c) => c.estado === e).length;
-  const pagadoEnElMes = balance.filter((b) => grupos.some((g) => g.id === b.id)).reduce((s, b) => s + b.pagado, 0);
+  const delProfesional = useMemo(
+    () => cobros.filter((c) => profesionalElegido === "todos" || c.profesionalId === profesionalElegido),
+    [cobros, profesionalElegido]
+  );
+  const cuenta = (e) => delProfesional.filter((c) => c.estado === e).length;
 
   return (
     <>
       <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-        Cada cobro del mes con su estado <strong>de hoy</strong>. Los pagos cargados antes de que fuera obligatorio tildar pacientes no tienen detalle, por
-        eso esos cobros figuran como &quot;Falta liquidar&quot;: en cada profesional se ve cuánto se le pagó sin tildar, para compararlo. El &quot;Le corresponde&quot; es
-        el valor anotado al tildar el pago o, si todavía no se tildó, una estimación con su %.
+        Cada cobro del mes con su estado <strong>de hoy</strong>, separado en pacientes particulares y de obra social. Los pagos cargados antes de que fuera
+        obligatorio tildar pacientes no tienen detalle, por eso esos cobros figuran como &quot;Falta liquidar&quot;; el control de abajo muestra cuánto se pagó
+        sin tildar. El &quot;Le corresponde&quot; es el valor anotado al tildar el pago o, si todavía no se tildó, una estimación con el % del profesional.
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3 print:hidden">
-        <div className="flex overflow-hidden rounded-md border border-gray-300 text-sm">
+        <div className="flex flex-wrap overflow-hidden rounded-md border border-gray-300 text-sm">
           {ESTADOS_FILTRO.map(([clave, texto]) => (
             <button
               key={clave}
               onClick={() => setEstado(clave)}
               className={`px-3 py-1.5 ${estado === clave ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
             >
-              {texto} ({clave === "todos" ? todos.length : cuenta(clave)})
+              {texto} ({clave === "todos" ? delProfesional.length : cuenta(clave)})
             </button>
           ))}
         </div>
@@ -250,104 +406,31 @@ function PestanaPacientes({ balance, cobros, profesionalElegido, estado, setEsta
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Cifra titulo="Le corresponde (por pacientes)" valor={formatoPesos(sumar(todos, "honorarios"))} ayuda={`${todos.length} cobros`} />
+        <Cifra titulo="Le corresponde (total)" valor={formatoPesos(sumar(delProfesional, "honorarios"))} ayuda={`${delProfesional.length} cobros`} />
         <Cifra
           titulo="Ya liquidado"
-          valor={formatoPesos(sumar(todos, "liquidado"))}
+          valor={formatoPesos(sumar(delProfesional, "liquidado"))}
           ayuda={`${cuenta("liquidado")} liquidados · ${cuenta("parcial")} parciales`}
           tono="ok"
         />
         <Cifra
           titulo="Falta liquidar"
-          valor={formatoPesos(sumar(todos, "falta"))}
+          valor={formatoPesos(sumar(delProfesional, "falta"))}
           ayuda={`${cuenta("pendiente") + cuenta("parcial")} cobros`}
-          tono={sumar(todos, "falta") > 500 ? "alerta" : "ok"}
+          tono={sumar(delProfesional, "falta") > 500 ? "alerta" : "ok"}
         />
-        <Cifra titulo="Se pagó en el mes" valor={formatoPesos(pagadoEnElMes)} ayuda="Según los pagos registrados" />
+        <Cifra
+          titulo="Se pagó en el mes"
+          valor={formatoPesos(balance.filter((b) => profesionalElegido === "todos" || b.id === profesionalElegido).reduce((s, b) => s + b.pagado, 0))}
+          ayuda="Según los pagos registrados"
+        />
       </div>
 
-      {grupos.length === 0 && <p className="mt-6 text-sm text-gray-500">No hay cobros en este mes.</p>}
-      {grupos.map((g) => {
-        const b = balance.find((x) => x.id === g.id);
-        const hon = sumar(g.cobros, "honorarios");
-        const liq = sumar(g.cobros, "liquidado");
-        const falta = sumar(g.cobros, "falta");
-        const sinTildar = b ? b.pagado - b.pagadoConDetalle : 0;
-        const difProduccion = b ? b.correspondia - hon : 0;
-        const filas = g.cobros.filter((c) => (estado === "todos" || c.estado === estado) && (!q || c.paciente.toLowerCase().includes(q)));
-        return (
-          <section key={g.id} className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 break-inside-avoid">
-            <h2 className="text-lg font-bold text-brand-brown">{g.nombre}</h2>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Cifra titulo="Le corresponde" valor={formatoPesos(hon)} ayuda={`${g.cobros.length} cobros`} />
-              <Cifra titulo="Liquidado" valor={formatoPesos(liq)} tono="ok" />
-              <Cifra titulo="Falta liquidar" valor={formatoPesos(falta)} tono={falta > 500 ? "alerta" : "ok"} />
-              <Cifra titulo="Se le pagó en el mes" valor={formatoPesos(b?.pagado ?? 0)} ayuda={`Sin tildar pacientes: ${formatoPesos(sinTildar)}`} />
-            </div>
-            <ul className="mt-2 space-y-0.5 text-xs text-gray-600">
-              <li>
-                Según Producción le correspondía <strong>{formatoPesos(b?.correspondia ?? 0)}</strong>
-                {Math.abs(difProduccion) > 1000 ? (
-                  <span className="text-amber-700">
-                    {" "}
-                    — la suma por pacientes difiere en {formatoPesos(Math.abs(difProduccion))} (estimación de honorarios en planes, precios anteriores u obra social)
-                  </span>
-                ) : (
-                  <span className="text-emerald-700"> — coincide con la suma por pacientes ✓</span>
-                )}
-              </li>
-              {sinTildar > 0 && falta > 0 && (
-                <li>
-                  Si lo pagado sin tildar ({formatoPesos(sinTildar)}) corresponde a estos cobros, lo que realmente falta sería ≈{" "}
-                  <strong>{formatoPesos(Math.max(0, falta - sinTildar))}</strong>.
-                </li>
-              )}
-            </ul>
+      {BLOQUES.map((b) => (
+        <BloquePacientes key={b.id} bloque={b} cobros={delProfesional.filter((c) => c.grupo === b.id)} estado={estado} q={q} />
+      ))}
 
-            {filas.length === 0 ? (
-              <p className="mt-3 text-sm text-gray-500">No hay cobros con ese filtro.</p>
-            ) : (
-              <div className="mt-3 overflow-x-auto rounded-md border border-gray-200 bg-white">
-                <table className="w-full min-w-[720px] border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-brand-brown text-white">
-                      <th className="px-3 py-2 text-left font-semibold">Fecha</th>
-                      <th className="px-3 py-2 text-left font-semibold">Paciente</th>
-                      <th className="px-3 py-2 text-left font-semibold">Detalle</th>
-                      <th className="px-3 py-2 text-right font-semibold">Cobró</th>
-                      <th className="px-3 py-2 text-right font-semibold">Le corresponde</th>
-                      <th className="px-3 py-2 text-left font-semibold">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filas.map((c) => (
-                      <tr key={c.clave} className="border-t border-gray-100 align-top">
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-800">{formatoFecha(c.fecha)}</td>
-                        <td className="px-3 py-2 font-medium text-gray-900">{c.paciente}</td>
-                        <td className="px-3 py-2 text-xs text-gray-600">
-                          {c.detalle}
-                          <span className="block text-[11px] text-gray-400">{c.cobertura}</span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatoPesos(c.monto)}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-gray-900">{formatoPesos(c.honorarios)}</td>
-                        <td className="px-3 py-2 text-xs">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTILO_ESTADO[c.estado]}`}>{TEXTO_ESTADO[c.estado]}</span>
-                          {c.estado === "liquidado" && c.fechaLiquidacion && <span className="block text-gray-500">el {formatoFecha(c.fechaLiquidacion)}</span>}
-                          {c.estado === "parcial" && (
-                            <span className="block text-amber-700">
-                              se le pagó {formatoPesos(c.liquidado)} · falta {formatoPesos(c.falta)}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        );
-      })}
+      <ControlContraProduccion balance={balance.filter((x) => profesionalElegido === "todos" || x.id === profesionalElegido)} cobros={delProfesional} />
     </>
   );
 }
@@ -403,10 +486,10 @@ function Contenido() {
   const saldoTotal = textoSaldo(totales.correspondia - totales.pagado);
 
   function descargarPacientes() {
-    const lineas = [["Mes", "Profesional", "Fecha del cobro", "Paciente", "Detalle", "Cobertura", "Cobró", "Le corresponde", "Estado", "Liquidado", "Falta", "Fecha de liquidación"]];
+    const lineas = [["Mes", "Profesional", "Tipo de paciente", "Fecha del cobro", "Paciente", "Detalle", "Cobertura", "Cobró", "Le corresponde", "Estado", "Liquidado", "Falta", "Fecha de liquidación"]];
     for (const c of cobros) {
       if (profesionalElegido !== "todos" && c.profesionalId !== profesionalElegido) continue;
-      lineas.push([nombreMes(mes), c.profesional, formatoFecha(c.fecha), c.paciente, c.detalle, c.cobertura, c.monto, c.honorarios, TEXTO_ESTADO[c.estado], c.liquidado, c.falta, c.fechaLiquidacion ? formatoFecha(c.fechaLiquidacion) : ""]);
+      lineas.push([nombreMes(mes), c.profesional, c.grupo === "obra_social" ? "Obra social" : "Particular", formatoFecha(c.fecha), c.paciente, c.detalle, c.cobertura, c.monto, c.honorarios, TEXTO_ESTADO[c.estado], c.liquidado, c.falta, c.fechaLiquidacion ? formatoFecha(c.fechaLiquidacion) : ""]);
     }
     descargarCSV(`pacientes-liquidados-${mes}.csv`, lineas);
   }
