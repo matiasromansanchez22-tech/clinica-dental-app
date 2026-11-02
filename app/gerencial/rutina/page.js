@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import SoloDuena from "@/components/SoloDuena";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { DIAS, MES, REGLAS, TURNOS, tareasDe } from "@/lib/rutinaSemanal";
-import { guardarRegistroDeRutina, obtenerRegistroDeRutina, obtenerRegistrosDeRutina } from "@/lib/data/rutina";
+import { DIAS, MES, REGLAS, TURNOS, completarPlan, planBase, tareasDelPlan } from "@/lib/rutinaSemanal";
+import {
+  guardarPlanDeRutina,
+  guardarRegistroDeRutina,
+  obtenerPlanDeRutina,
+  obtenerRegistroDeRutina,
+  obtenerRegistrosDeRutina,
+  restablecerPlanDeRutina,
+} from "@/lib/data/rutina";
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const DIAS_LARGO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
@@ -30,6 +37,9 @@ function rangoDe(turno, fase) {
   const inicio = TURNOS[turno].inicio;
   return `${hhmm(inicio + fase.desde)} a ${hhmm(inicio + fase.desde + fase.min)}`;
 }
+
+// Un día con su tema y su frase del plan (las que la dueña pudo haber cambiado).
+const diaDelPlan = (plan, idx) => ({ ...DIAS[idx], tema: plan.dias[idx].tema, lema: plan.dias[idx].lema });
 
 function PrioridadesYNotas({ edicion, setEdicion, guardar, bloque }) {
   if (bloque === "arranque") {
@@ -66,16 +76,88 @@ function PrioridadesYNotas({ edicion, setEdicion, guardar, bloque }) {
   );
 }
 
-function PestanaHoy({ hoyIdx, ahora }) {
+// Editor de las tareas de un bloque: cambiar texto, minutos y lugar; subir, bajar, borrar y agregar.
+function EditorDeTareas({ tareas, cambiar, persistir, fechaISO }) {
+  const campo = "rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900";
+  const boton = "rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-30";
+  const editarCampo = (id, cambios) => cambiar((ts) => ts.map((t) => (t.id === id ? { ...t, ...cambios } : t)), false);
+  return (
+    <div className="mt-2 grid gap-2">
+      {tareas.map((t, i) => (
+        <div key={t.id} className="rounded-md bg-white/70 p-2">
+          <textarea
+            value={t.t}
+            onChange={(e) => editarCampo(t.id, { t: e.target.value })}
+            onBlur={persistir}
+            rows={2}
+            placeholder="Qué hay que hacer"
+            className={`${campo} w-full`}
+          />
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1 text-xs text-gray-700">
+              Min
+              <input
+                type="number"
+                min={0}
+                value={t.min}
+                onChange={(e) => editarCampo(t.id, { min: Math.max(0, Number(e.target.value) || 0) })}
+                onBlur={persistir}
+                className={`${campo} w-16`}
+              />
+            </label>
+            <label className="flex min-w-[10rem] flex-1 items-center gap-1 text-xs text-gray-700">
+              Dónde
+              <input value={t.donde} onChange={(e) => editarCampo(t.id, { donde: e.target.value })} onBlur={persistir} className={`${campo} w-full`} />
+            </label>
+            <div className="flex gap-1">
+              <button type="button" className={boton} disabled={i === 0} aria-label="Subir" onClick={() => cambiar((ts) => mover(ts, i, -1), true)}>
+                ↑
+              </button>
+              <button type="button" className={boton} disabled={i === tareas.length - 1} aria-label="Bajar" onClick={() => cambiar((ts) => mover(ts, i, 1), true)}>
+                ↓
+              </button>
+              <button type="button" className={`${boton} text-red-700`} aria-label="Borrar tarea" onClick={() => cambiar((ts) => ts.filter((x) => x.id !== t.id), true)}>
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() =>
+          cambiar(
+            (ts) => [...ts, { id: `n-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: "", min: 10, donde: "", desde: fechaISO }],
+            false
+          )
+        }
+        className="rounded-md border border-dashed border-current bg-white/40 px-3 py-1.5 text-sm font-medium hover:bg-white/70"
+      >
+        + Agregar tarea
+      </button>
+    </div>
+  );
+}
+
+function mover(lista, i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= lista.length) return lista;
+  const copia = [...lista];
+  [copia[i], copia[j]] = [copia[j], copia[i]];
+  return copia;
+}
+
+function PestanaHoy({ hoyIdx, ahora, plan, cambiarPlan, persistirPlan, restablecerPlan, estadoPlan }) {
   const { perfil } = useAuth();
   const [diaVer, setDiaVer] = useState(hoyIdx <= 4 ? hoyIdx : 0);
+  const [editando, setEditando] = useState(false);
   const fecha = useMemo(() => {
     const d = new Date(ahora);
     d.setDate(ahora.getDate() - hoyIdx + diaVer);
     return d;
   }, [ahora, hoyIdx, diaVer]);
   const fechaISO = iso(fecha);
-  const dia = DIAS[diaVer];
+  const dia = diaDelPlan(plan, diaVer);
 
   const [registro, setRegistro] = useState({ fecha: null, fila: null, error: null });
   const [edicion, setEdicion] = useState({ prioridades: ["", "", ""], notas: "" });
@@ -105,10 +187,10 @@ function PestanaHoy({ hoyIdx, ahora }) {
   let total = 0;
   let hechas = 0;
   for (const fase of fases) {
-    tareasDe(fase.id, dia, turno).forEach((_, i) => {
+    for (const t of tareasDelPlan(plan, fase.id, diaVer, turno)) {
       total += 1;
-      if (hechos[`${fase.id}-${i}`]) hechas += 1;
-    });
+      if (hechos[t.id]) hechas += 1;
+    }
   }
   const porcentaje = total ? Math.round((hechas / total) * 100) : 0;
 
@@ -125,10 +207,39 @@ function PestanaHoy({ hoyIdx, ahora }) {
     }
   }
 
-  function alternar(clave) {
-    const nuevos = { ...hechos, [clave]: !hechos[clave] };
+  function alternar(id) {
+    const nuevos = { ...hechos, [id]: !hechos[id] };
     setRegistro((r) => ({ ...r, fila: { ...(r.fila || {}), hechos: nuevos } }));
     guardar({ hechos: nuevos });
+  }
+
+  // Cambios del plan en un bloque: los bloques comunes (arranque, punto medio, cierre) son de todo el turno;
+  // foco y equipo son de este día.
+  function cambiarBloque(faseId, fn, persistir) {
+    cambiarPlan((p) => {
+      if (faseId === "foco" || faseId === "equipo") {
+        return { ...p, dias: p.dias.map((d, i) => (i === diaVer ? { ...d, [faseId]: fn(d[faseId]) } : d)) };
+      }
+      return { ...p, comunes: { ...p.comunes, [turno]: { ...p.comunes[turno], [faseId]: fn(p.comunes[turno][faseId]) } } };
+    }, persistir);
+  }
+
+  function cambiarTexto(campo, valor) {
+    cambiarPlan((p) => ({ ...p, dias: p.dias.map((d, i) => (i === diaVer ? { ...d, [campo]: valor } : d)) }), false);
+  }
+
+  function salirDeEdicion() {
+    // Las tareas que quedaron sin texto se descartan. Solo se guarda si el plan cambió (así «Volver al plan original» no se pisa).
+    const limpiar = (ts) => ts.filter((t) => t.t.trim());
+    const limpio = {
+      ...plan,
+      comunes: Object.fromEntries(
+        Object.entries(plan.comunes).map(([tu, fs]) => [tu, Object.fromEntries(Object.entries(fs).map(([f, ts]) => [f, limpiar(ts)]))])
+      ),
+      dias: plan.dias.map((d) => ({ ...d, foco: limpiar(d.foco), equipo: limpiar(d.equipo) })),
+    };
+    if (JSON.stringify(limpio) !== JSON.stringify(plan)) cambiarPlan(() => limpio, true);
+    setEditando(false);
   }
 
   return (
@@ -136,7 +247,7 @@ function PestanaHoy({ hoyIdx, ahora }) {
       {hoyIdx > 4 && (
         <p className="mb-3 text-sm text-gray-600">Hoy es {DIAS_LARGO[ahora.getDay()]}: día libre. Abajo se ve cómo arranca la semana.</p>
       )}
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
         {DIAS.map((d, i) => (
           <button
             key={d.corto}
@@ -149,17 +260,64 @@ function PestanaHoy({ hoyIdx, ahora }) {
             {i === hoyIdx && <span className="ml-1 text-[11px] font-normal opacity-80">hoy</span>}
           </button>
         ))}
+        <button
+          onClick={() => (editando ? salirDeEdicion() : setEditando(true))}
+          className={`ml-auto rounded-md border px-3 py-1 text-sm font-medium ${
+            editando ? "border-brand-green bg-brand-green text-white" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          {editando ? "✓ Listo, terminé de editar" : "✏️ Editar el plan"}
+        </button>
       </div>
 
+      {editando && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p>
+            <strong>Estás editando el plan.</strong> Los cambios en <em>Arranque, Punto medio y Cierre</em> valen para todos los días del turno{" "}
+            {TURNOS[turno].nombre.toLowerCase()}; los de <em>Foco y Equipo</em>, solo para el {dia.largo.toLowerCase()}. Se guardan solos.
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+            <span aria-live="polite">{estadoPlan}</span>
+            <button
+              type="button"
+              onClick={restablecerPlan}
+              className="rounded border border-amber-400 bg-white px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
+            >
+              Volver al plan original
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h2 className="font-heading text-xl font-bold text-brand-brown">
-          {dia.largo}: {dia.tema}
-        </h2>
+        {editando ? (
+          <input
+            value={dia.tema}
+            onChange={(e) => cambiarTexto("tema", e.target.value)}
+            onBlur={() => persistirPlan()}
+            aria-label="Tema del día"
+            className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1 font-heading text-xl font-bold text-brand-brown"
+          />
+        ) : (
+          <h2 className="font-heading text-xl font-bold text-brand-brown">
+            {dia.largo}: {dia.tema}
+          </h2>
+        )}
         <span className="text-sm text-gray-500">
           {fecha.getDate()} de {MESES[fecha.getMonth()]}
         </span>
       </div>
-      <p className="mt-1 text-sm text-gray-600">{dia.lema}</p>
+      {editando ? (
+        <input
+          value={dia.lema}
+          onChange={(e) => cambiarTexto("lema", e.target.value)}
+          onBlur={() => persistirPlan()}
+          aria-label="Frase del día"
+          className="mt-1.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+        />
+      ) : (
+        <p className="mt-1 text-sm text-gray-600">{dia.lema}</p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
         <span className="text-gray-600">Hoy vengo a la</span>
@@ -168,7 +326,7 @@ function PestanaHoy({ hoyIdx, ahora }) {
             <button
               key={t}
               disabled={cargando}
-              onClick={() => turno !== t && guardar({ turno: t }).then(() => undefined)}
+              onClick={() => turno !== t && guardar({ turno: t })}
               className={`px-3 py-1 ${turno === t ? "bg-brand-brown text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
             >
               {TURNOS[t].nombre} ({hhmm(TURNOS[t].inicio)})
@@ -200,8 +358,8 @@ function PestanaHoy({ hoyIdx, ahora }) {
 
       <div className="space-y-3">
         {fases.map((fase) => {
-          const tareas = tareasDe(fase.id, dia, turno);
-          const colchon = fase.min - tareas.reduce((a, t) => a + t.min, 0);
+          const tareas = tareasDelPlan(plan, fase.id, diaVer, turno);
+          const colchon = fase.min - tareas.reduce((a, t) => a + (Number(t.min) || 0), 0);
           return (
             <div key={fase.id} className={`rounded-lg border-l-[6px] px-4 py-3 ${ESTILO_FASE[fase.id]}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -211,25 +369,45 @@ function PestanaHoy({ hoyIdx, ahora }) {
                 <span className="text-sm font-bold tabular-nums">{rangoDe(turno, fase)}</span>
               </div>
               {fase.id === "arranque" && <PrioridadesYNotas edicion={edicion} setEdicion={setEdicion} guardar={guardar} bloque="arranque" />}
-              <ul className="mt-2 grid gap-0.5">
-                {tareas.map((t, i) => {
-                  const clave = `${fase.id}-${i}`;
-                  const hecha = Boolean(hechos[clave]);
-                  return (
-                    <li key={clave}>
-                      <label className="grid cursor-pointer grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-2.5 rounded-md px-1 py-1.5 hover:bg-black/10">
-                        <input type="checkbox" checked={hecha} disabled={cargando} onChange={() => alternar(clave)} className="mt-1 h-4 w-4 cursor-pointer accent-brand-green" />
-                        <span className="min-w-0">
-                          <span className={`block text-sm ${hecha ? "line-through opacity-55" : ""}`}>{t.t}</span>
-                          <span className="block text-xs opacity-75">{t.donde}</span>
-                        </span>
-                        <span className="whitespace-nowrap pt-0.5 text-xs tabular-nums opacity-80">{t.min} min</span>
-                      </label>
-                    </li>
-                  );
-                })}
-                {colchon >= 10 && <li className="pl-9 pt-1 text-xs italic opacity-75">Margen para imprevistos y lo que se arrastra: {colchon} min</li>}
-              </ul>
+
+              {editando ? (
+                <EditorDeTareas
+                  tareas={tareas}
+                  cambiar={(fn, persistir) => cambiarBloque(fase.id, fn, persistir)}
+                  persistir={() => persistirPlan()}
+                  fechaISO={fechaISO}
+                />
+              ) : (
+                <ul className="mt-2 grid gap-0.5">
+                  {tareas.map((t) => {
+                    const hecha = Boolean(hechos[t.id]);
+                    return (
+                      <li key={t.id}>
+                        <label className="grid cursor-pointer grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-2.5 rounded-md px-1 py-1.5 hover:bg-black/10">
+                          <input type="checkbox" checked={hecha} disabled={cargando} onChange={() => alternar(t.id)} className="mt-1 h-4 w-4 cursor-pointer accent-brand-green" />
+                          <span className="min-w-0">
+                            <span className={`block text-sm ${hecha ? "line-through opacity-55" : ""}`}>{t.t}</span>
+                            {t.donde && <span className="block text-xs opacity-75">{t.donde}</span>}
+                          </span>
+                          <span className="whitespace-nowrap pt-0.5 text-xs tabular-nums opacity-80">{t.min} min</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                  {tareas.length === 0 && <li className="pl-1 pt-1 text-xs italic opacity-75">Sin tareas en este bloque. Agregalas desde «Editar el plan».</li>}
+                  {colchon >= 10 && <li className="pl-9 pt-1 text-xs italic opacity-75">Margen para imprevistos y lo que se arrastra: {colchon} min</li>}
+                </ul>
+              )}
+              {colchon < 0 && (
+                <p className="mt-2 rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
+                  Las tareas suman {-colchon} min más de lo que dura este bloque ({fase.min} min).
+                </p>
+              )}
+              {editando && colchon >= 0 && (
+                <p className="mt-2 text-xs opacity-75">
+                  Suman {fase.min - colchon} de {fase.min} min.
+                </p>
+              )}
               {fase.id === "cierre" && <PrioridadesYNotas edicion={edicion} setEdicion={setEdicion} guardar={guardar} bloque="cierre" />}
             </div>
           );
@@ -239,7 +417,7 @@ function PestanaHoy({ hoyIdx, ahora }) {
   );
 }
 
-function PestanaSemana({ hoyIdx }) {
+function PestanaSemana({ hoyIdx, plan }) {
   return (
     <section className="mt-5">
       <p className="mb-3 max-w-2xl text-sm text-gray-600">
@@ -247,31 +425,34 @@ function PestanaSemana({ hoyIdx }) {
         desde «Hoy».
       </p>
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
-        {DIAS.map((d, i) => (
-          <article key={d.corto} className={`min-w-0 rounded-xl border p-2.5 ${i === hoyIdx ? "border-brand-brown bg-amber-50" : "border-gray-200 bg-white"}`}>
-            <h3 className="font-heading px-1 text-base font-bold text-gray-900">{d.largo}</h3>
-            <p className="px-1 pb-1 text-xs text-gray-500">
-              {d.tema} · {TURNOS[d.turno].nombre.toLowerCase()}
-            </p>
-            {d.gym && (
-              <div className="mt-1.5 rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-[13px] leading-snug text-gray-500">
-                <div className="text-xs font-bold tabular-nums">8:30 a 10:00</div>
-                <div className="font-bold">Gym</div>
-              </div>
-            )}
-            {TURNOS[d.turno].fases.map((fase) => {
-              const tareas = tareasDe(fase.id, d, d.turno);
-              const resumen = tareas.slice(0, 2).map((t) => t.t.split(":")[0]).join(" · ");
-              return (
-                <div key={fase.id} className={`mt-1.5 rounded-md border-l-4 px-2.5 py-1.5 text-[13px] leading-snug ${ESTILO_FASE[fase.id]}`}>
-                  <div className="text-xs font-bold tabular-nums opacity-85">{rangoDe(d.turno, fase)}</div>
-                  <div className="font-bold">{fase.id === "foco" ? d.tema : fase.nombre}</div>
-                  {resumen && <div className="text-xs opacity-85">{resumen}</div>}
+        {DIAS.map((base, i) => {
+          const d = diaDelPlan(plan, i);
+          return (
+            <article key={d.corto} className={`min-w-0 rounded-xl border p-2.5 ${i === hoyIdx ? "border-brand-brown bg-amber-50" : "border-gray-200 bg-white"}`}>
+              <h3 className="font-heading px-1 text-base font-bold text-gray-900">{d.largo}</h3>
+              <p className="px-1 pb-1 text-xs text-gray-500">
+                {d.tema} · {TURNOS[d.turno].nombre.toLowerCase()}
+              </p>
+              {base.gym && (
+                <div className="mt-1.5 rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-[13px] leading-snug text-gray-500">
+                  <div className="text-xs font-bold tabular-nums">8:30 a 10:00</div>
+                  <div className="font-bold">Gym</div>
                 </div>
-              );
-            })}
-          </article>
-        ))}
+              )}
+              {TURNOS[d.turno].fases.map((fase) => {
+                const tareas = tareasDelPlan(plan, fase.id, i, d.turno);
+                const resumen = tareas.slice(0, 2).map((t) => t.t.split(":")[0]).join(" · ");
+                return (
+                  <div key={fase.id} className={`mt-1.5 rounded-md border-l-4 px-2.5 py-1.5 text-[13px] leading-snug ${ESTILO_FASE[fase.id]}`}>
+                    <div className="text-xs font-bold tabular-nums opacity-85">{rangoDe(d.turno, fase)}</div>
+                    <div className="font-bold">{fase.id === "foco" ? d.tema : fase.nombre}</div>
+                    {resumen && <div className="text-xs opacity-85">{resumen}</div>}
+                  </div>
+                );
+              })}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -284,7 +465,7 @@ function lunesDe(ahora, hoyIdx, offsetSemanas) {
   return d;
 }
 
-function PestanaResumen({ hoyIdx, ahora }) {
+function PestanaResumen({ hoyIdx, ahora, plan }) {
   const [semana, setSemana] = useState(0); // 0 = esta semana, -1 = la anterior
   const lunes = lunesDe(ahora, hoyIdx, semana);
   const viernes = new Date(lunes);
@@ -309,6 +490,8 @@ function PestanaResumen({ hoyIdx, ahora }) {
   const { porDia, repetidas } = useMemo(() => {
     if (cargando) return { porDia: [], repetidas: [] };
     const filaPorFecha = Object.fromEntries(datos.filas.map((f) => [f.fecha, f]));
+    // Una tarea agregada después de un día no cuenta para ese día.
+    const vigente = (t, fecha) => !t.desde || fecha >= t.desde;
     const porDiaCalc = DIAS.map((d, i) => {
       const f = new Date(lunes);
       f.setDate(lunes.getDate() + i);
@@ -317,13 +500,13 @@ function PestanaResumen({ hoyIdx, ahora }) {
       let total = 0;
       let hechas = 0;
       const porFase = TURNOS[turno].fases.map((fase) => {
-        const tareas = tareasDe(fase.id, d, turno);
-        const h = tareas.filter((_, k) => fila?.hechos?.[`${fase.id}-${k}`]).length;
+        const tareas = tareasDelPlan(plan, fase.id, i, turno).filter((t) => vigente(t, iso(f)));
+        const h = tareas.filter((t) => fila?.hechos?.[t.id]).length;
         total += tareas.length;
         hechas += h;
         return { id: fase.id, nombre: fase.nombre, total: tareas.length, hechas: h };
       });
-      return { dia: d, fecha: f, fila, turno, total, hechas, porFase };
+      return { dia: diaDelPlan(plan, i), fecha: f, fila, turno, total, hechas, porFase };
     });
 
     // Tareas que se dejan sin hacer día tras día (de las últimas 4 semanas, sobre los días con registro).
@@ -331,14 +514,15 @@ function PestanaResumen({ hoyIdx, ahora }) {
     for (const fila of datos.filas) {
       const idx = (new Date(`${fila.fecha}T12:00:00`).getDay() + 6) % 7;
       if (idx > 4) continue;
-      const d = DIAS[idx];
+      const d = diaDelPlan(plan, idx);
       const turno = fila.turno || d.turno;
       for (const fase of TURNOS[turno].fases) {
-        tareasDe(fase.id, d, turno).forEach((t, k) => {
-          const c = (cuenta[`${idx}|${t.t}`] ||= { dia: d.largo, fase: fase.nombre, t: t.t, dias: 0, sinHacer: 0 });
+        for (const t of tareasDelPlan(plan, fase.id, idx, turno)) {
+          if (!vigente(t, fila.fecha)) continue;
+          const c = (cuenta[`${idx}|${t.id}`] ||= { dia: d.largo, fase: fase.nombre, t: t.t, dias: 0, sinHacer: 0 });
           c.dias += 1;
-          if (!fila.hechos?.[`${fase.id}-${k}`]) c.sinHacer += 1;
-        });
+          if (!fila.hechos?.[t.id]) c.sinHacer += 1;
+        }
       }
     }
     const repetidasCalc = Object.values(cuenta)
@@ -347,7 +531,7 @@ function PestanaResumen({ hoyIdx, ahora }) {
       .slice(0, 8);
     return { porDia: porDiaCalc, repetidas: repetidasCalc };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datos, cargando]);
+  }, [datos, cargando, plan]);
 
   const totalSemana = porDia.filter((d) => d.fila).reduce((a, d) => a + d.total, 0); // solo los días con registro
   const hechasSemana = porDia.reduce((a, d) => a + d.hechas, 0);
@@ -383,7 +567,7 @@ function PestanaResumen({ hoyIdx, ahora }) {
               <p className="text-lg font-bold tabular-nums text-gray-900">
                 {hechasSemana} de {totalSemana}
               </p>
-              <p className="text-[11px] text-gray-500">{totalSemana ? Math.round((hechasSemana / totalSemana) * 100) : 0}% de la semana</p>
+              <p className="text-[11px] text-gray-500">{totalSemana ? Math.round((hechasSemana / totalSemana) * 100) : 0}% de los días con registro</p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Días con registro</p>
@@ -501,17 +685,79 @@ function PestanaReglas() {
 
 function RutinaContenido() {
   const montado = useMontado();
+  const { perfil } = useAuth();
   const [ahora] = useState(() => new Date());
   const hoyIdx = (ahora.getDay() + 6) % 7; // 0 = lunes
   const [pestana, setPestana] = useState("hoy");
 
+  // El plan (las tareas y los temas) se lee de la base; si nunca se editó, es el plan base de la app.
+  const [cargaPlan, setCargaPlan] = useState({ listo: false, plan: null, error: null });
+  const [estadoPlan, setEstadoPlan] = useState("");
+  const planRef = useRef(null);
+
+  useEffect(() => {
+    let activo = true;
+    obtenerPlanDeRutina()
+      .then((guardado) => {
+        if (!activo) return;
+        const plan = completarPlan(guardado);
+        planRef.current = plan;
+        setCargaPlan({ listo: true, plan, error: null });
+      })
+      .catch((e) => {
+        if (!activo) return;
+        // Si todavía no se creó la tabla, se muestra el plan base (sin poder editarlo).
+        const plan = planBase();
+        planRef.current = plan;
+        setCargaPlan({ listo: true, plan, error: e.message });
+      });
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   if (!montado) return null;
+
+  // Aplica un cambio al plan; con `persistir` lo guarda en la base.
+  function cambiarPlan(fn, persistir) {
+    const nuevo = fn(planRef.current);
+    planRef.current = nuevo;
+    setCargaPlan((c) => ({ ...c, plan: nuevo }));
+    if (persistir) persistirPlan();
+  }
+
+  async function persistirPlan() {
+    if (!perfil?.id) return;
+    setEstadoPlan("Guardando...");
+    try {
+      await guardarPlanDeRutina(perfil.id, planRef.current);
+      setEstadoPlan("Plan guardado ✓");
+    } catch (e) {
+      setEstadoPlan(`No se pudo guardar el plan: ${e.message}`);
+    }
+  }
+
+  async function restablecerPlan() {
+    if (!perfil?.id) return;
+    if (!window.confirm("¿Volver al plan original? Se pierden los cambios que hiciste en las tareas, los temas y las frases. Lo que ya tildaste no se borra.")) return;
+    try {
+      await restablecerPlanDeRutina(perfil.id);
+      const base = planBase();
+      planRef.current = base;
+      setCargaPlan((c) => ({ ...c, plan: base }));
+      setEstadoPlan("Plan original restablecido ✓");
+    } catch (e) {
+      setEstadoPlan(`No se pudo restablecer: ${e.message}`);
+    }
+  }
+
+  const plan = cargaPlan.plan;
 
   return (
     <main className="mx-auto max-w-5xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🗓 Mi rutina semanal</h1>
       <p className="mt-0.5 text-sm text-gray-500">
-        Lunes, miércoles y jueves a la tarde; martes y viernes a la mañana. Lo que tildás y escribís queda registrado.
+        Lunes, miércoles y jueves a la tarde; martes y viernes a la mañana. Lo que tildás y escribís queda registrado, y el plan lo podés editar.
       </p>
 
       <div className="mt-4 flex flex-wrap overflow-hidden rounded-md border border-gray-300 text-sm sm:inline-flex">
@@ -528,11 +774,33 @@ function RutinaContenido() {
         ))}
       </div>
 
-      {pestana === "hoy" && <PestanaHoy hoyIdx={hoyIdx} ahora={ahora} />}
-      {pestana === "semana" && <PestanaSemana hoyIdx={hoyIdx} />}
-      {pestana === "resumen" && <PestanaResumen hoyIdx={hoyIdx} ahora={ahora} />}
-      {pestana === "mes" && <PestanaMes />}
-      {pestana === "reglas" && <PestanaReglas />}
+      {cargaPlan.error && (
+        <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          No se pudo leer tu plan guardado ({cargaPlan.error}). Se muestra el plan original; los cambios que hagas pueden no guardarse.
+        </div>
+      )}
+
+      {!cargaPlan.listo ? (
+        <p className="mt-5 text-sm text-gray-500">Cargando...</p>
+      ) : (
+        <>
+          {pestana === "hoy" && (
+            <PestanaHoy
+              hoyIdx={hoyIdx}
+              ahora={ahora}
+              plan={plan}
+              cambiarPlan={cambiarPlan}
+              persistirPlan={persistirPlan}
+              restablecerPlan={restablecerPlan}
+              estadoPlan={estadoPlan}
+            />
+          )}
+          {pestana === "semana" && <PestanaSemana hoyIdx={hoyIdx} plan={plan} />}
+          {pestana === "resumen" && <PestanaResumen hoyIdx={hoyIdx} ahora={ahora} plan={plan} />}
+          {pestana === "mes" && <PestanaMes />}
+          {pestana === "reglas" && <PestanaReglas />}
+        </>
+      )}
     </main>
   );
 }
