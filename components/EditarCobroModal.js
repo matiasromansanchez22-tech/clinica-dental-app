@@ -17,15 +17,18 @@ export default function EditarCobroModal({ cobro, onClose, onGuardado }) {
   async function guardar(e) {
     e.preventDefault();
     setError(null);
-    if (!pago || Number(pago) <= 0) {
-      setError("El monto tiene que ser mayor a cero.");
+    // Un paciente de obra social sin copago (ej. Federada) paga $0: el cobro se carga igual para que la prestación
+    // quede registrada y se facture a la obra social. En los demás cobros el monto tiene que ser mayor a cero.
+    const sinCopago = cobro.tipo === "Obra Social";
+    if (sinCopago ? Number(pago || 0) < 0 : !pago || Number(pago) <= 0) {
+      setError(sinCopago ? "El monto no puede ser negativo." : "El monto tiene que ser mayor a cero.");
       return;
     }
     setGuardando(true);
     try {
       await actualizarCobro(cobro, {
         fecha,
-        pago: Number(pago),
+        pago: Number(pago || 0),
         medioPago,
         observaciones,
         precioAnterior,
