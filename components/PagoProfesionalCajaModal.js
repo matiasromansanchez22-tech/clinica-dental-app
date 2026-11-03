@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import SelectorCobrosALiquidar, { cobrosParaMarcar, errorDeSeleccion } from "@/components/SelectorCobrosALiquidar";
 import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
@@ -13,6 +14,9 @@ const TIPOS = ["Copago/Particular", "Particular", "Copago"];
 // los pagos y gastos de ese día). Si el pago es más grande que eso, la
 // diferencia se propone como "sale de la reserva" (se puede cambiar a mano).
 export default function PagoProfesionalCajaModal({ fecha, profesionales, disponible = {}, onClose, onGuardado }) {
+  const { perfil } = useAuth();
+  // Pagar con la reserva del Consultorio solo pueden las dueñas y la contadora.
+  const puedeUsarReserva = perfil?.rol === "Duena" || perfil?.rol === "Contador";
   const [profesionalId, setProfesionalId] = useState("");
   const [tipo, setTipo] = useState("Copago/Particular");
   const [monto, setMonto] = useState("");
@@ -27,7 +31,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
 
   const disponibleDelMedio = Math.max(0, Number(disponible[medioPago]) || 0);
   const faltante = Math.max(0, (Number(monto) || 0) - disponibleDelMedio);
-  const montoReserva = montoReservaManual !== null ? montoReservaManual : faltante > 0 ? String(faltante) : "";
+  const montoReserva = !puedeUsarReserva ? "" : montoReservaManual !== null ? montoReservaManual : faltante > 0 ? String(faltante) : "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -38,6 +42,12 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
     }
     if (!monto || Number(monto) <= 0) {
       setError("El monto tiene que ser mayor a cero.");
+      return;
+    }
+    if (!puedeUsarReserva && faltante > 0) {
+      setError(
+        `En caja hay $${disponibleDelMedio.toLocaleString("es-AR")} y este pago es de $${Number(monto).toLocaleString("es-AR")}. Registrá solo lo que hay en caja; el resto lo paga una dueña con la reserva.`
+      );
       return;
     }
     const deReserva = Number(montoReserva) || 0;
@@ -187,21 +197,23 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
             />
           </label>
 
-          <label className="flex flex-col gap-0.5 text-xs text-amber-900">
-            De la reserva
-            <input
-              type="number"
-              min={0}
-              value={montoReserva}
-              onChange={(e) => setMontoReservaManual(e.target.value)}
-              placeholder="0"
-              className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-sm text-gray-900"
-            />
-          </label>
+          {puedeUsarReserva && (
+            <label className="flex flex-col gap-0.5 text-xs text-amber-900">
+              De la reserva
+              <input
+                type="number"
+                min={0}
+                value={montoReserva}
+                onChange={(e) => setMontoReservaManual(e.target.value)}
+                placeholder="0"
+                className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-sm text-gray-900"
+              />
+            </label>
+          )}
 
           <p className="col-span-2 text-[11px] leading-snug text-gray-500">
             En caja hay <strong>${disponibleDelMedio.toLocaleString("es-AR")}</strong> en {medioPago}
-            {faltante > 0 ? ": lo que falta se propone de la reserva." : "."}
+            {faltante > 0 ? (puedeUsarReserva ? ": lo que falta se propone de la reserva." : ".") : "."}
             {sale && (
               <>
                 {" "}
@@ -211,6 +223,24 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
               </>
             )}
           </p>
+
+          {!puedeUsarReserva && faltante > 0 && (
+            <div className="col-span-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p>
+                Este pago es más de lo que hay en caja. <strong>La reserva la usa una dueña</strong>: registrá acá solo lo que hay en caja, y el resto
+                (${faltante.toLocaleString("es-AR")}) lo paga una dueña desde Producción con «Se paga con la reserva».
+              </p>
+              {disponibleDelMedio > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMonto(String(Math.round(disponibleDelMedio)))}
+                  className="mt-1.5 rounded border border-amber-400 bg-white px-2 py-0.5 font-medium hover:bg-amber-100"
+                >
+                  Registrar solo ${disponibleDelMedio.toLocaleString("es-AR")}
+                </button>
+              )}
+            </div>
+          )}
 
           <label className="col-span-2 flex flex-col gap-0.5 text-xs text-gray-600">
             Observaciones{sinPacientes ? "" : " (opcional)"}

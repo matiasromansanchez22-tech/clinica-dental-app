@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import SelectorCobrosALiquidar, { cobrosParaMarcar, errorDeSeleccion } from "@/components/SelectorCobrosALiquidar";
 import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
 import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
@@ -10,6 +11,8 @@ import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posibl
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
 
 export default function RegistrarPagoProfesionalModal({ profesional, tipo, montoSugerido, onClose, onGuardado }) {
+  const { perfil } = useAuth();
+  const puedeUsarReserva = perfil?.rol === "Duena" || perfil?.rol === "Contador";
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [monto, setMonto] = useState(Math.round(montoSugerido || 0));
   const [medioPago, setMedioPago] = useState("Efectivo");
@@ -132,6 +135,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
             </select>
           </label>
 
+          {puedeUsarReserva && (
           <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <input
               type="checkbox"
@@ -145,6 +149,7 @@ export default function RegistrarPagoProfesionalModal({ profesional, tipo, monto
               profesional.
             </span>
           </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm text-gray-700">
             Observaciones
