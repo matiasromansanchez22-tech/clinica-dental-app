@@ -228,6 +228,7 @@ export default function PagoProfesionalCajaModal({ fecha, profesionales, disponi
             tratamientoSaldado={tratamientoSaldado}
             onTratamientoSaldadoChange={setTratamientoSaldado}
             montoPago={monto}
+            fechaPago={fecha}
             obligatorio
             sinPacientes={sinPacientes}
             onSinPacientesChange={setSinPacientes}

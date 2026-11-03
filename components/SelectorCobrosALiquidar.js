@@ -163,12 +163,19 @@ export default function SelectorCobrosALiquidar({
   obligatorio = false,
   sinPacientes = false,
   onSinPacientesChange,
+  fechaPago,
 }) {
   // Se guarda para qué profesional se cargó la lista: mientras no coincida con el elegido
   // ahora, se muestra "Cargando..." (así no aparece la lista de otro profesional).
   const [cargado, setCargado] = useState({ profesionalId: null, cobros: [], error: null });
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState(obligatorio);
+  // Por defecto solo se ven los cobros del día del pago (más los que quedaron pagados en parte, que siguen pendientes):
+  // los cobros viejos que se pagaron antes de que existiera el tildado no se marcaron y harían ruido. Se puede cambiar el
+  // día o ver todos los de los últimos 60 días.
+  const [diaElegido, setDiaElegido] = useState(null);
+  const [verTodos, setVerTodos] = useState(false);
+  const dia = diaElegido || fechaPago || null;
 
   useEffect(() => {
     if (!profesionalId) return;
@@ -190,15 +197,20 @@ export default function SelectorCobrosALiquidar({
 
   // Un grupo por paciente (la lista ya viene de más nuevo a más viejo, así que los grupos
   // quedan ordenados por su cobro más reciente).
+  const cobrosDelDia = useMemo(
+    () => (verTodos || !dia ? cobros : cobros.filter((c) => c.fecha === dia || c.yaPagado > 0)),
+    [cobros, verTodos, dia]
+  );
+  const ocultosPorDia = cobros.length - cobrosDelDia.length;
   const grupos = useMemo(() => {
-    const visibles = texto ? cobros.filter((c) => `${c.paciente} ${c.detalle}`.toLowerCase().includes(texto)) : cobros;
+    const visibles = texto ? cobrosDelDia.filter((c) => `${c.paciente} ${c.detalle}`.toLowerCase().includes(texto)) : cobrosDelDia;
     const mapa = new Map();
     for (const c of visibles) {
       if (!mapa.has(c.paciente)) mapa.set(c.paciente, []);
       mapa.get(c.paciente).push(c);
     }
     return [...mapa.entries()].map(([paciente, lista]) => ({ paciente, cobros: lista }));
-  }, [cobros, texto]);
+  }, [cobrosDelDia, texto]);
 
   if (!profesionalId) return null;
 
@@ -266,11 +278,26 @@ export default function SelectorCobrosALiquidar({
 
       {abierto && !sinPacientes && (
         <>
-          <p className="mt-1.5 text-[11px] text-gray-500">
-            Cobros de los últimos 60 días que todavía no se le liquidaron por completo. Tildá al paciente para marcar todos sus cobros, o
-            elegí uno por uno.
-          </p>
-          {cobros.length > 6 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-600">
+            {!verTodos && dia ? (
+              <label className="flex items-center gap-1">
+                Cobros del día
+                <input
+                  type="date"
+                  value={dia}
+                  onChange={(e) => setDiaElegido(e.target.value || null)}
+                  className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs text-gray-900"
+                />
+              </label>
+            ) : (
+              <span>Todos los cobros de los últimos 60 días sin liquidar por completo</span>
+            )}
+            <button type="button" onClick={() => setVerTodos((v) => !v)} className="font-medium text-blue-600 hover:underline">
+              {verTodos ? "Ver solo los de un día" : `Ver también días anteriores${ocultosPorDia > 0 ? ` (${ocultosPorDia})` : ""}`}
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-gray-500">Tildá al paciente para marcar todos sus cobros, o elegí uno por uno.</p>
+          {cobrosDelDia.length > 6 && (
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
@@ -280,8 +307,12 @@ export default function SelectorCobrosALiquidar({
           )}
           {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
           {cargando && <p className="mt-1 text-xs text-gray-500">Cargando cobros...</p>}
-          {!cargando && !error && cobros.length === 0 && (
-            <p className="mt-1 text-xs text-gray-500">No hay cobros pendientes de liquidar de este profesional.</p>
+          {!cargando && !error && cobrosDelDia.length === 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              {verTodos || !dia
+                ? "No hay cobros pendientes de liquidar de este profesional."
+                : `No hay cobros de este profesional el ${dia.split("-").reverse().join("/")}.${ocultosPorDia > 0 ? ` Hay ${ocultosPorDia} de días anteriores: tocá «Ver también días anteriores».` : ""}`}
+            </p>
           )}
           {grupos.length > 0 && (
             <ul className="mt-1.5 max-h-44 overflow-y-auto rounded-md border border-gray-200 bg-white">
