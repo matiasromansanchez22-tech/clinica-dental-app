@@ -15,7 +15,17 @@ function pesos(n) {
 // Si se pasa `onQuitar`, aparece una ✕ para sacar la marca (por si se tildó por error).
 // Si el cobro todavía no se liquidó y se pasa `pendienteDe` (el nombre de quien atendió), muestra
 // "Falta liquidar a ..." para que se vea a simple vista qué pacientes faltan.
-export default function MarcaLiquidado({ liquidacion, onQuitar, pendienteDe }) {
+export default function MarcaLiquidado({ liquidacion, onQuitar, pendienteDe, sinHonorarios }) {
+  if (!liquidacion && sinHonorarios) {
+    return (
+      <span
+        className="ml-1.5 inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600"
+        title="Este cobro (por ejemplo una estampilla) no genera honorarios: no se le liquida al profesional"
+      >
+        Sin honorarios
+      </span>
+    );
+  }
   if (!liquidacion && pendienteDe) {
     return (
       <span

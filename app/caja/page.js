@@ -455,6 +455,7 @@ function CajaPageContenido() {
                   {c.paciente}
                   <MarcaLiquidado
                     liquidacion={liquidacionesActuales?.[c.id]}
+                    sinHonorarios={c.prestaciones.length > 0 && !c.precioAnterior && c.prestaciones.every((p) => p.sinHonorarios)}
                     pendienteDe={liquidacionesActuales && !liquidacionesActuales[c.id] && c.profesionalAtencion && c.profesionalAtencion !== "—" ? c.profesionalAtencion : null}
                     onQuitar={
                       esDuena
