@@ -20,11 +20,14 @@ import { obtenerPacientes } from "@/lib/data/pacientes";
 import { obtenerPacientesOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { obtenerNombresLaboratoriosMecanicos } from "@/lib/data/mecanicosPrecios";
+import { obtenerDeudaDePacientes, textoDeuda } from "@/lib/data/deudaPacientes";
 
 function PaginaLaboratorio() {
   const [trabajos, setTrabajos] = useState([]);
   const [eventosPorTrabajo, setEventosPorTrabajo] = useState({});
   const [turnosPorPaciente, setTurnosPorPaciente] = useState({});
+  // Lo que debe cada paciente de Odontología General con un trabajo en curso (la clínica no entrega si debe algo).
+  const [deudas, setDeudas] = useState({});
   const [vista, setVista] = useState("tablero"); // "tablero" | "lista"
   const [pacientesGeneral, setPacientesGeneral] = useState([]);
   const [pacientesOrtodoncia, setPacientesOrtodoncia] = useState([]);
@@ -100,6 +103,16 @@ function PaginaLaboratorio() {
       .catch(() => {});
   }, [trabajos]);
 
+  // Se vuelve a buscar la deuda cada vez que cambian los trabajos. Si el usuario no tiene permiso para ver deudas,
+  // no figura nadie y no se muestra nada (nunca se muestra «no debe» por falta de datos).
+  useEffect(() => {
+    const ids = trabajos.filter((t) => t.estado !== "Entregado" && t.tipoPaciente !== "Ortodoncia").map((t) => t.pacienteId);
+    if (ids.length === 0) return;
+    obtenerDeudaDePacientes(ids)
+      .then(setDeudas)
+      .catch(() => {});
+  }, [trabajos]);
+
   const trabajosMostrados = soloActivos ? trabajos.filter((t) => t.estado !== "Entregado") : trabajos;
 
   const resumen = useMemo(() => {
@@ -123,6 +136,21 @@ function PaginaLaboratorio() {
       ).length,
     [trabajos, eventosPorTrabajo, turnosPorPaciente]
   );
+
+  // Trabajos que están en la clínica (para probar o para entregar) y lo que debe el paciente.
+  const enClinica = useMemo(() => {
+    const lista = [];
+    for (const t of trabajos) {
+      if (t.estado === "Entregado" || t.tipoPaciente === "Ortodoncia") continue;
+      const etapa = calcularCircuito(t, eventosPorTrabajo[t.id] || []).etapa;
+      if (etapa !== "en_clinica" && etapa !== "probado" && etapa !== "listo") continue;
+      lista.push({ trabajo: t, etapa, deuda: deudas[t.pacienteId] });
+    }
+    return lista;
+  }, [trabajos, eventosPorTrabajo, deudas]);
+  const paraEntregarConDeuda = enClinica.filter((x) => x.etapa === "listo" && x.deuda?.total > 0).length;
+  const paraEntregarSinDeuda = enClinica.filter((x) => x.etapa === "listo" && x.deuda && x.deuda.total === 0).length;
+  const conDeudaEnClinica = enClinica.filter((x) => x.deuda?.total > 0);
 
   const pendientesDeEnvio = useMemo(
     () => trabajos.filter((t) => t.estado === "Pendiente de envío").length,
@@ -194,6 +222,16 @@ function PaginaLaboratorio() {
               📅 Para dar turno de prueba: {paraDarTurnoDePrueba}
             </span>
           )}
+          {paraEntregarSinDeuda > 0 && (
+            <span className="rounded-md bg-emerald-100 px-3 py-1.5 font-medium text-emerald-800">
+              ✅ Listos para entregar, sin deuda: {paraEntregarSinDeuda}
+            </span>
+          )}
+          {paraEntregarConDeuda > 0 && (
+            <span className="rounded-md bg-red-100 px-3 py-1.5 font-medium text-red-800">
+              💲 Listos pero con deuda: {paraEntregarConDeuda}
+            </span>
+          )}
           {pendientesDeEnvio > 0 && (
             <span className="rounded-md bg-sky-50 px-3 py-1.5 font-medium text-sky-700">
               📤 Pendientes de envío: {pendientesDeEnvio}
@@ -224,11 +262,30 @@ function PaginaLaboratorio() {
         </div>
       )}
 
+      {!cargando && conDeudaEnClinica.length > 0 && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm font-semibold text-red-900">
+            💲 Pacientes con trabajo en la clínica que todavía deben ({conDeudaEnClinica.length}): no retiran hasta pagar
+          </p>
+          <ul className="mt-1.5 grid gap-1 text-sm text-red-900 sm:grid-cols-2">
+            {conDeudaEnClinica.map(({ trabajo, etapa, deuda }) => (
+              <li key={trabajo.id}>
+                <strong>{trabajo.pacienteNombre}</strong> — {trabajo.tipoTrabajo}
+                {trabajo.pieza ? ` (${trabajo.pieza})` : ""} · {etapa === "listo" ? "listo para entregar" : etapa === "probado" ? "en prueba" : "para probar"} · debe{" "}
+                <strong>${Math.round(deuda.total).toLocaleString("es-AR")}</strong>
+                <span className="block text-xs opacity-80">{textoDeuda(deuda)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {vista === "tablero" && !cargando && (
         <TableroLaboratorio
           trabajos={trabajos}
           eventosPorTrabajo={eventosPorTrabajo}
           turnosPorPaciente={turnosPorPaciente}
+          deudas={deudas}
           onAbrirTrabajo={setTrabajoEnDetalle}
           onMarcarEnviado={setTrabajoAMarcarEnviado}
           onCambio={recargarTrabajos}
@@ -253,6 +310,7 @@ function PaginaLaboratorio() {
               <th className="px-3 py-2 text-left font-semibold">Profesional</th>
               <th className="px-3 py-2 text-left font-semibold">Laboratorio</th>
               <th className="px-3 py-2 text-right font-semibold">Valor</th>
+              <th className="px-3 py-2 text-right font-semibold">Debe el paciente</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Demora</th>
               <th className="px-3 py-2"></th>
@@ -261,14 +319,14 @@ function PaginaLaboratorio() {
           <tbody>
             {cargando && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!cargando && trabajosMostrados.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
                   No hay trabajos cargados.
                 </td>
               </tr>
@@ -290,6 +348,17 @@ function PaginaLaboratorio() {
                   <td className="px-3 py-2 text-gray-600">{t.laboratorio || "—"}</td>
                   <td className="px-3 py-2 text-right text-gray-600">
                     {t.valor ? `$${Number(t.valor).toLocaleString("es-AR")}` : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {t.estado === "Entregado" || t.tipoPaciente === "Ortodoncia" || !deudas[t.pacienteId] ? (
+                      <span className="text-gray-400">—</span>
+                    ) : deudas[t.pacienteId].total > 0 ? (
+                      <span className="font-semibold text-red-700" title={textoDeuda(deudas[t.pacienteId])}>
+                        ${Math.round(deudas[t.pacienteId].total).toLocaleString("es-AR")}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700">No debe</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-gray-600">{t.estado}</td>
                   <td className={`px-3 py-2 font-medium ${demora.color}`}>

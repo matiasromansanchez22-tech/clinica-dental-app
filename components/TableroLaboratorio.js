@@ -4,6 +4,7 @@ import { useState } from "react";
 import { COLOR_SEMAFORO, DIAS_ENTREGADOS_VISIBLES, ETAPAS, calcularCircuito } from "@/lib/circuitoLaboratorio";
 import { claveTurnoTrabajo, registrarPasoCircuito } from "@/lib/data/laboratorio";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { textoDeuda } from "@/lib/data/deudaPacientes";
 
 function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
@@ -55,7 +56,7 @@ function diasHasta(fechaISO) {
   return Math.round((new Date(fechaISO + "T12:00:00") - hoy) / (1000 * 60 * 60 * 24));
 }
 
-function Tarjeta({ trabajo, circuito, turno, ocupado, onAbrir, onAccion }) {
+function Tarjeta({ trabajo, circuito, turno, deuda, ocupado, onAbrir, onAccion }) {
   const sem = COLOR_SEMAFORO[circuito.semaforo];
   const acciones = accionesDe(circuito.etapa);
   return (
@@ -100,6 +101,15 @@ function Tarjeta({ trabajo, circuito, turno, ocupado, onAbrir, onAccion }) {
       {(circuito.etapa === "probado" || circuito.etapa === "listo") && turno && (
         <p className="mt-1 text-[11px] font-medium text-gray-600">📅 Próximo turno: {textoTurno(turno)}</p>
       )}
+      {circuito.etapa !== "entregado" && deuda && deuda.total > 0 && (
+        <p className="mt-1 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-700" title={textoDeuda(deuda)}>
+          💲 Debe {formatoPesos(deuda.total)}
+          {circuito.etapa === "listo" ? " — cobrar antes de entregar" : ""}
+        </p>
+      )}
+      {circuito.etapa === "listo" && deuda && deuda.total === 0 && (
+        <p className="mt-1 text-[11px] font-semibold text-emerald-700">✓ No debe nada: se puede entregar</p>
+      )}
       {acciones.length > 0 && (
         <div className="mt-2 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
           {acciones.map((a) => (
@@ -127,6 +137,7 @@ export default function TableroLaboratorio({
   trabajos,
   eventosPorTrabajo,
   turnosPorPaciente = {},
+  deudas = {},
   onAbrirTrabajo,
   onMarcarEnviado,
   onCambio,
@@ -152,6 +163,16 @@ export default function TableroLaboratorio({
     if (accion.especial === "enviar") {
       onMarcarEnviado(trabajo);
       return;
+    }
+    // Regla: el paciente no retira el trabajo si debe algo.
+    const deuda = deudas[trabajo.pacienteId];
+    if (accion.tipos.includes("Alta / Entregado") && deuda?.total > 0) {
+      const seguir = window.confirm(
+        `${trabajo.pacienteNombre} todavía debe ${formatoPesos(deuda.total)} (${textoDeuda(deuda)}).
+
+La regla es que no retira el trabajo si debe algo. ¿Lo entregás igual?`
+      );
+      if (!seguir) return;
     }
     setOcupado(true);
     setError(null);
@@ -240,6 +261,7 @@ export default function TableroLaboratorio({
                       trabajo={trabajo}
                       circuito={circuito}
                       turno={turnosPorPaciente[claveTurnoTrabajo(trabajo)]}
+                      deuda={trabajo.tipoPaciente === "Ortodoncia" ? undefined : deudas[trabajo.pacienteId]}
                       ocupado={ocupado}
                       onAbrir={() => onAbrirTrabajo(trabajo)}
                       onAccion={ejecutarAccion}
