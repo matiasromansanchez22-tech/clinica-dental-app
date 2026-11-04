@@ -5,7 +5,8 @@ import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerHistorialPagos } from "@/lib/data/historialPagos";
 import { obtenerLiquidacionesParcialesPendientes } from "@/lib/data/cobrosLiquidados";
-import { obtenerCobrosConEstadoDeLiquidacion } from "@/lib/data/estadoLiquidaciones";
+import { obtenerCobradoSinAsignar, obtenerCobrosConEstadoDeLiquidacion } from "@/lib/data/estadoLiquidaciones";
+import ComoSeCalculaHonorarios from "@/components/ComoSeCalculaHonorarios";
 import { obtenerProduccionPorProfesional } from "@/lib/data/produccionProfesionales";
 
 const NOMBRES_MES = [
@@ -277,12 +278,19 @@ function BloquePacientes({ bloque, cobros, estado, q }) {
                       <td className="px-3 py-2 text-xs text-gray-600">
                         {c.detalle}
                         <span className="block text-[11px] text-gray-400">{c.cobertura}</span>
+                        {c.calculo && <span className="block text-[10px] leading-snug text-gray-500">{c.calculo}</span>}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700">{formatoPesos(c.monto)}</td>
                       <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-gray-900">{formatoPesos(c.honorarios)}</td>
                       <td className="px-3 py-2 text-xs">
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTILO_ESTADO[c.estado]}`}>{TEXTO_ESTADO[c.estado]}</span>
                         {c.estado === "liquidado" && c.fechaLiquidacion && <span className="block text-gray-500">el {formatoFecha(c.fechaLiquidacion)}</span>}
+                        {c.estado !== "pendiente" && Math.abs(c.honorarios - c.calculado) > 500 && (
+                          <span className="mt-0.5 block font-semibold text-red-700">
+                            ⚠ Se liquidó sobre {formatoPesos(c.honorarios)}; hoy le corresponde {formatoPesos(c.calculado)} ({c.calculado > c.honorarios ? "faltan" : "sobran"}{" "}
+                            {formatoPesos(Math.abs(c.calculado - c.honorarios))})
+                          </span>
+                        )}
                         {c.estado === "parcial" && (
                           <span className="block text-amber-700">
                             se le pagó {formatoPesos(c.liquidado)} · falta {formatoPesos(c.falta)}
@@ -441,6 +449,7 @@ function Contenido() {
   const [profesionalElegido, setProfesionalElegido] = useState("todos");
   const [balance, setBalance] = useState([]);
   const [cobros, setCobros] = useState([]);
+  const [sinAsignar, setSinAsignar] = useState([]);
   const [pestana, setPestana] = useState("resumen"); // "resumen" | "pacientes"
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
@@ -458,11 +467,13 @@ function Contenido() {
       // Si todavía no se corrió la migración de pagos parciales, la pantalla se ve igual, sin esa parte.
       obtenerLiquidacionesParcialesPendientes().catch(() => []),
       obtenerCobrosConEstadoDeLiquidacion(desde, hasta).catch(() => []),
+      obtenerCobradoSinAsignar(desde, hasta).catch(() => []),
     ])
-      .then(([produccion, pagos, parciales, cobrosDelMes]) => {
+      .then(([produccion, pagos, parciales, cobrosDelMes, sinAsignarDelMes]) => {
         if (!vigente) return;
         setBalance(armarBalance(produccion, pagos, parciales));
         setCobros(cobrosDelMes);
+        setSinAsignar(sinAsignarDelMes);
       })
       .catch((e) => vigente && setError(e.message))
       .finally(() => vigente && setCargando(false));
@@ -516,6 +527,23 @@ function Contenido() {
         Por cada profesional: lo que le correspondía en el mes, lo que se le liquidó (cada pago con los pacientes que
         incluye) y el saldo. Para que un pago muestre sus pacientes, hay que tildarlos al registrar el pago.
       </p>
+      <ComoSeCalculaHonorarios />
+      {sinAsignar.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <p className="font-semibold">
+            ⚠ Cobrado por adelantado sin tratamiento identificado: {formatoPesos(sinAsignar.reduce((a, c) => a + c.monto, 0))} ({sinAsignar.length}{" "}
+            {sinAsignar.length === 1 ? "cuota" : "cuotas"})
+          </p>
+          <p className="text-xs">No se le liquida a nadie hasta que se cargue el turno del tratamiento al que corresponde. Cargá ese turno y el honorario se asigna solo.</p>
+          <ul className="mt-1 list-disc pl-5 text-xs">
+            {sinAsignar.map((c, i) => (
+              <li key={i}>
+                {c.paciente} — {formatoPesos(c.monto)} ({c.fecha ? formatoFecha(c.fecha) : "—"})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-4 flex overflow-hidden rounded-md border border-gray-300 text-sm print:hidden sm:inline-flex">
         {[

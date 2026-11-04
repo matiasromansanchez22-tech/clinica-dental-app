@@ -58,6 +58,19 @@ function FilaCobro({ cobro, tildado, onAlternar, sangria }) {
       <span className="min-w-0 flex-1">
         {!sangria && <span className="font-medium text-gray-900">{cobro.paciente}</span>}
         <span className={`block truncate ${sangria ? "text-gray-700" : "text-gray-500"}`}>{cobro.detalle}</span>
+        {cobro.lineas?.length > 0 && (
+          <span className="block text-[10px] leading-snug text-gray-500">
+            {cobro.lineas.slice(0, 3).map((l, i) => (
+              <span key={i} className="block">
+                {l.calculo}
+              </span>
+            ))}
+            {cobro.lineas.length > 3 && <span className="block">y {cobro.lineas.length - 3} línea{cobro.lineas.length - 3 === 1 ? "" : "s"} más</span>}
+          </span>
+        )}
+        {cobro.otrosProfesionales?.length > 0 && (
+          <span className="block text-[10px] font-medium text-sky-700">El resto de este cobro le corresponde a {cobro.otrosProfesionales.join(", ")}</span>
+        )}
         {cobro.yaPagado > 0 && (
           <span className="block text-[10px] font-medium text-amber-700">
             Pago parcial: ya se le pagó {formatoPesos(cobro.yaPagado)} · falta {formatoPesos(cobro.falta)}

@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import RegistrarPagoProfesionalModal from "@/components/RegistrarPagoProfesionalModal";
+import ComoSeCalculaHonorarios from "@/components/ComoSeCalculaHonorarios";
 import SoloDuenaContadorYSecretaria from "@/components/SoloDuenaContadorYSecretaria";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
@@ -150,6 +151,7 @@ function ProduccionPorProfesionalContenido() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">Producción y liquidación por profesional</h1>
+      <ComoSeCalculaHonorarios />
       <p className="print:hidden mt-1 text-sm text-gray-500">
         Cuánto atendió cada profesional este período (Odontología General + Ortodoncia). Lo que se liquida en el día
         es el % sobre el valor de catálogo de las prestaciones que cada uno cargó (no sobre lo que terminó pagando el
@@ -394,7 +396,10 @@ function ProduccionPorProfesionalContenido() {
                             <tr key={i} className="border-t border-gray-200">
                               <td className="px-2 py-1">{d.fecha}</td>
                               <td className="px-2 py-1">{d.paciente}</td>
-                              <td className="px-2 py-1">{d.concepto}</td>
+                              <td className="px-2 py-1">
+                                {d.concepto}
+                                {d.calculo && <span className="block text-[11px] text-gray-500">{d.calculo}</span>}
+                              </td>
                               <td className="px-2 py-1 text-gray-500">{d.tipo}</td>
                               <td className="px-2 py-1 text-right">${d.monto.toLocaleString("es-AR")}</td>
                               <td className="px-2 py-1 text-right font-medium text-brand-brown">
@@ -516,7 +521,10 @@ function ProduccionPorProfesionalContenido() {
                       <tr key={i} className="border-b border-gray-200">
                         <td className="py-1 pr-2">{d.fecha}</td>
                         <td className="py-1 pr-2">{d.paciente}</td>
-                        <td className="py-1 pr-2">{d.concepto}</td>
+                        <td className="py-1 pr-2">
+                          {d.concepto}
+                          {d.calculo && <span className="block text-[10px] text-gray-500">{d.calculo}</span>}
+                        </td>
                         <td className="py-1 pr-2 text-right">${d.monto.toLocaleString("es-AR")}</td>
                         <td className="py-1 text-right">${Math.round(d.montoHonorarios).toLocaleString("es-AR")}</td>
                       </tr>
