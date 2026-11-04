@@ -75,6 +75,9 @@ export default function CobroOrtodonciaFormModal({
   const [importe, setImporte] = useState(0);
   const [medioPago, setMedioPago] = useState("Efectivo");
   const [pagoMixto, setPagoMixto] = useState(false);
+  // Consulta de ortodoncia bonificada (gratis): se registra en Caja con importe $0 para llevar la cuenta.
+  const [bonificada, setBonificada] = useState(false);
+  const consultaBonificada = bonificada && concepto === "Consulta de ortodoncia";
   const [desglosePago, setDesglosePago] = useState([parteVacia("Efectivo"), parteVacia("Transferencia")]);
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -330,7 +333,7 @@ export default function CobroOrtodonciaFormModal({
     }
     // Un control sin costo (premio de referidos o de la tarjeta de fidelidad) se registra con importe $0.
     const esControlSinCosto = Number(importe) === 0 && descuentoReferido + descuentoFidelidad > 0;
-    if (!esControlSinCosto && (!importe || Number(importe) <= 0)) {
+    if (!esControlSinCosto && !consultaBonificada && (!importe || Number(importe) <= 0)) {
       setError("El importe tiene que ser mayor a cero.");
       return;
     }
@@ -350,6 +353,7 @@ export default function CobroOrtodonciaFormModal({
     try {
       const observacionesFinal = [
         observaciones || null,
+        consultaBonificada ? "Consulta bonificada (gratis)" : null,
         descuentoReferido > 0 ? `Descuento por referido: -$${descuentoReferido.toLocaleString("es-AR")}` : null,
         descuentoFidelidad > 0 ? `Descuento por tarjeta de fidelidad: -$${descuentoFidelidad.toLocaleString("es-AR")}` : null,
         cargoExtraMonto ? `Cargo extra: ${cargoExtraDescripcion || "(sin descripción)"} ($${Number(cargoExtraMonto).toLocaleString("es-AR")})` : null,
@@ -879,8 +883,28 @@ export default function CobroOrtodonciaFormModal({
             </div>
           )}
 
+          {concepto === "Consulta de ortodoncia" && (
+            <label className="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={bonificada}
+                onChange={(e) => {
+                  setBonificada(e.target.checked);
+                  if (e.target.checked) {
+                    setPagoMixto(false);
+                    setImporte(0);
+                  }
+                }}
+              />
+              <span>
+                <strong>Consulta bonificada (gratis).</strong> Queda registrada en Caja con importe $0, así se cuenta como consulta realizada.
+              </span>
+            </label>
+          )}
+
           <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={pagoMixto} onChange={(e) => setPagoMixto(e.target.checked)} />
+            <input type="checkbox" checked={pagoMixto} disabled={consultaBonificada} onChange={(e) => setPagoMixto(e.target.checked)} />
             Pago mixto (más de un medio de pago)
           </label>
 
@@ -936,9 +960,9 @@ export default function CobroOrtodonciaFormModal({
                   type="number"
                   value={importe}
                   onChange={(e) => setImporte(e.target.value)}
-                  readOnly={bloqueoAumento}
-                  title={bloqueoAumento ? "Monto fijado por el aumento: solo una dueña puede cambiarlo" : undefined}
-                  className={`rounded-md border border-gray-300 px-2 py-1.5 ${bloqueoAumento ? "cursor-not-allowed bg-gray-100 text-gray-700" : ""}`}
+                  readOnly={bloqueoAumento || consultaBonificada}
+                  title={bloqueoAumento ? "Monto fijado por el aumento: solo una dueña puede cambiarlo" : consultaBonificada ? "Consulta bonificada: $0" : undefined}
+                  className={`rounded-md border border-gray-300 px-2 py-1.5 ${bloqueoAumento || consultaBonificada ? "cursor-not-allowed bg-gray-100 text-gray-700" : ""}`}
                 />
                 {bloqueoAumento && (
                   <span className="text-[11px] text-red-700">🔒 Monto fijado por el aumento. Solo una dueña puede cambiarlo.</span>
