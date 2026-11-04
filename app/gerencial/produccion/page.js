@@ -401,7 +401,7 @@ function ProduccionPorProfesionalContenido() {
                                 {d.calculo && <span className="block text-[11px] text-gray-500">{d.calculo}</span>}
                               </td>
                               <td className="px-2 py-1 text-gray-500">{d.tipo}</td>
-                              <td className="px-2 py-1 text-right">${d.monto.toLocaleString("es-AR")}</td>
+                              <td className="px-2 py-1 text-right">${Math.round(d.abonoHoy ?? d.monto).toLocaleString("es-AR")}</td>
                               <td className="px-2 py-1 text-right font-medium text-brand-brown">
                                 ${Math.round(d.montoHonorarios).toLocaleString("es-AR")}
                               </td>
@@ -414,7 +414,7 @@ function ProduccionPorProfesionalContenido() {
                               Total
                             </td>
                             <td className="px-2 py-1 text-right">
-                              ${f.detalle.reduce((a, d) => a + d.monto, 0).toLocaleString("es-AR")}
+                              ${Math.round(f.detalle.reduce((a, d) => a + (d.abonoHoy ?? d.monto), 0)).toLocaleString("es-AR")}
                             </td>
                             <td className="px-2 py-1 text-right text-brand-brown">
                               ${Math.round(f.detalle.reduce((a, d) => a + d.montoHonorarios, 0)).toLocaleString("es-AR")}
@@ -525,7 +525,7 @@ function ProduccionPorProfesionalContenido() {
                           {d.concepto}
                           {d.calculo && <span className="block text-[10px] text-gray-500">{d.calculo}</span>}
                         </td>
-                        <td className="py-1 pr-2 text-right">${d.monto.toLocaleString("es-AR")}</td>
+                        <td className="py-1 pr-2 text-right">${Math.round(d.abonoHoy ?? d.monto).toLocaleString("es-AR")}</td>
                         <td className="py-1 text-right">${Math.round(d.montoHonorarios).toLocaleString("es-AR")}</td>
                       </tr>
                     ))}
@@ -536,7 +536,7 @@ function ProduccionPorProfesionalContenido() {
                         Total a liquidar
                       </td>
                       <td className="py-2 pr-2 text-right">
-                        ${detalleALiquidar.reduce((a, d) => a + d.monto, 0).toLocaleString("es-AR")}
+                        ${Math.round(detalleALiquidar.reduce((a, d) => a + (d.abonoHoy ?? d.monto), 0)).toLocaleString("es-AR")}
                       </td>
                       <td className="py-2 text-right">
                         ${Math.round(detalleALiquidar.reduce((a, d) => a + d.montoHonorarios, 0)).toLocaleString("es-AR")}
