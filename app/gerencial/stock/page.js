@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import GestionarRodantesModal from "@/components/GestionarRodantesModal";
+import ListaComprasInsumos from "@/components/ListaComprasInsumos";
 import RegistrarTraspasoStockModal from "@/components/RegistrarTraspasoStockModal";
 import SoloDuenaYLaboratorio from "@/components/SoloDuenaYLaboratorio";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -10,6 +11,10 @@ import { avisarIngresoDeStock } from "@/lib/data/avisos";
 import {
   actualizarCantidadStock,
   actualizarMinimoInsumo,
+  agregarItemCompraInsumo,
+  marcarCompradoItemInsumo,
+  obtenerListaComprasInsumos,
+  quitarItemCompraInsumo,
   revisarStockBajo,
   actualizarInsumoStock,
   cerrarSemanaStock,
@@ -83,6 +88,7 @@ function StockContenido() {
   const [rodantes, setRodantes] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [cantidades, setCantidades] = useState([]);
+  const [compras, setCompras] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarRodantes, setMostrarRodantes] = useState(false);
@@ -114,6 +120,7 @@ function StockContenido() {
       setRodantes(r);
       setInsumos(i);
       setCantidades(c);
+      obtenerListaComprasInsumos().then(setCompras).catch(() => {});
       revisarStockBajo();
     } catch (e) {
       setError(e.message);
@@ -157,6 +164,35 @@ function StockContenido() {
 
   function esBajo(insumo) {
     return insumo.stock_minimo != null && enStockDe(insumo.id) <= Number(insumo.stock_minimo);
+  }
+
+  async function agregarACompras({ nombre, insumoId, cantidad, notas, urgente }) {
+    if (compras.some((c) => (insumoId && c.insumo_id === insumoId) || c.nombre.toLowerCase() === nombre.toLowerCase())) {
+      throw new Error(`"${nombre}" ya está anotado para comprar.`);
+    }
+    const nuevo = await agregarItemCompraInsumo({ nombre, insumoId, cantidad, notas, urgente, pedidoPorNombre: perfil?.nombre || user?.email });
+    setCompras((c) => [...c, nuevo]);
+  }
+
+  async function marcarComprado(item) {
+    setError(null);
+    try {
+      await marcarCompradoItemInsumo(item.id);
+      setCompras((c) => c.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function quitarDeCompras(item) {
+    if (!window.confirm(`¿Sacar "${item.nombre}" de la lista de compras?`)) return;
+    setError(null);
+    try {
+      await quitarItemCompraInsumo(item.id);
+      setCompras((c) => c.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function guardarMinimo(insumo, valor) {
@@ -384,6 +420,19 @@ function StockContenido() {
                         </>
                       )}{" "}
                       <span className="text-xs text-amber-700">(mínimo {Number(i.stock_minimo)})</span>
+                      {compras.some((c) => c.insumo_id === i.id) ? (
+                        <span className="ml-2 text-xs text-emerald-700">🛒 ya anotado</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            agregarACompras({ nombre: i.nombre, insumoId: i.id, cantidad: Math.max(1, Number(i.stock_minimo) * 2), urgente: enStockDe(i.id) <= 0 }).catch((e) => setError(e.message))
+                          }
+                          className="ml-2 rounded border border-amber-400 px-1.5 py-0.5 text-xs text-amber-900 hover:bg-amber-100"
+                        >
+                          🛒 Anotar para comprar
+                        </button>
+                      )}
                     </span>
                   </li>
                 ))}
@@ -393,6 +442,14 @@ function StockContenido() {
               </p>
             </div>
           )}
+          <ListaComprasInsumos
+            compras={compras}
+            insumos={insumos.filter((i) => sectoresVisibles.includes(i.sector))}
+            esDuena={perfil?.rol === "Duena"}
+            onAgregar={agregarACompras}
+            onComprado={marcarComprado}
+            onQuitar={quitarDeCompras}
+          />
           {grupos.map((g) => {
             const abierto = sectoresAbiertos.has(g.sector);
             const sinStock = g.items.filter((i) => totalDe(i.id) === 0).length;
