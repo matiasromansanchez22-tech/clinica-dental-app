@@ -105,6 +105,7 @@ const GRUPOS = [
   { tipo: "link", href: "/casa", label: "🏠 Casa", soloDuena: true },
   { tipo: "link", href: "/catalina", label: "👶 Catalina", soloDuena: true },
   { tipo: "link", href: "/gerencial/stock", label: "📦 Stock de Insumos", soloRoles: ["Duena", "Laboratorio", "Secretaria"] },
+  { tipo: "link", href: "/gerencial/instrumental", label: "🦷 Inventario de instrumental", soloRoles: ["Duena", "Laboratorio"] },
   {
     tipo: "grupo",
     label: "💼 Contador",
