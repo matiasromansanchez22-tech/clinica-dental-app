@@ -2,21 +2,28 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { URL_PLAN_REFERIDOS } from "@/lib/planReferidos";
+import { URL_PLAN_REFERIDOS, urlPlanReferidos } from "@/lib/planReferidos";
 
 // Cartel para imprimir (A4 vertical) con el QR que abre la página del plan de referidos. Se abre desde
 // <dominio>/referidos/cartel y se imprime con el botón (o "Guardar como PDF" para llevarlo a la imprenta).
 export default function CartelReferidos() {
   const [qrSvg, setQrSvg] = useState("");
+  const [lugar, setLugar] = useState("");
 
+  // El cartel de cada lugar (sala de espera, consultorios...) se abre con <dominio>/referidos/cartel?lugar=sala-espera:
+  // el QR lleva ese lugar y así se sabe de qué cartel viene cada escaneo.
   useEffect(() => {
-    QRCode.toString(URL_PLAN_REFERIDOS, {
+    const lugarDelLink = new URLSearchParams(window.location.search).get("lugar") || "";
+    QRCode.toString(urlPlanReferidos(lugarDelLink), {
       type: "svg",
       margin: 0,
       errorCorrectionLevel: "M",
       color: { dark: "#2c282d", light: "#ffffff" },
     })
-      .then(setQrSvg)
+      .then((svg) => {
+        setQrSvg(svg);
+        setLugar(lugarDelLink);
+      })
       .catch(() => {});
   }, []);
 
@@ -25,7 +32,12 @@ export default function CartelReferidos() {
       <style>{`@page { size: A4 portrait; margin: 0; } @media print { html, body { background: #fffbf5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`}</style>
 
       <div className="mx-auto mb-4 flex max-w-[794px] items-center justify-between px-4 print:hidden">
-        <p className="text-sm text-gray-600">Cartel A4 vertical. Imprimilo, o elegí «Guardar como PDF» para llevarlo a la imprenta.</p>
+        <p className="text-sm text-gray-600">
+          Cartel A4 vertical. Imprimilo, o elegí «Guardar como PDF» para llevarlo a la imprenta.
+          {lugar && lugar !== "general" && (
+            <span className="ml-1 rounded-full bg-brand-tan/60 px-2 py-0.5 text-xs font-semibold text-brand-brown">QR del lugar: {lugar}</span>
+          )}
+        </p>
         <button onClick={() => window.print()} className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark">
           🖨 Imprimir / Guardar PDF
         </button>

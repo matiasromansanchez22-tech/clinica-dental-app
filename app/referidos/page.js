@@ -3,13 +3,18 @@
 import { useEffect, useState } from "react";
 import { CONFIG_REFERIDOS_POR_DEFECTO, obtenerConfigReferidos } from "@/lib/data/referidos";
 import { CONFIG_FIDELIDAD_POR_DEFECTO, obtenerConfigFidelidad } from "@/lib/data/fidelidad";
-import { pesosAR } from "@/lib/planReferidos";
+import { pesosAR, registrarEscaneoPlan } from "@/lib/planReferidos";
 
 // Página pública del plan de referidos de Ortodoncia (se abre con el QR del cartel, sin iniciar sesión). Los montos y las
 // condiciones salen de la misma configuración que usa el sistema, así que siempre coinciden con lo que se descuenta.
 export default function PlanReferidosPublico() {
   const [cfg, setCfg] = useState(CONFIG_REFERIDOS_POR_DEFECTO);
   const [fid, setFid] = useState(CONFIG_FIDELIDAD_POR_DEFECTO);
+
+  // Cada vez que alguien abre la página (por el QR del cartel) se anota el escaneo, de forma anónima.
+  useEffect(() => {
+    registrarEscaneoPlan();
+  }, []);
 
   useEffect(() => {
     obtenerConfigReferidos()
