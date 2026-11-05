@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { esMesDePrueba } from "@/lib/mesesDePrueba";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerBalanceMensual } from "@/lib/data/balance";
-import { aprobarCierreMes, obtenerCierreMes, obtenerDiasPendientesDelMes, reabrirCierreMes } from "@/lib/data/cierresMes";
+import { aprobarCierreMes, obtenerCierreMes, obtenerDiasPendientesDelMes, reabrirCierreMes, repartirBalance } from "@/lib/data/cierresMes";
+import { obtenerSaldosPersonales } from "@/lib/data/finanzasPersonales";
 
 const NOMBRES_MES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -14,8 +15,10 @@ const NOMBRES_MES = [
 ];
 
 function formatoPesos(n) {
-  return `$${Math.round(n).toLocaleString("es-AR")}`;
+  return `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("es-AR")}`;
 }
+
+const conSigno = (n) => (n >= 0 ? "+" : "−") + formatoPesos(Math.abs(n));
 
 function rangoDelMes(anio, mes) {
   const inicio = `${anio}-${String(mes).padStart(2, "0")}-01`;
@@ -34,6 +37,8 @@ function CierreMensualContenido() {
   const [diasPendientes, setDiasPendientes] = useState([]);
   const [cierreAprobado, setCierreAprobado] = useState(null);
   const [observaciones, setObservaciones] = useState("");
+  const [saldoReserva, setSaldoReserva] = useState(null);
+  const [cerrarIgual, setCerrarIgual] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState(null);
@@ -45,11 +50,14 @@ function CierreMensualContenido() {
     setError(null);
     try {
       const { inicio, fin } = rangoDelMes(anio, mes);
-      const [bal, pendientes, aprobado] = await Promise.all([
+      const [bal, pendientes, aprobado, saldos] = await Promise.all([
         obtenerBalanceMensual(inicio, fin),
         obtenerDiasPendientesDelMes(anio, mes),
         obtenerCierreMes(anio, mes),
+        obtenerSaldosPersonales("Consultorio").catch(() => null),
       ]);
+      setSaldoReserva(saldos);
+      setCerrarIgual(false);
       setBalance(bal);
       setDiasPendientes(pendientes);
       setCierreAprobado(aprobado);
@@ -67,11 +75,13 @@ function CierreMensualContenido() {
   }, [anio, mes]);
 
   async function handleCerrar() {
-    if (diasPendientes.length > 0) return;
-    const signoBalance = balance.balance >= 0 ? "va a entrar a" : "va a salir de";
+    if (diasPendientes.length > 0 && !cerrarIgual) return;
+    const rep = repartirBalance(balance);
+    const sinAprobar =
+      diasPendientes.length > 0 ? ` Ojo: ${diasPendientes.length} día(s) no tienen el Cierre Diario aprobado y se cierra igual.` : "";
     if (
       !window.confirm(
-        `¿Cerrar ${NOMBRES_MES[mes - 1]} ${anio}? Los gastos y pagos a profesionales de ese mes van a quedar bloqueados, y el balance (${formatoPesos(balance.balance)}) ${signoBalance} la reserva de Consultorio.`
+        `¿Cerrar ${NOMBRES_MES[mes - 1]} ${anio}? Los gastos y pagos a profesionales de ese mes van a quedar bloqueados. A la reserva de Consultorio entran: Banco ${conSigno(rep.banco)} y Efectivo ${conSigno(rep.efectivo)}.${sinAprobar}`
       )
     )
       return;
@@ -79,8 +89,12 @@ function CierreMensualContenido() {
     setError(null);
     setMensaje(null);
     try {
-      await aprobarCierreMes(anio, mes, user.id, perfil?.nombre || user.email, observaciones, balance);
-      setMensaje("Mes cerrado correctamente. El balance ya quedó cargado en la reserva de Consultorio.");
+      const nota =
+        diasPendientes.length > 0
+          ? `${observaciones ? observaciones + " · " : ""}Se cerró sin aprobar el Cierre Diario de ${diasPendientes.length} día(s): ${diasPendientes.join(", ")}.`
+          : observaciones;
+      await aprobarCierreMes(anio, mes, user.id, perfil?.nombre || user.email, nota, balance);
+      setMensaje("Mes cerrado correctamente. El balance ya quedó cargado en la reserva de Consultorio (banco y efectivo).");
       await recargar();
     } catch (e) {
       setError(e.message);
@@ -111,6 +125,12 @@ function CierreMensualContenido() {
   }
 
   const detalleMostrado = cierreAprobado?.detalle || balance;
+  // Lo que entra (o entró) a cada cuenta de la reserva. Los cierres viejos no traían el reparto: iba todo al banco.
+  const reparto = cierreAprobado
+    ? cierreAprobado.detalle?.reparto || { banco: Number(cierreAprobado.detalle?.balance) || 0, efectivo: 0 }
+    : balance
+      ? repartirBalance(balance)
+      : null;
 
   return (
     <main className="mx-auto max-w-4xl p-6">
@@ -168,7 +188,7 @@ function CierreMensualContenido() {
           {!cierreAprobado && !esMesDePrueba(anio, mes) && diasPendientes.length > 0 && (
             <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               ⚠️ Faltan cerrar {diasPendientes.length} día{diasPendientes.length === 1 ? "" : "s"} antes de poder
-              cerrar el mes: {diasPendientes.join(", ")}.{soloLectura ? "" : " Andá a Cierre Diario y aprobá cada uno."}
+              cerrar el mes: {diasPendientes.join(", ")}.{soloLectura ? "" : " Andá a Cierre Diario y aprobá cada uno, o cerrá el mes igual con la casilla de abajo."}
             </div>
           )}
 
@@ -197,6 +217,38 @@ function CierreMensualContenido() {
             <span className="text-sm">Balance del mes: </span>
             <span className="text-xl font-bold">{formatoPesos(detalleMostrado.balance)}</span>
           </div>
+
+          {reparto && !esMesDePrueba(anio, mes) && (
+            <div className="mt-6 rounded-lg border border-gray-200 p-4">
+              <h2 className="font-heading text-sm font-semibold text-brand-brown">
+                {cierreAprobado ? "Lo que entró a la reserva de Consultorio" : "Lo que entra a la reserva de Consultorio al cerrar"}
+              </h2>
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {[
+                  { cuenta: "Banco", detalle: "todo lo que entró a la cuenta (transferencias, débito, etc.) menos lo que salió", monto: reparto.banco },
+                  { cuenta: "Efectivo", detalle: "lo cobrado en efectivo menos lo pagado en efectivo", monto: reparto.efectivo },
+                ].map((c) => (
+                  <div key={c.cuenta} className="rounded-md border border-gray-200 px-3 py-2">
+                    <p className="text-xs text-gray-500">{c.cuenta}</p>
+                    <p className={`text-lg font-semibold ${c.monto >= 0 ? "text-brand-green" : "text-red-700"}`}>{conSigno(c.monto)}</p>
+                    <p className="text-[11px] text-gray-500">{c.detalle}</p>
+                    {!cierreAprobado && saldoReserva && (
+                      <p className="mt-1 text-xs text-gray-700">
+                        Reserva hoy {formatoPesos(saldoReserva[c.cuenta])} → queda en{" "}
+                        <strong>{formatoPesos(saldoReserva[c.cuenta] + c.monto)}</strong>
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {!cierreAprobado && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Antes de cerrar, controlá que el Banco coincida con lo que realmente quedó en la cuenta: si falta cargar algún
+                  gasto, después de cerrar no se puede cargar sin reabrir el mes.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="mt-8 rounded-lg border border-brand-tan bg-brand-tan/10 p-4">
             <h2 className="font-heading text-sm font-semibold text-brand-brown">Cierre final del mes</h2>
@@ -236,9 +288,18 @@ function CierreMensualContenido() {
               <>
                 <p className="mt-1 text-sm text-gray-500">
                   {diasPendientes.length > 0
-                    ? "Todavía hay días sin cerrar este mes (ver aviso arriba)."
+                    ? "Todavía hay días sin cerrar este mes (ver aviso arriba): aprobalos en Cierre Diario o tildá la opción de cerrar igual."
                     : "Todos los días de este mes ya están cerrados. Podés cerrar el mes."}
                 </p>
+                {diasPendientes.length > 0 && (
+                  <label className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <input type="checkbox" className="mt-0.5" checked={cerrarIgual} onChange={(e) => setCerrarIgual(e.target.checked)} />
+                    <span>
+                      Cerrar el mes igual, aunque falte aprobar el Cierre Diario de {diasPendientes.length} día
+                      {diasPendientes.length === 1 ? "" : "s"}. Queda anotado en las observaciones del cierre.
+                    </span>
+                  </label>
+                )}
                 <label className="mt-3 flex flex-col gap-1 text-sm text-gray-700">
                   Observaciones (opcional)
                   <input
@@ -249,7 +310,7 @@ function CierreMensualContenido() {
                 </label>
                 <button
                   onClick={handleCerrar}
-                  disabled={procesando || diasPendientes.length > 0}
+                  disabled={procesando || (diasPendientes.length > 0 && !cerrarIgual)}
                   className="mt-3 rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
                 >
                   {procesando ? "Cerrando..." : "✅ Cerrar mes"}
