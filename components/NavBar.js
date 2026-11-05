@@ -94,7 +94,7 @@ const GRUPOS = [
   {
     tipo: "grupo",
     label: "Laboratorio",
-    ocultarRoles: ["Secretaria", "Contador", "CM"],
+    soloRoles: ["Duena", "Laboratorio"],
     items: [{ href: "/laboratorio", label: "Trabajos de laboratorio" }],
   },
   { tipo: "link", href: "/calendario-contenido", label: "📅 Calendario de Contenido", soloRoles: ["Duena", "CM"] },

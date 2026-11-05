@@ -2,12 +2,15 @@
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 
+// Laboratorio lo llevan las Dueñas y Laboratorio (Yamila): odontólogos, secretarias y el resto no lo ven.
+const ROLES_PERMITIDOS = ["Duena", "Laboratorio"];
+
 export default function SoloConAccesoLaboratorio({ children }) {
   const { perfil, cargando } = useAuth();
 
   if (cargando) return null;
 
-  if (perfil?.rol === "Secretaria") {
+  if (!ROLES_PERMITIDOS.includes(perfil?.rol)) {
     return (
       <main className="mx-auto max-w-2xl p-6">
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
