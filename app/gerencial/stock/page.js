@@ -6,8 +6,11 @@ import RegistrarTraspasoStockModal from "@/components/RegistrarTraspasoStockModa
 import SoloDuenaYLaboratorio from "@/components/SoloDuenaYLaboratorio";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { avisarIngresoDeStock } from "@/lib/data/avisos";
 import {
   actualizarCantidadStock,
+  actualizarMinimoInsumo,
+  revisarStockBajo,
   actualizarInsumoStock,
   cerrarSemanaStock,
   crearInsumoStock,
@@ -60,6 +63,20 @@ function CeldaCantidad({ valor, onGuardar }) {
   );
 }
 
+// Mínimo de cada insumo: cuando lo que queda en el Stock llega a este número, la app avisa. Vacío = no avisa.
+function CeldaMinimo({ valor, onGuardar }) {
+  return (
+    <input
+      type="number"
+      min={0}
+      defaultValue={valor ?? ""}
+      placeholder="—"
+      onBlur={(e) => onGuardar(e.target.value)}
+      className="w-16 rounded-md border border-gray-300 px-2 py-1 text-right text-sm"
+    />
+  );
+}
+
 function StockContenido() {
   const { user, perfil } = useAuth();
   const hoy = fechaDeHoyISO();
@@ -97,6 +114,7 @@ function StockContenido() {
       setRodantes(r);
       setInsumos(i);
       setCantidades(c);
+      revisarStockBajo();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -132,10 +150,37 @@ function StockContenido() {
     return cantidades.filter((c) => c.insumo_id === insumoId).reduce((acc, c) => acc + Number(c.cantidad), 0);
   }
 
-  async function guardarCantidadDeposito(insumoId, valor) {
+  // Cuánto queda en el Stock (depósito): es lo que se compara con el mínimo, porque cada traspaso a un rodante lo baja.
+  function enStockDe(insumoId) {
+    return Number(cantidadDe(insumoId, deposito?.id)) || 0;
+  }
+
+  function esBajo(insumo) {
+    return insumo.stock_minimo != null && enStockDe(insumo.id) <= Number(insumo.stock_minimo);
+  }
+
+  async function guardarMinimo(insumo, valor) {
     setError(null);
     try {
+      const actualizado = await actualizarMinimoInsumo(insumo.id, valor);
+      setInsumos((i) => i.map((x) => (x.id === insumo.id ? { ...x, ...actualizado } : x)));
+      revisarStockBajo();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function guardarCantidadDeposito(insumoId, valor) {
+    setError(null);
+    const antes = enStockDe(insumoId);
+    try {
       await actualizarCantidadStock(insumoId, deposito.id, valor);
+      const ahora = Number(valor) || 0;
+      if (ahora > antes) {
+        const nombre = insumos.find((x) => x.id === insumoId)?.nombre;
+        if (nombre) avisarIngresoDeStock({ insumo: nombre, cantidad: ahora - antes, enStock: ahora });
+      }
+      revisarStockBajo();
       setCantidades((c) => {
         const idx = c.findIndex((x) => x.insumo_id === insumoId && x.rodante_id === deposito.id);
         const nuevaCantidad = Number(valor) || 0;
@@ -274,6 +319,10 @@ function StockContenido() {
   const soloDescartables = perfil?.rol === "Secretaria";
   const sectoresVisibles = soloDescartables ? ["Insumos descartables"] : SECTORES_STOCK;
 
+  const insumosBajos = insumos
+    .filter((i) => sectoresVisibles.includes(i.sector) && esBajo(i))
+    .sort((a, b) => enStockDe(a.id) - Number(a.stock_minimo) - (enStockDe(b.id) - Number(b.stock_minimo)));
+
   const grupos = sectoresVisibles.map((sector) => ({
     sector,
     items: insumos.filter((i) => i.sector === sector),
@@ -305,7 +354,8 @@ function StockContenido() {
       </div>
       <p className="mt-1 text-sm text-gray-500">
         El Stock se edita directo (lo que comprás/tenés guardado). Los rodantes se completan con el botón de arriba,
-        que resta del Stock automáticamente. Las filas en rojo no tienen nada en ningún lado.
+        que resta del Stock automáticamente. Las filas en rojo no tienen nada en ningún lado, y las amarillas tienen poco
+        en el Stock: cargá en la columna Avisar en el mínimo de cada insumo y la app te avisa cuando lo que queda en el Stock llega a ese número.
       </p>
 
       {error && (
@@ -316,9 +366,37 @@ function StockContenido() {
         <p className="mt-6 text-sm text-gray-500">Cargando...</p>
       ) : (
         <>
+          {insumosBajos.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <h2 className="font-heading text-sm font-semibold text-amber-900">
+                ⚠ Poco stock: {insumosBajos.length} insumo{insumosBajos.length === 1 ? "" : "s"} para reponer
+              </h2>
+              <ul className="mt-2 grid gap-1 text-sm text-amber-900 sm:grid-cols-2">
+                {insumosBajos.map((i) => (
+                  <li key={i.id} className="flex justify-between gap-3 rounded bg-white/60 px-2 py-1">
+                    <span>{i.nombre}</span>
+                    <span className="whitespace-nowrap">
+                      {enStockDe(i.id) <= 0 ? (
+                        <strong className="text-red-700">se terminó</strong>
+                      ) : (
+                        <>
+                          quedan <strong>{enStockDe(i.id)}</strong>
+                        </>
+                      )}{" "}
+                      <span className="text-xs text-amber-700">(mínimo {Number(i.stock_minimo)})</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-amber-800">
+                Se compara lo que queda en el Stock (la columna con el depósito) contra el mínimo de cada insumo.
+              </p>
+            </div>
+          )}
           {grupos.map((g) => {
             const abierto = sectoresAbiertos.has(g.sector);
             const sinStock = g.items.filter((i) => totalDe(i.id) === 0).length;
+            const pocoStock = g.items.filter((i) => esBajo(i) && totalDe(i.id) !== 0).length;
             return (
               <div key={g.sector} className="mt-4 overflow-hidden rounded-lg border border-gray-200">
                 <button
@@ -332,6 +410,7 @@ function StockContenido() {
                   <span className="text-xs text-gray-500">
                     {g.items.length} insumo{g.items.length === 1 ? "" : "s"}
                     {sinStock > 0 && <span className="ml-2 text-red-600">· {sinStock} sin stock</span>}
+                    {pocoStock > 0 && <span className="ml-2 text-amber-700">· {pocoStock} con poco stock</span>}
                   </span>
                 </button>
                 {abierto && (
@@ -346,6 +425,9 @@ function StockContenido() {
                             </th>
                           ))}
                           <th className="px-3 py-2 text-right font-semibold">Total</th>
+                          <th className="px-3 py-2 text-right font-semibold" title="Cuando lo que queda en el Stock llega a este número, la app avisa">
+                            Avisar en
+                          </th>
                           <th className="px-3 py-2"></th>
                         </tr>
                       </thead>
@@ -356,7 +438,7 @@ function StockContenido() {
                           if (editando) {
                             return (
                               <tr key={insumo.id} className="border-t border-gray-100 bg-brand-tan/10">
-                                <td colSpan={rodantes.length + 2} className="px-3 py-3">
+                                <td colSpan={rodantes.length + 3} className="px-3 py-3">
                                   <div className="flex flex-col gap-2">
                                     <div className="flex flex-wrap gap-2">
                                       <input
@@ -406,9 +488,17 @@ function StockContenido() {
                             );
                           }
                           return (
-                            <tr key={insumo.id} className={`border-t border-gray-100 ${total === 0 ? "bg-red-50" : ""}`}>
+                            <tr
+                              key={insumo.id}
+                              className={`border-t border-gray-100 ${total === 0 ? "bg-red-50" : esBajo(insumo) ? "bg-amber-50" : ""}`}
+                            >
                               <td className="px-3 py-2 font-medium text-gray-900">
                                 {insumo.nombre}
+                                {esBajo(insumo) && total !== 0 && (
+                                  <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                                    poco stock
+                                  </span>
+                                )}
                                 {insumo.observaciones && (
                                   <p className="mt-0.5 text-xs font-normal text-gray-500">{insumo.observaciones}</p>
                                 )}
@@ -429,6 +519,13 @@ function StockContenido() {
                               )}
                               <td className={`px-3 py-2 text-right font-semibold ${total === 0 ? "text-red-700" : "text-gray-900"}`}>
                                 {total}
+                              </td>
+                              <td className="px-3 py-2 text-right text-gray-600">
+                                {soloDescartables ? (
+                                  insumo.stock_minimo != null ? Number(insumo.stock_minimo) : "—"
+                                ) : (
+                                  <CeldaMinimo valor={insumo.stock_minimo} onGuardar={(v) => guardarMinimo(insumo, v)} />
+                                )}
                               </td>
                               <td className="px-3 py-2 text-right whitespace-nowrap">
                                 <button
