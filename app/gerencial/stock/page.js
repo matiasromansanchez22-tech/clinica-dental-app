@@ -27,6 +27,9 @@ import {
   obtenerMovimientosSemana,
   obtenerRodantes,
   SECTORES_STOCK,
+  AREAS_STOCK,
+  SECTORES_POR_AREA,
+  areaDeSector,
 } from "@/lib/data/stock";
 
 function fmt(date) {
@@ -89,6 +92,23 @@ function StockContenido() {
   const [insumos, setInsumos] = useState([]);
   const [cantidades, setCantidades] = useState([]);
   const [compras, setCompras] = useState([]);
+  // Ortodoncia y Odontología General se ven por separado (solapas), cada una con sus insumos, mínimos y lista de compras.
+  const [area, setArea] = useState(() => {
+    try {
+      const guardada = localStorage.getItem("stock_area");
+      return AREAS_STOCK.includes(guardada) ? guardada : AREAS_STOCK[0];
+    } catch {
+      return AREAS_STOCK[0];
+    }
+  });
+  function cambiarArea(nueva) {
+    setArea(nueva);
+    try {
+      localStorage.setItem("stock_area", nueva);
+    } catch {
+      // sin almacenamiento: no pasa nada
+    }
+  }
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarRodantes, setMostrarRodantes] = useState(false);
@@ -167,10 +187,10 @@ function StockContenido() {
   }
 
   async function agregarACompras({ nombre, insumoId, cantidad, notas, urgente }) {
-    if (compras.some((c) => (insumoId && c.insumo_id === insumoId) || c.nombre.toLowerCase() === nombre.toLowerCase())) {
+    if (comprasArea.some((c) => (insumoId && c.insumo_id === insumoId) || c.nombre.toLowerCase() === nombre.toLowerCase())) {
       throw new Error(`"${nombre}" ya está anotado para comprar.`);
     }
-    const nuevo = await agregarItemCompraInsumo({ nombre, insumoId, cantidad, notas, urgente, pedidoPorNombre: perfil?.nombre || user?.email });
+    const nuevo = await agregarItemCompraInsumo({ nombre, insumoId, cantidad, notas, urgente, area, pedidoPorNombre: perfil?.nombre || user?.email });
     setCompras((c) => [...c, nuevo]);
   }
 
@@ -214,7 +234,8 @@ function StockContenido() {
       const ahora = Number(valor) || 0;
       if (ahora > antes) {
         const nombre = insumos.find((x) => x.id === insumoId)?.nombre;
-        if (nombre) avisarIngresoDeStock({ insumo: nombre, cantidad: ahora - antes, enStock: ahora });
+        const sector = insumos.find((x) => x.id === insumoId)?.sector;
+        if (nombre) avisarIngresoDeStock({ insumo: nombre, cantidad: ahora - antes, enStock: ahora, sector });
       }
       revisarStockBajo();
       setCantidades((c) => {
@@ -238,7 +259,7 @@ function StockContenido() {
     setGuardandoInsumo(true);
     setError(null);
     try {
-      const sector = perfil?.rol === "Secretaria" ? "Insumos descartables" : nuevoSector;
+      const sector = perfil?.rol === "Secretaria" ? "Insumos descartables" : sectoresVisibles.includes(nuevoSector) ? nuevoSector : sectoresVisibles[0];
       const nuevo = await crearInsumoStock(nuevoNombre.trim(), sector);
       setInsumos((i) => [...i, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       setNuevoNombre("");
@@ -353,7 +374,9 @@ function StockContenido() {
   // administración (ubicaciones, cierre semanal) — Dueña y Laboratorio
   // siguen viendo todo.
   const soloDescartables = perfil?.rol === "Secretaria";
-  const sectoresVisibles = soloDescartables ? ["Insumos descartables"] : SECTORES_STOCK;
+  const sectoresVisibles = soloDescartables ? ["Insumos descartables"] : SECTORES_POR_AREA[area];
+  const comprasArea = compras.filter((c) => (c.area || AREAS_STOCK[0]) === (soloDescartables ? AREAS_STOCK[0] : area));
+  const bajosDeArea = (a) => insumos.filter((i) => areaDeSector(i.sector) === a && esBajo(i)).length;
 
   const insumosBajos = insumos
     .filter((i) => sectoresVisibles.includes(i.sector) && esBajo(i))
@@ -394,6 +417,25 @@ function StockContenido() {
         en el Stock: cargá en la columna Avisar en el mínimo de cada insumo y la app te avisa cuando lo que queda en el Stock llega a ese número.
       </p>
 
+      {!soloDescartables && (
+        <div className="mt-4 flex gap-2 border-b border-gray-200">
+          {AREAS_STOCK.map((a) => {
+            const bajos = cargando ? 0 : bajosDeArea(a);
+            return (
+              <button
+                key={a}
+                onClick={() => cambiarArea(a)}
+                className={`px-4 py-2 text-sm font-medium ${area === a ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-800"}`}
+              >
+                {a === "Ortodoncia" ? "🦷 " : ""}
+                {a}
+                {bajos > 0 && <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-900">{bajos} poco stock</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
       )}
@@ -420,7 +462,7 @@ function StockContenido() {
                         </>
                       )}{" "}
                       <span className="text-xs text-amber-700">(mínimo {Number(i.stock_minimo)})</span>
-                      {compras.some((c) => c.insumo_id === i.id) ? (
+                      {comprasArea.some((c) => c.insumo_id === i.id) ? (
                         <span className="ml-2 text-xs text-emerald-700">🛒 ya anotado</span>
                       ) : (
                         <button
@@ -443,7 +485,7 @@ function StockContenido() {
             </div>
           )}
           <ListaComprasInsumos
-            compras={compras}
+            compras={comprasArea}
             insumos={insumos.filter((i) => sectoresVisibles.includes(i.sector))}
             esDuena={perfil?.rol === "Duena"}
             onAgregar={agregarACompras}
@@ -624,11 +666,11 @@ function StockContenido() {
               />
               {!soloDescartables && (
                 <select
-                  value={nuevoSector}
+                  value={sectoresVisibles.includes(nuevoSector) ? nuevoSector : sectoresVisibles[0]}
                   onChange={(e) => setNuevoSector(e.target.value)}
                   className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                 >
-                  {SECTORES_STOCK.map((s) => (
+                  {sectoresVisibles.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>

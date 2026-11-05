@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   actualizarItemInstrumental,
-  CATEGORIAS_INSTRUMENTAL,
+  AREAS_INSTRUMENTAL,
+  CATEGORIAS_POR_AREA,
   crearItemInstrumental,
   crearUbicacionInstrumental,
   guardarConteoInstrumental,
@@ -154,9 +155,26 @@ function InventarioContenido() {
   const [mensaje, setMensaje] = useState(null);
   const [pestana, setPestana] = useState("inventario");
   const [busqueda, setBusqueda] = useState("");
+  // Odontología General y Ortodoncia se llevan por separado (solapas): cada una con su instrumental, categorías y conteos.
+  const [area, setArea] = useState(() => {
+    try {
+      const guardada = localStorage.getItem("instrumental_area");
+      return AREAS_INSTRUMENTAL.includes(guardada) ? guardada : AREAS_INSTRUMENTAL[0];
+    } catch {
+      return AREAS_INSTRUMENTAL[0];
+    }
+  });
+  function cambiarArea(nueva) {
+    setArea(nueva);
+    try {
+      localStorage.setItem("instrumental_area", nueva);
+    } catch {
+      // sin almacenamiento: no pasa nada
+    }
+  }
 
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
-  const [nuevo, setNuevo] = useState({ nombre: "", categoria: CATEGORIAS_INSTRUMENTAL[0], ubicacionId: "", cantidad: 1, observaciones: "" });
+  const [nuevo, setNuevo] = useState({ nombre: "", categoria: "", ubicacionId: "", cantidad: 1, observaciones: "" });
   const [nuevaUbicacion, setNuevaUbicacion] = useState("");
   const [modalNovedad, setModalNovedad] = useState(null);
   const [editando, setEditando] = useState(null);
@@ -197,19 +215,26 @@ function InventarioContenido() {
   const totalBuenos = (itemId) => cantidades.filter((c) => c.item_id === itemId).reduce((a, c) => a + c.buenos, 0);
   const totalReparar = (itemId) => cantidades.filter((c) => c.item_id === itemId).reduce((a, c) => a + c.a_reparar, 0);
 
+  const itemsArea = useMemo(() => items.filter((i) => (i.area || AREAS_INSTRUMENTAL[0]) === area), [items, area]);
+  const categoriasArea = CATEGORIAS_POR_AREA[area];
+  const categoriaNueva = categoriasArea.includes(nuevo.categoria) ? nuevo.categoria : categoriasArea[0];
+  const conteosArea = conteos.filter((k) => (k.area || AREAS_INSTRUMENTAL[0]) === area);
+  const novedadesArea = novedades.filter((n) => (n.item?.area || AREAS_INSTRUMENTAL[0]) === area);
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return items.filter((i) => !q || i.nombre.toLowerCase().includes(q));
-  }, [items, busqueda]);
+    return itemsArea.filter((i) => !q || i.nombre.toLowerCase().includes(q));
+  }, [itemsArea, busqueda]);
 
-  const grupos = CATEGORIAS_INSTRUMENTAL.map((categoria) => ({ categoria, lista: filtrados.filter((i) => (i.categoria || "Otros") === categoria) })).filter(
-    (g) => g.lista.length > 0
-  );
+  // Las categorías del área, más cualquier otra que ya tenga algún instrumental cargado (así nada queda escondido).
+  const categoriasMostradas = [...categoriasArea, ...new Set(filtrados.map((i) => i.categoria || "Otros").filter((c) => !categoriasArea.includes(c)))];
+  const grupos = categoriasMostradas
+    .map((categoria) => ({ categoria, lista: filtrados.filter((i) => (i.categoria || "Otros") === categoria) }))
+    .filter((g) => g.lista.length > 0);
 
   const resumen = {
-    tipos: items.length,
-    unidades: items.reduce((a, i) => a + totalBuenos(i.id) + totalReparar(i.id), 0),
-    reparar: items.reduce((a, i) => a + totalReparar(i.id), 0),
+    tipos: itemsArea.length,
+    unidades: itemsArea.reduce((a, i) => a + totalBuenos(i.id) + totalReparar(i.id), 0),
+    reparar: itemsArea.reduce((a, i) => a + totalReparar(i.id), 0),
   };
 
   async function accion(fn, textoOk) {
@@ -228,7 +253,7 @@ function InventarioContenido() {
     e.preventDefault();
     if (!nuevo.nombre.trim()) return;
     await accion(async () => {
-      await crearItemInstrumental({ ...nuevo, quien });
+      await crearItemInstrumental({ ...nuevo, categoria: categoriaNueva, area, quien });
       setNuevo((x) => ({ ...x, nombre: "", cantidad: 1, observaciones: "" }));
     }, "Instrumental agregado al inventario.");
   }
@@ -264,7 +289,7 @@ function InventarioContenido() {
 
   // ---- conteo ----
   const ubicacionConteo = ubicaciones.find((u) => u.id === conteoUbicacionId);
-  const lineasConteo = items
+  const lineasConteo = itemsArea
     .map((i) => ({ itemId: i.id, nombre: i.nombre, esperado: cant(i.id, conteoUbicacionId)?.buenos || 0 }))
     .filter((l) => l.esperado > 0);
   const contadoDe = (l) => (contados[`${conteoUbicacionId}:${l.itemId}`] ?? l.esperado);
@@ -282,7 +307,7 @@ function InventarioContenido() {
       return;
     setGuardandoConteo(true);
     await accion(async () => {
-      await guardarConteoInstrumental({ ubicacion: ubicacionConteo, lineas, ajustar, quien });
+      await guardarConteoInstrumental({ ubicacion: ubicacionConteo, lineas, ajustar, quien, area });
       setContados({});
     }, "Conteo guardado.");
     setGuardandoConteo(false);
@@ -301,6 +326,19 @@ function InventarioContenido() {
         Cuánto instrumental hay, dónde está y en qué estado. Las cantidades solo cambian con una novedad (roto, perdido, a reparar...)
         o con un conteo, y queda registrado quién lo hizo.
       </p>
+
+      <div className="mt-4 flex gap-2 border-b border-gray-200">
+        {AREAS_INSTRUMENTAL.map((a) => (
+          <button
+            key={a}
+            onClick={() => cambiarArea(a)}
+            className={`px-4 py-2 text-sm font-medium ${area === a ? "border-b-2 border-brand-brown text-brand-brown" : "text-gray-500 hover:text-gray-800"}`}
+          >
+            {a === "Ortodoncia" ? "🦷 " : ""}
+            {a}
+          </button>
+        ))}
+      </div>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
       {mensaje && <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensaje}</div>}
@@ -357,8 +395,8 @@ function InventarioContenido() {
                 placeholder="Nombre (ej. Pinza Kocher recta)"
                 className={`${estiloInput} sm:col-span-2`}
               />
-              <select value={nuevo.categoria} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })} className={estiloInput}>
-                {CATEGORIAS_INSTRUMENTAL.map((c) => (
+              <select value={categoriaNueva} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })} className={estiloInput}>
+                {categoriasArea.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -416,8 +454,15 @@ function InventarioContenido() {
                             <td colSpan={ubicaciones.length + 4} className="px-3 py-3">
                               <div className="flex flex-wrap gap-2">
                                 <input value={editando.nombre} onChange={(e) => setEditando({ ...editando, nombre: e.target.value })} className={`${estiloInput} flex-1`} />
+                                <select value={editando.area || area} onChange={(e) => setEditando({ ...editando, area: e.target.value, categoria: CATEGORIAS_POR_AREA[e.target.value][0] })} className={estiloInput}>
+                                  {AREAS_INSTRUMENTAL.map((a) => (
+                                    <option key={a} value={a}>
+                                      {a}
+                                    </option>
+                                  ))}
+                                </select>
                                 <select value={editando.categoria} onChange={(e) => setEditando({ ...editando, categoria: e.target.value })} className={estiloInput}>
-                                  {CATEGORIAS_INSTRUMENTAL.map((c) => (
+                                  {[...new Set([...CATEGORIAS_POR_AREA[editando.area || area], editando.categoria])].map((c) => (
                                     <option key={c} value={c}>
                                       {c}
                                     </option>
@@ -461,7 +506,7 @@ function InventarioContenido() {
                             <button onClick={() => setModalNovedad(item)} className="mr-2 text-xs font-medium text-brand-brown hover:underline">
                               Novedad
                             </button>
-                            <button onClick={() => setEditando({ id: item.id, nombre: item.nombre, categoria: item.categoria, observaciones: item.observaciones })} className="mr-2 text-xs text-gray-600 hover:underline">
+                            <button onClick={() => setEditando({ id: item.id, nombre: item.nombre, categoria: item.categoria, observaciones: item.observaciones, area: item.area })} className="mr-2 text-xs text-gray-600 hover:underline">
                               Editar
                             </button>
                             <button onClick={() => quitar(item)} className="text-xs text-red-600 hover:underline">
@@ -547,11 +592,11 @@ function InventarioContenido() {
           </div>
 
           <h2 className="mt-6 font-heading text-sm font-semibold text-brand-brown">Conteos anteriores</h2>
-          {conteos.length === 0 ? (
+          {conteosArea.length === 0 ? (
             <p className="mt-2 text-sm text-gray-500">Todavía no se hizo ningún conteo.</p>
           ) : (
             <ul className="mt-2 divide-y divide-gray-100 rounded-md border border-gray-200">
-              {conteos.map((k) => {
+              {conteosArea.map((k) => {
                 const faltan = (k.detalle || []).filter((l) => l.contado < l.esperado);
                 return (
                   <li key={k.id} className="px-3 py-2 text-sm">
@@ -585,14 +630,14 @@ function InventarioContenido() {
               </tr>
             </thead>
             <tbody>
-              {novedades.length === 0 && (
+              {novedadesArea.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                     Todavía no hay novedades.
                   </td>
                 </tr>
               )}
-              {novedades.map((n) => (
+              {novedadesArea.map((n) => (
                 <tr key={n.id} className="border-t border-gray-100">
                   <td className="whitespace-nowrap px-3 py-2 text-gray-600">{fechaCorta(n.fecha)}</td>
                   <td className="px-3 py-2 font-medium text-gray-900">{n.item?.nombre || "—"}</td>
