@@ -53,6 +53,8 @@ function PlanificarContenido() {
   const [error, setError] = useState(null);
   const [mensaje, setMensaje] = useState(null);
   const [registrando, setRegistrando] = useState(false);
+  // Los pagos que ya se hicieron (tildados con «Pagué»): solo esos se registran al apretar el botón.
+  const [tildados, setTildados] = useState(() => new Set());
   const [form, setForm] = useState({ concepto: "", categoria: "", monto: "", medioPago: "Transferencia", desdeReserva: true, recordar: false, fecha: "", notas: "" });
 
   async function cargarCuentas(mes = mesHoras) {
@@ -195,22 +197,46 @@ function PlanificarContenido() {
     }
   }
 
+  const aRegistrar = items.filter((i) => tildados.has(i.id));
+  const sel = (() => {
+    const porCuenta = { Banco: 0, Efectivo: 0 };
+    for (const i of aRegistrar.filter((x) => x.desdeReserva)) porCuenta[cuentaDe(i.medioPago)] += i.monto;
+    const delMes = aRegistrar.filter((x) => !x.desdeReserva).reduce((a, x) => a + x.monto, 0);
+    const totalReserva = porCuenta.Banco + porCuenta.Efectivo;
+    return { porCuenta, totalReserva, delMes, total: totalReserva + delMes };
+  })();
+  const todosTildados = items.length > 0 && aRegistrar.length === items.length;
+
+  function alternarTilde(id) {
+    setTildados((actual) => {
+      const nuevo = new Set(actual);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+  }
+
+  function tildarTodos(valor) {
+    setTildados(valor ? new Set(items.map((i) => i.id)) : new Set());
+  }
+
   async function registrarTodo() {
-    if (items.length === 0) return;
+    if (aRegistrar.length === 0) return;
     setError(null);
     setMensaje(null);
-    const avisos = await revisarDuplicados(items);
+    const avisos = await revisarDuplicados(aRegistrar);
     const lineas = [
-      `Se van a registrar ${items.length} gasto(s) por ${pesos(totales.total)}.`,
-      totales.totalReserva > 0 ? `Salen de la reserva: ${pesos(totales.totalReserva)} (Banco ${pesos(totales.porCuenta.Banco)} · Efectivo ${pesos(totales.porCuenta.Efectivo)}).` : null,
-      totales.delMes > 0 ? `Son gastos del mes (no descuentan de la reserva): ${pesos(totales.delMes)}.` : null,
+      `Se van a registrar ${aRegistrar.length} gasto(s) tildados como pagados, por ${pesos(sel.total)}.${items.length > aRegistrar.length ? ` Los otros ${items.length - aRegistrar.length} siguen en la lista.` : ""}`,
+      sel.totalReserva > 0 ? `Salen de la reserva: ${pesos(sel.totalReserva)} (Banco ${pesos(sel.porCuenta.Banco)} · Efectivo ${pesos(sel.porCuenta.Efectivo)}).` : null,
+      sel.delMes > 0 ? `Son gastos del mes (no descuentan de la reserva): ${pesos(sel.delMes)}.` : null,
       avisos.length ? `\n⚠ Ojo, posibles duplicados:\n- ${avisos.join("\n- ")}` : null,
       "\n¿Registrarlos?",
     ].filter(Boolean);
     if (!window.confirm(lineas.join("\n"))) return;
     setRegistrando(true);
     try {
-      const { registrados, fallidos } = await registrarPagosPlanificados(items, categorias);
+      const { registrados, fallidos } = await registrarPagosPlanificados(aRegistrar, categorias);
+      setTildados(new Set());
       await recargar();
       await cargarCuentas();
       if (fallidos.length === 0) setMensaje(`✅ Listo: se registraron ${registrados.length} gasto(s). Ya se descontaron de la reserva.`);
@@ -236,8 +262,8 @@ function PlanificarContenido() {
       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-brown/70">Gerencial</p>
       <h1 className="font-heading text-3xl font-extrabold text-brand-brown">🧮 Planificar pagos</h1>
       <p className="mt-1 max-w-3xl text-sm text-gray-600">
-        Cargá todo lo que hay que pagar, mirá el total contra lo que hay disponible en la reserva y, cuando esté bien, registrá todos los gastos
-        con un solo botón. Se suman a Gastos y descuentan de la reserva solos.
+        Cargá todo lo que hay que pagar y mirá el total contra lo que hay disponible en la reserva. A medida que vas pagando, tildá «Pagué» en cada
+        renglón (o en todos) y registrá lo tildado con un solo botón: se suma a Gastos y descuenta de la reserva solo.
       </p>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
@@ -438,6 +464,12 @@ function PlanificarContenido() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-brand-brown text-white">
+                      <th className="px-3 py-2 text-center font-semibold">
+                        <label className="flex items-center justify-center gap-1.5">
+                          <input type="checkbox" checked={todosTildados} onChange={(e) => tildarTodos(e.target.checked)} title="Tildar todos" />
+                          Pagué
+                        </label>
+                      </th>
                       <th className="px-3 py-2 text-left font-semibold">Concepto</th>
                       <th className="px-3 py-2 text-left font-semibold">Categoría</th>
                       <th className="px-3 py-2 text-left font-semibold">Medio</th>
@@ -448,7 +480,10 @@ function PlanificarContenido() {
                   </thead>
                   <tbody>
                     {items.map((i) => (
-                      <tr key={i.id} className="border-t border-gray-100">
+                      <tr key={i.id} className={`border-t border-gray-100 ${tildados.has(i.id) ? "bg-emerald-50" : ""}`}>
+                        <td className="px-3 py-2 text-center">
+                          <input type="checkbox" checked={tildados.has(i.id)} onChange={() => alternarTilde(i.id)} title="Ya lo pagué" />
+                        </td>
                         <td className="px-3 py-2 font-medium text-gray-900">
                           {i.concepto}
                           {i.fecha && <span className="ml-2 text-xs font-normal text-gray-500">({i.fecha.split("-").reverse().join("/")})</span>}
@@ -485,10 +520,17 @@ function PlanificarContenido() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-gray-300 font-semibold">
-                      <td colSpan={4} className="px-3 py-2 text-right">
-                        Total
+                      <td colSpan={5} className="px-3 py-2 text-right">
+                        Total de la lista
                       </td>
                       <td className="px-3 py-2 text-right">{pesos(totales.total)}</td>
+                      <td></td>
+                    </tr>
+                    <tr className="font-semibold text-emerald-800">
+                      <td colSpan={5} className="px-3 py-1 text-right">
+                        Tildado como pagado
+                      </td>
+                      <td className="px-3 py-1 text-right">{pesos(sel.total)}</td>
                       <td></td>
                     </tr>
                   </tfoot>
@@ -547,16 +589,20 @@ function PlanificarContenido() {
           <div className="mt-6 flex flex-wrap items-center gap-4 rounded-xl border-2 border-brand-brown bg-brand-cream px-5 py-4">
             <div className="flex-1">
               <p className="font-heading text-base font-bold text-brand-brown">
-                {items.length === 0 ? "Todavía no hay gastos para registrar" : `Registrar ${items.length} gasto${items.length === 1 ? "" : "s"} por ${pesos(totales.total)}`}
+                {items.length === 0
+                  ? "Todavía no hay gastos para registrar"
+                  : aRegistrar.length === 0
+                    ? "Tildá «Pagué» en lo que ya pagaste para poder registrarlo"
+                    : `Registrar ${aRegistrar.length} gasto${aRegistrar.length === 1 ? "" : "s"} tildado${aRegistrar.length === 1 ? "" : "s"} por ${pesos(sel.total)}`}
               </p>
               <p className="text-xs text-gray-600">
                 {!alcanza && items.length > 0 ? "⚠ Con lo que hay en la reserva no alcanza, pero igual los podés registrar. " : ""}
-                Al registrar, cada gasto queda en Gastos y descuenta de la reserva (si está tildado), y se saca de esta lista.
+                Se registran solo los tildados como pagados; los demás siguen en la lista. Al registrar, cada gasto queda en Gastos, descuenta de la reserva (si dice «con la reserva») y sale de esta lista.
               </p>
             </div>
             <button
               onClick={registrarTodo}
-              disabled={registrando || items.length === 0}
+              disabled={registrando || aRegistrar.length === 0}
               className="rounded-lg bg-brand-brown px-6 py-3 text-base font-bold text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
               {registrando ? "Registrando..." : "✅ Registrar gastos"}
