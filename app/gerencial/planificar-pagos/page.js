@@ -9,6 +9,8 @@ import { obtenerBalanceMensual } from "@/lib/data/balance";
 import { obtenerCierreMes, repartirBalance } from "@/lib/data/cierresMes";
 import { obtenerResumenPendienteDeLiquidar } from "@/lib/data/cobrosLiquidados";
 import { obtenerSaldosPersonales } from "@/lib/data/finanzasPersonales";
+import { calcularCuentasDelMes, nombreDeMes } from "@/lib/cuentasDelMes";
+import { supabase } from "@/lib/supabaseClient";
 import { MEDIOS_PAGO_GASTO, obtenerCategoriasGasto } from "@/lib/data/gastos";
 import {
   actualizarPagoPlanificado,
@@ -45,14 +47,25 @@ function PlanificarContenido() {
   const [pendientes, setPendientes] = useState([]);
   const [incluidos, setIncluidos] = useState({});
   const [cierre, setCierre] = useState(null); // { mes, anio, reparto } del mes anterior si todavía no se cerró
+  const [cuentas, setCuentas] = useState(null); // sueldos y gastos fijos del mes
+  const [mesHoras, setMesHoras] = useState("anterior");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [mensaje, setMensaje] = useState(null);
   const [registrando, setRegistrando] = useState(false);
-  const [form, setForm] = useState({ concepto: "", categoria: "", monto: "", medioPago: "Transferencia", desdeReserva: true, fecha: "", notas: "" });
+  const [form, setForm] = useState({ concepto: "", categoria: "", monto: "", medioPago: "Transferencia", desdeReserva: true, recordar: false, fecha: "", notas: "" });
+
+  async function cargarCuentas(mes = mesHoras) {
+    try {
+      setCuentas(await calcularCuentasDelMes(supabase, hoy, { mesHoras: mes }));
+    } catch {
+      setCuentas(null);
+    }
+  }
 
   async function recargar() {
     setError(null);
+    cargarCuentas();
     try {
       const [lista, cats, saldos] = await Promise.all([obtenerPagosPlanificados(), obtenerCategoriasGasto(), obtenerSaldosPersonales("Consultorio")]);
       setItems(lista);
@@ -109,7 +122,7 @@ function PlanificarContenido() {
     try {
       const nuevo = await crearPagoPlanificado(form);
       setItems((l) => [...l, nuevo]);
-      setForm((f) => ({ ...f, concepto: "", monto: "", notas: "" }));
+      setForm((f) => ({ ...f, concepto: "", monto: "", notas: "", recordar: false }));
     } catch (err) {
       setError(err.message);
     }
@@ -130,6 +143,37 @@ function PlanificarContenido() {
     try {
       await eliminarPagoPlanificado(id);
       setItems((l) => l.filter((i) => i.id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // Suma a la lista uno de los renglones de "Cuentas del mes" (un sueldo o un gasto fijo) con su monto.
+  async function agregarCuenta(c) {
+    if (items.some((i) => i.concepto.trim().toLowerCase() === c.concepto.trim().toLowerCase())) return null;
+    const nuevo = await crearPagoPlanificado({ concepto: c.concepto, categoria: categorias.some((k) => k.nombre === c.categoria) ? c.categoria : "Otro", monto: c.monto, medioPago: "Transferencia", desdeReserva: true });
+    setItems((l) => [...l, nuevo]);
+    return nuevo;
+  }
+
+  async function agregarUnaCuenta(c) {
+    setError(null);
+    setMensaje(null);
+    try {
+      await agregarCuenta(c);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function agregarTodoLoQueFalta() {
+    setError(null);
+    setMensaje(null);
+    try {
+      const pendientes = [...cuentas.sueldos, ...cuentas.fijos].filter((c) => !c.pagado);
+      let n = 0;
+      for (const c of pendientes) if (await agregarCuenta(c)) n += 1;
+      setMensaje(n ? `Se sumaron ${n} pago(s) a la lista: revisá los montos y registrá.` : "Todo lo que falta ya está en la lista.");
     } catch (err) {
       setError(err.message);
     }
@@ -168,6 +212,7 @@ function PlanificarContenido() {
     try {
       const { registrados, fallidos } = await registrarPagosPlanificados(items, categorias);
       await recargar();
+      await cargarCuentas();
       if (fallidos.length === 0) setMensaje(`✅ Listo: se registraron ${registrados.length} gasto(s). Ya se descontaron de la reserva.`);
       else {
         setError(
@@ -249,6 +294,89 @@ function PlanificarContenido() {
             </p>
           )}
 
+          {cuentas && (
+            <section className="mt-6 rounded-xl border border-brand-tan bg-brand-cream p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-heading text-lg font-bold text-brand-brown">Cuentas de {nombreDeMes(cuentas.mesActual.mes)}</h2>
+                  <p className="text-xs text-gray-600">
+                    Sueldos según las horas de {nombreDeMes(cuentas.mesHoras.mes)} × el valor hora de cada uno, y gastos fijos con el último monto que se pagó.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-gray-700">
+                  Horas de:
+                  <select
+                    value={mesHoras}
+                    onChange={(e) => {
+                      setMesHoras(e.target.value);
+                      cargarCuentas(e.target.value);
+                    }}
+                    className="rounded-md border border-gray-300 px-2 py-1 text-xs"
+                  >
+                    <option value="anterior">el mes anterior</option>
+                    <option value="actual">este mes</option>
+                  </select>
+                </label>
+              </div>
+
+              <table className="mt-3 w-full border-collapse text-sm">
+                <tbody>
+                  {[...cuentas.sueldos, ...cuentas.fijos].map((c) => {
+                    const enLista = items.some((i) => i.concepto.trim().toLowerCase() === c.concepto.trim().toLowerCase());
+                    return (
+                      <tr key={c.clave} className="border-t border-brand-tan/50">
+                        <td className="px-2 py-1.5 font-medium text-gray-900">
+                          {c.tipo === "sueldo" ? `Sueldo ${c.nombre}` : c.nombre}
+                          {c.tipo === "sueldo" && (
+                            <span className="ml-2 text-xs font-normal text-gray-500">
+                              {c.horas.toLocaleString("es-AR")} h × {pesos(c.valorHora)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-right font-semibold">{pesos(c.monto)}</td>
+                        <td className="px-2 py-1.5 text-right text-xs">
+                          {c.pagado ? (
+                            <span className="text-emerald-700">✓ pagado{c.pagadoFecha ? ` el ${c.pagadoFecha.slice(8)}/${c.pagadoFecha.slice(5, 7)}` : ""}</span>
+                          ) : enLista ? (
+                            <span className="text-sky-700">en la lista</span>
+                          ) : (
+                            <button onClick={() => agregarUnaCuenta(c)} className="rounded-md border border-brand-brown/40 px-2 py-0.5 text-brand-brown hover:bg-brand-tan/30">
+                              + Agregar
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {cuentas.sueldos.length + cuentas.fijos.length === 0 && (
+                    <tr>
+                      <td className="px-2 py-2 text-gray-500">Todavía no hay sueldos con horas cargadas ni gastos fijos con monto.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-brand-tan pt-3">
+                <div className="text-sm">
+                  <p>
+                    Falta pagar: <strong>{pesos(cuentas.falta)}</strong> <span className="text-xs text-gray-500">(sueldos {pesos(cuentas.faltaSueldos)} + gastos fijos {pesos(cuentas.faltaFijos)})</span>
+                  </p>
+                  <p className={cuentas.diferencia >= 0 ? "text-emerald-700" : "font-semibold text-red-700"}>
+                    En la reserva tenés {pesos(cuentas.reserva.total)}: {cuentas.diferencia >= 0 ? `te sobran ${pesos(cuentas.diferencia)}` : `te faltan ${pesos(-cuentas.diferencia)}`}.
+                  </p>
+                  <p className="text-xs text-gray-500">No incluye honorarios de profesionales ni gastos que no tengan monto cargado.</p>
+                </div>
+                <button
+                  onClick={agregarTodoLoQueFalta}
+                  disabled={cuentas.falta <= 0}
+                  className="rounded-md bg-brand-brown px-4 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+                >
+                  + Agregar todo lo que falta a la lista
+                </button>
+              </div>
+            </section>
+          )}
+
           <section className="mt-6 rounded-xl border border-gray-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-heading text-lg font-bold text-brand-brown">Lo que hay que pagar</h2>
@@ -292,6 +420,10 @@ function PlanificarContenido() {
               <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-6">
                 <input type="checkbox" checked={form.desdeReserva} onChange={(e) => setForm({ ...form, desdeReserva: e.target.checked })} />
                 Se paga con la reserva del Consultorio
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-12">
+                <input type="checkbox" checked={form.recordar} onChange={(e) => setForm({ ...form, recordar: e.target.checked })} />
+                📌 Recordar como gasto fijo (el mes que viene sale solo en la lista, con este monto)
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-6">
                 Fecha (si la dejás vacía, se usa la de hoy):
