@@ -126,6 +126,7 @@ const GRUPOS = [
       { href: "/gerencial/cruce-asor", label: "🔎 Cruce con ASOR" },
       { href: "/gerencial/produccion", label: "Producción y liquidación" },
       { href: "/gerencial/historial-pagos", label: "🧾 Historial de pagos" },
+      { href: "/gerencial/planificar-pagos", label: "🧮 Planificar pagos (gastos y honorarios)" },
       { href: "/gerencial/liquidaciones", label: "🧾 Liquidaciones por profesional" },
       { href: "/gerencial/horarios", label: "🕐 Horarios y liquidación" },
       { href: "/gerencial/cierre-diario", label: "Cierre Diario (General + Ortodoncia)" },
