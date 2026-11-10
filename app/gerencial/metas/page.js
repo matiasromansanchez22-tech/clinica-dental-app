@@ -11,6 +11,9 @@ const NOMBRES_MES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+// Ingresos reales del mes: sin los aportes de la reserva (que solo compensan un gasto pagado con la reserva).
+const ingresosDe = (b) => b?.ingresosOperativos ?? b?.ingresosTotal;
+
 function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
@@ -239,10 +242,10 @@ function MetasContenido() {
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <TarjetaMeta
             etiqueta="Ingresos del mes"
-            valorActual={resumen.balance.ingresosTotal}
+            valorActual={ingresosDe(resumen.balance)}
             objetivo={meta?.ingresosObjetivo}
             formato={formatoPesos}
-            proyeccion={proyeccionDe(resumen.balance.ingresosTotal)}
+            proyeccion={proyeccionDe(ingresosDe(resumen.balance))}
           />
           <TarjetaMeta
             etiqueta="Balance del mes"
@@ -302,7 +305,7 @@ function MetasContenido() {
                 <td className="px-3 py-2 font-medium text-gray-900">
                   {NOMBRES_MES[h.mes - 1]} {h.anio}
                 </td>
-                <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(h.balance.ingresosTotal)}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(ingresosDe(h.balance))}</td>
                 <td className="px-3 py-2 text-right text-gray-400">
                   {h.meta?.ingresosObjetivo ? formatoPesos(h.meta.ingresosObjetivo) : "—"}
                 </td>

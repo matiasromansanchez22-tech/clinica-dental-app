@@ -321,6 +321,12 @@ function BalanceMensualContenido() {
                 tono={balance.balance >= 0 ? "balancePositivo" : "balanceNegativo"}
               />
             </div>
+            {balance.aporteReserva > 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                Los ingresos incluyen {formatoMoneda(balance.aporteReserva)} de aporte de la reserva y los egresos, el gasto que cubre: se compensan, así que el
+                balance del mes no cambia. Tablero Mensual, Metas y Balance Anual no lo cuentan como ingreso.
+              </p>
+            )}
 
             {ahorro && (
               <div className="mt-6">

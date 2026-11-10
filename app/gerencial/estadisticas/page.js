@@ -17,6 +17,9 @@ const NOMBRES_MES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
+// Ingresos reales del mes: sin los aportes de la reserva (que solo compensan un gasto pagado con la reserva).
+const ingresosDe = (b) => b?.ingresosOperativos ?? b?.ingresosTotal;
+
 function formatoPesos(n) {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
@@ -328,9 +331,9 @@ function PaginaEstadisticas() {
         <Tarjeta etiqueta="Consentimientos marcados" valor={resumenMes.consentimientosMarcados} />
         <Tarjeta
           etiqueta="Ingresos del mes"
-          valor={formatoPesos(resumenMes.balance.ingresosTotal)}
-          cambioMesAnterior={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnterior?.balance?.ingresosTotal)}
-          cambioAnioPasado={calcularCambio(resumenMes.balance.ingresosTotal, resumenMesAnioPasado?.balance?.ingresosTotal)}
+          valor={formatoPesos(ingresosDe(resumenMes.balance))}
+          cambioMesAnterior={calcularCambio(ingresosDe(resumenMes.balance), ingresosDe(resumenMesAnterior?.balance))}
+          cambioAnioPasado={calcularCambio(ingresosDe(resumenMes.balance), ingresosDe(resumenMesAnioPasado?.balance))}
         />
         <Tarjeta
           etiqueta="Balance del mes"
@@ -400,7 +403,7 @@ function PaginaEstadisticas() {
                 <td className="px-3 py-2 text-right text-gray-600">{m.pacientesAtendidosTotal}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.historialesMarcados}</td>
                 <td className="px-3 py-2 text-right text-gray-600">{m.consentimientosMarcados}</td>
-                <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(m.balance.ingresosTotal)}</td>
+                <td className="px-3 py-2 text-right text-gray-600">{formatoPesos(ingresosDe(m.balance))}</td>
                 <td className="px-3 py-2 text-right font-medium text-gray-900">{formatoPesos(m.balance.balance)}</td>
               </tr>
             ))}
