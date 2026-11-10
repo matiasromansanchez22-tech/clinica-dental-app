@@ -71,7 +71,9 @@ function BuscarCobros() {
         formatoFecha(c.fecha), c.paciente, c.cobertura, c.detalle, c.atendio, c.monto, c.medioTexto,
         c.liquidacion
           ? `${c.liquidacion.tratamientoSaldado ? "Tratamiento saldado" : "Sí"}${c.liquidacion.fecha ? ` (${formatoFecha(c.liquidacion.fecha)})` : ""}`
-          : "No",
+          : c.sinHonorarios
+            ? "Sin honorarios"
+            : "No",
       ]);
     const contenido = "﻿" + lineas.map((l) => l.map(celdaCSV).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" }));
@@ -207,7 +209,7 @@ function BuscarCobros() {
                 <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-800">{formatoFecha(c.fecha)}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">
                   {c.paciente}
-                  <MarcaLiquidado liquidacion={c.liquidacion} />
+                  <MarcaLiquidado liquidacion={c.liquidacion} sinHonorarios={c.sinHonorarios} pendienteDe={c.atendio !== "—" ? c.atendio : "el profesional"} />
                 </td>
                 <td className="px-3 py-2 text-gray-600">{c.cobertura}</td>
                 <td className="px-3 py-2 text-gray-600">{c.detalle}</td>
