@@ -51,17 +51,34 @@ export function sumaDeSeleccion(seleccion) {
   return seleccion.reduce((a, s) => a + cuentaDe(s).ahora, 0);
 }
 
+// Cartelito para las prestaciones con porcentaje especial (ej. Periodoncia 50%), así se ven de un vistazo al liquidar.
+function EtiquetaEspecial({ lineas }) {
+  const l = (lineas || []).find((x) => x.esExcepcion);
+  if (!l) return null;
+  return <span className="ml-2 whitespace-nowrap rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">🦷 {l.porcentaje}% {l.especialidad}</span>;
+}
+
 function FilaCobro({ cobro, tildado, onAlternar, sangria }) {
+  const especial = (cobro.lineas || []).some((l) => l.esExcepcion);
   return (
-    <label className={`flex cursor-pointer items-start gap-2 py-1.5 pr-2 text-xs hover:bg-brand-tan/20 ${sangria ? "pl-7" : "pl-2"}`}>
+    <label className={`flex cursor-pointer items-start gap-2 py-1.5 pr-2 text-xs hover:bg-brand-tan/20 ${sangria ? "pl-7" : "pl-2"} ${especial ? "bg-amber-50" : ""}`}>
       <input type="checkbox" checked={tildado} onChange={onAlternar} className="mt-0.5 shrink-0" />
       <span className="min-w-0 flex-1">
-        {!sangria && <span className="font-medium text-gray-900">{cobro.paciente}</span>}
-        <span className={`block truncate ${sangria ? "text-gray-700" : "text-gray-500"}`}>{cobro.detalle}</span>
+        {!sangria && (
+          <span className="font-medium text-gray-900">
+            {cobro.paciente}
+            <EtiquetaEspecial lineas={cobro.lineas} />
+          </span>
+        )}
+        <span className={`block truncate ${sangria ? "text-gray-700" : "text-gray-500"}`}>
+          {cobro.detalle}
+          {sangria && <EtiquetaEspecial lineas={cobro.lineas} />}
+        </span>
         {cobro.lineas?.length > 0 && (
           <span className="block text-[10px] leading-snug text-gray-500">
             {cobro.lineas.slice(0, 3).map((l, i) => (
-              <span key={i} className="block">
+              <span key={i} className={l.esExcepcion ? "block rounded bg-amber-100 px-1 py-0.5 font-semibold text-amber-900" : "block"}>
+                {l.esExcepcion ? `🦷 ${l.porcentaje}% de ${l.especialidad}: ` : ""}
                 {l.calculo}
               </span>
             ))}
@@ -310,6 +327,11 @@ export default function SelectorCobrosALiquidar({
             </button>
           </div>
           <p className="mt-1 text-[11px] text-gray-500">Tildá al paciente para marcar todos sus cobros, o elegí uno por uno.</p>
+          {cobrosDelDia.some((c) => c.lineas?.some((l) => l.esExcepcion)) && (
+            <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+              🦷 Lo que está en <strong>amarillo</strong> es de una especialidad con porcentaje especial (por ejemplo Periodoncia al 50%): ya está aplicado en lo que le corresponde.
+            </p>
+          )}
           {cobrosDelDia.length > 6 && (
             <input
               value={busqueda}
@@ -354,6 +376,7 @@ export default function SelectorCobrosALiquidar({
                       />
                       <span className="min-w-0 flex-1 font-medium text-gray-900">
                         {g.paciente} <span className="font-normal text-gray-400">· {g.cobros.length} cobros</span>
+                        <EtiquetaEspecial lineas={g.cobros.flatMap((c) => c.lineas || [])} />
                       </span>
                       <span className="shrink-0 font-semibold tabular-nums text-brand-brown">Le corresponde {formatoPesos(totalGrupo)}</span>
                     </label>

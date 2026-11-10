@@ -393,11 +393,12 @@ function ProduccionPorProfesionalContenido() {
                         </thead>
                         <tbody>
                           {f.detalle.map((d, i) => (
-                            <tr key={i} className="border-t border-gray-200">
+                            <tr key={i} className={`border-t border-gray-200 ${d.esExcepcion ? "bg-amber-50" : ""}`}>
                               <td className="px-2 py-1">{d.fecha}</td>
                               <td className="px-2 py-1">{d.paciente}</td>
                               <td className="px-2 py-1">
                                 {d.concepto}
+                                {d.esExcepcion && <span className="ml-2 whitespace-nowrap rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">🦷 {d.porcentaje}% {d.especialidad}</span>}
                                 {d.calculo && <span className="block text-[11px] text-gray-500">{d.calculo}</span>}
                               </td>
                               <td className="px-2 py-1 text-gray-500">{d.tipo}</td>
