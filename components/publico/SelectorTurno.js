@@ -85,7 +85,7 @@ export default function SelectorTurno({ lugar }) {
   );
 
   return (
-    <div id="turno" className="scroll-mt-20 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-brand-tan/70 sm:p-7">
+    <div id="turno" className="scroll-mt-20 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-brand-tan/70 sm:p-6">
       <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">Primera consulta</p>
       <h2 className="font-heading mt-1 text-2xl font-extrabold text-brand-brown sm:text-3xl">Elegí tu turno</h2>
       {bonificadaHasta && (
@@ -97,12 +97,11 @@ export default function SelectorTurno({ lugar }) {
       {estado === "cargando" && <p className="mt-4 text-sm text-brand-charcoal/70">Buscando horarios disponibles…</p>}
 
       {(estado === "sin-horarios" || estado === "error") && (
-        <div className="mt-3">
-          <p className="text-brand-charcoal/85">
-            {estado === "error" ? "No pudimos mostrar los horarios en este momento." : "Por ahora los turnos se coordinan por WhatsApp."} Escribinos y te decimos qué días
-            tenemos lugar.
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-brand-charcoal/85 sm:max-w-sm">
+            {estado === "error" ? "No pudimos mostrar los horarios en este momento." : "Por ahora los turnos se coordinan por WhatsApp."} Escribinos y te decimos qué días tenemos lugar.
           </p>
-          <div className="mt-4">{botonWhatsApp("¡Hola! Quiero pedir un turno de consulta de ortodoncia. ¿Qué días tienen disponibles?", "bg-brand-green text-brand-cream")}</div>
+          {botonWhatsApp("¡Hola! Quiero pedir un turno de consulta de ortodoncia. ¿Qué días tienen disponibles?", "bg-brand-green text-brand-cream whitespace-nowrap")}
         </div>
       )}
 

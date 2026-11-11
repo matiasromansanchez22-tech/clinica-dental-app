@@ -132,7 +132,12 @@ export default function OrtodonciaInfoPublica() {
   const mesAnio = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" });
 
   return (
-    <main className="min-h-screen scroll-smooth bg-brand-cream pb-24 text-brand-charcoal sm:pb-0">
+    <main className="relative isolate min-h-screen scroll-smooth bg-brand-cream pb-24 text-brand-charcoal sm:pb-0">
+      {/* Manchas de color de fondo: capa propia a todo el ancho, así no se cortan con un borde recto */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[760px] overflow-hidden">
+        <div className="absolute -right-24 top-0 h-80 w-80 rounded-full bg-brand-mint/30 blur-3xl" />
+        <div className="absolute -left-24 top-[300px] h-64 w-64 rounded-full bg-brand-tan/50 blur-3xl" />
+      </div>
       {/* Barra fija: aparece al bajar, con el acceso directo a pedir turno */}
       <div
         className={`fixed inset-x-0 top-0 z-30 border-b border-brand-tan/70 bg-brand-cream/95 backdrop-blur transition-transform duration-300 ${bajo ? "translate-y-0" : "-translate-y-full"}`}
@@ -153,10 +158,8 @@ export default function OrtodonciaInfoPublica() {
         <span className="rounded-full bg-brand-tan/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-brown">Ortodoncia</span>
       </header>
 
-      <section className="relative mx-auto max-w-5xl overflow-hidden px-5 pb-12 pt-10 sm:pt-14">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-16 h-80 w-80 rounded-full bg-brand-mint/30 blur-3xl" />
-        <div aria-hidden="true" className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-brand-tan/50 blur-3xl" />
-        <div className="relative max-w-3xl">
+      <section className="mx-auto max-w-5xl px-5 pb-14 pt-10 sm:pt-14">
+        <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Ortodoncia · Rosario</p>
           <h1 className="font-heading mt-3 text-4xl font-extrabold leading-[1.05] text-brand-brown sm:text-6xl">
             Tu sonrisa, con un plan claro desde el primer día.
@@ -191,7 +194,7 @@ export default function OrtodonciaInfoPublica() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-5 pb-6">
+      <section className="mx-auto max-w-3xl px-5 pb-6 pt-6 sm:pt-10">
         <Revelar>
           <SelectorTurno lugar={lugar} />
         </Revelar>
