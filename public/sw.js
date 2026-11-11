@@ -23,6 +23,9 @@ self.addEventListener("push", (event) => {
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       data: { url: datos.url || "/" },
+      // Avisos importantes (ej. pedido de turno de un paciente): quedan en pantalla hasta que se toquen, vibran y suenan de nuevo si llega otro.
+      ...(datos.persistente ? { requireInteraction: true, vibrate: [300, 150, 300, 150, 300] } : {}),
+      ...(datos.tag ? { tag: datos.tag, renotify: true } : {}),
     })
   );
 });

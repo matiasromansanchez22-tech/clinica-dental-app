@@ -78,6 +78,8 @@ export async function POST(request) {
           title: "🦷 Nuevo pedido de consulta de ortodoncia",
           body: `${nombre} pidió turno el ${textoDeDia(fecha)} a las ${hora}. Hay que escribirle por WhatsApp para confirmar.`,
           url: "/ortodoncia/consultas-online",
+          persistente: true,
+          tag: "pedido-turno-online",
         });
       }
     } catch {

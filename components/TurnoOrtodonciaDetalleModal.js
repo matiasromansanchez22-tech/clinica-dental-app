@@ -99,7 +99,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     setGuardando("sobreturno");
     try {
       const fechaDestino = cambios.fecha || turnoActual.fecha || fecha;
-      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaDestino);
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaDestino, { conPedidosOnline: true });
       const horaDestino = cambios.hora_inicio || turnoActual.horaInicio;
       if (
         hayConflictoDeSobreturno({
@@ -134,7 +134,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     setError(null);
     setGuardando("pasar-normal");
     try {
-      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha);
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha, { conPedidosOnline: true });
       const conflicto = hayConflictoDeHorario({
         turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
         consultorio: turnoActual.consultorio,
@@ -162,7 +162,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     setOfrecerSobreturno(null);
     setMoviendo(true);
     try {
-      const turnosDestino = await obtenerTurnosOrtodonciaPorFecha(nuevaFecha);
+      const turnosDestino = await obtenerTurnosOrtodonciaPorFecha(nuevaFecha, { conPedidosOnline: true });
       const conflicto = hayConflictoDeHorario({
         turnosVisibles: turnosDestino.filter(seMuestraEnGrilla),
         consultorio: Number(nuevoConsultorio),
@@ -222,7 +222,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     }
     setCambiandoOrtodoncista(true);
     try {
-      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha);
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha, { conPedidosOnline: true });
       const conflicto = hayConflictoDeHorario({
         turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
         consultorio: turnoActual.consultorio,
@@ -258,7 +258,7 @@ export default function TurnoOrtodonciaDetalleModal({ turno, fecha, ortodoncista
     }
     setCambiandoDuracion(true);
     try {
-      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha);
+      const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(turnoActual.fecha || fecha, { conPedidosOnline: true });
       const conflicto = hayConflictoDeHorario({
         turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
         consultorio: turnoActual.consultorio,

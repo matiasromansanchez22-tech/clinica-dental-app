@@ -97,7 +97,7 @@ export default function NuevoTurnoOrtodonciaModal({
           if (!cancelado) setHorasDisponibles([]);
           return;
         }
-        const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaLocal);
+        const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaLocal, { conPedidosOnline: true });
         const turnosVisibles = turnosDelDia.filter(seMuestraEnGrilla);
 
         const libres = [];
@@ -222,7 +222,7 @@ export default function NuevoTurnoOrtodonciaModal({
       return;
     }
 
-    const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaLocal);
+    const turnosDelDia = await obtenerTurnosOrtodonciaPorFecha(fechaLocal, { conPedidosOnline: true });
     const visiblesDelDia = turnosDelDia.filter(seMuestraEnGrilla);
     if (sobreturnoEncimado) {
       if (hayConflictoDeSobreturno({ turnosVisibles: visiblesDelDia, horaInicio, duracionMin: Number(duracionMin) })) {

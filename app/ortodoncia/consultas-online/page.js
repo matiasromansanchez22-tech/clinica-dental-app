@@ -95,23 +95,23 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
               onClick={() => accion(() => agendarPedido(p))}
               className="rounded-md bg-brand-brown px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
             >
-              ✅ Agendar en la Agenda
+              ✅ Confirmar y agendar
             </button>
             <button
               disabled={trabajando}
               onClick={() => {
-                const nota = window.prompt("¿Por qué no se puede? (opcional, es solo para el registro interno)");
+                const nota = window.prompt("¿Por qué se da de baja? (opcional, es solo para el registro interno). El horario se libera.");
                 if (nota === null) return;
                 accion(() => cambiarEstadoPedido(p.id, "Rechazada", nota.trim()));
               }}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              No se puede
+              Dar de baja
             </button>
           </>
         )}
       </div>
-      {pendiente && <p className="mt-2 text-xs text-gray-500">Al agendar se crea el turno de consulta en la Agenda de Ortodoncia (sin confirmar). Después escribile para confirmarlo.</p>}
+      {pendiente && <p className="mt-2 text-xs text-gray-500">El horario está reservado hasta que lo confirmes o lo des de baja. Al confirmar se crea el turno de consulta en la Agenda de Ortodoncia; si lo das de baja, el horario se libera para otros pacientes.</p>}
     </li>
   );
 }

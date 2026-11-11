@@ -81,6 +81,22 @@ export default function AgendaGrid({
 
                 if (celda?.tipo === "inicio") {
                   const { turno } = celda;
+                  // Pedido de turno hecho desde la página pública: el horario queda reservado hasta que Recepción lo confirme o lo dé de baja.
+                  if (turno.pedidoOnline) {
+                    return (
+                      <td
+                        key={consultorio}
+                        rowSpan={celda.span}
+                        onClick={() => onTurnoClick?.(turno)}
+                        title="Pedido de turno desde la página web: tocá para confirmarlo o darlo de baja"
+                        className="cursor-pointer border-2 border-dashed border-amber-500 bg-amber-50 p-1.5 align-top text-amber-950 hover:brightness-95"
+                      >
+                        <div className="font-semibold leading-tight">🌐 {turno.paciente}</div>
+                        <div className="text-xs leading-tight opacity-90">Pedido online · {turno.profesionalDeTurno}</div>
+                        <div className="mt-0.5 rounded bg-amber-200 px-1 py-0.5 text-[11px] font-bold leading-tight">⏳ Reservado: falta confirmar o dar de baja</div>
+                      </td>
+                    );
+                  }
                   const color = colorDeTurno(turno);
                   const subtitulo = renderSubtitulo
                     ? renderSubtitulo(turno)

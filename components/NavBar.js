@@ -10,6 +10,7 @@ import ActivarAvisosBoton from "@/components/ActivarAvisosBoton";
 import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
 import AvisoPrestacionRealizada from "@/components/AvisoPrestacionRealizada";
 import AvisoVisitasPorCompletar from "@/components/AvisoVisitasPorCompletar";
+import AvisoPedidosTurnoOnline from "@/components/AvisoPedidosTurnoOnline";
 import CelebracionVenta from "@/components/CelebracionVenta";
 import AvisoRecordatorios from "@/components/AvisoRecordatorios";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
@@ -357,6 +358,7 @@ export default function NavBar() {
           <AvisoPresupuestoNuevo />
           <AvisoPrestacionRealizada />
           <AvisoVisitasPorCompletar />
+          <AvisoPedidosTurnoOnline />
           <CelebracionVenta />
           <AvisoRecordatorios />
         </>
