@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { urlWhatsApp, WHATSAPP_CLINICA_VISIBLE } from "@/lib/planReferidos";
+import { consultaBonificadaEl, textoCortoDeFecha } from "@/lib/promoConsulta";
 
 const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
@@ -29,12 +30,14 @@ export default function SelectorTurno({ lugar }) {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
   const [hecho, setHecho] = useState(null);
+  const [bonificadaHasta, setBonificadaHasta] = useState(null); // promoción: consulta sin cargo hasta ese día ("2026-11-30")
 
   async function cargar() {
     try {
       const r = await fetch("/api/publico/horarios").then((x) => x.json());
       if (!r.ok) return setEstado("error");
       setDias(r.dias);
+      setBonificadaHasta(r.bonificadaHasta || null);
       setEstado(r.dias.length ? "listo" : "sin-horarios");
       setFechaElegida((actual) => (r.dias.some((d) => d.fecha === actual) ? actual : r.dias[0]?.fecha || null));
     } catch {
@@ -59,7 +62,7 @@ export default function SelectorTurno({ lugar }) {
         body: JSON.stringify({ nombre, whatsapp, fecha: fechaElegida, hora: horaElegida, acepta, lugar, sitioWeb: trampa }),
       }).then((x) => x.json());
       if (r.ok) {
-        setHecho({ texto: r.texto, nombre: nombre.trim() });
+        setHecho({ texto: r.texto, nombre: nombre.trim(), bonificada: consultaBonificadaEl(fechaElegida, bonificadaHasta) });
       } else {
         setError(r.error || "No pudimos registrar tu pedido.");
         // Si el horario se ocupó mientras elegía, se actualiza la lista para que elija otro.
@@ -85,6 +88,11 @@ export default function SelectorTurno({ lugar }) {
     <div id="turno" className="scroll-mt-20 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-brand-tan/70 sm:p-7">
       <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">Primera consulta</p>
       <h2 className="font-heading mt-1 text-2xl font-extrabold text-brand-brown sm:text-3xl">Elegí tu turno</h2>
+      {bonificadaHasta && (
+        <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-mint/40 px-4 py-1.5 text-sm font-bold text-brand-green">
+          🎁 Consulta totalmente bonificada hasta el {textoCortoDeFecha(bonificadaHasta)}
+        </p>
+      )}
 
       {estado === "cargando" && <p className="mt-4 text-sm text-brand-charcoal/70">Buscando horarios disponibles…</p>}
 
@@ -123,6 +131,7 @@ export default function SelectorTurno({ lugar }) {
                   <span className="text-xs font-semibold uppercase">{p.dia}</span>
                   <span className="font-heading text-2xl font-extrabold leading-tight">{p.numero}</span>
                   <span className="text-[11px] uppercase opacity-80">{p.mes}</span>
+                  {consultaBonificadaEl(d.fecha, bonificadaHasta) && <span className="mt-0.5 rounded-full bg-brand-mint px-1.5 text-[9px] font-extrabold uppercase text-brand-green">sin cargo</span>}
                 </button>
               );
             })}
@@ -130,7 +139,7 @@ export default function SelectorTurno({ lugar }) {
 
           {diaActual && (
             <div className="mt-3">
-              <p className="text-sm font-semibold capitalize text-brand-brown">
+              <p className="text-sm font-semibold text-brand-brown first-letter:uppercase">
                 {partesDeFecha(diaActual.fecha).largo} {partesDeFecha(diaActual.fecha).numero} de {MESES[partesDeFecha(diaActual.fecha).mesNumero - 1]}
               </p>
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -155,6 +164,13 @@ export default function SelectorTurno({ lugar }) {
               <p className="font-semibold text-brand-brown">
                 Tu turno: {partesDeFecha(fechaElegida).largo} {partesDeFecha(fechaElegida).numero}/{String(partesDeFecha(fechaElegida).mesNumero).padStart(2, "0")} a las {horaElegida}
               </p>
+              {bonificadaHasta && (
+                <p className="mt-1 text-sm font-semibold text-brand-green">
+                  {consultaBonificadaEl(fechaElegida, bonificadaHasta)
+                    ? "🎁 Tu consulta es totalmente bonificada: sin ningún costo."
+                    : `Este día queda fuera de la consulta sin cargo (vale hasta el ${textoCortoDeFecha(bonificadaHasta)}). El valor te lo confirmamos por WhatsApp.`}
+                </p>
+              )}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-brand-charcoal/80">Nombre y apellido</span>
@@ -198,6 +214,7 @@ export default function SelectorTurno({ lugar }) {
           <p className="mt-1 text-brand-charcoal/90">
             Pediste turno para el <strong>{hecho.texto}</strong>. Te vamos a escribir por WhatsApp para confirmarlo. Si querés, también podés escribirnos vos ahora.
           </p>
+          {hecho.bonificada && <p className="mt-2 font-semibold text-brand-green">🎁 Recordá que tu consulta es totalmente bonificada.</p>}
           <div className="mt-4">
             {botonWhatsApp(`¡Hola! Soy ${hecho.nombre}. Acabo de pedir turno de consulta de ortodoncia para el ${hecho.texto} desde la página.`, "bg-brand-green text-brand-cream")}
           </div>

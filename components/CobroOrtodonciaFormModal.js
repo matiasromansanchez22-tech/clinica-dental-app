@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { crearCobroOrtodoncia, obtenerCobrosInstalacion } from "@/lib/data/cajaOrtodoncia";
 import { obtenerConfiguracionOrtodoncia } from "@/lib/data/pacientesOrtodoncia";
+import { consultaBonificadaEl, promoConsultaHasta, textoCortoDeFecha } from "@/lib/promoConsulta";
 import {
   CONCEPTOS_ORTODONCIA,
   CONCEPTO_CONTINUACION,
@@ -102,6 +103,19 @@ export default function CobroOrtodonciaFormModal({
   useEffect(() => {
     obtenerConfiguracionOrtodoncia().then(setPrecios);
   }, []);
+
+  // Promoción: consulta totalmente bonificada hasta una fecha (Catálogo de Ortodoncia). Mientras dura, la consulta queda tildada como
+  // bonificada sola; si la secretaria la destilda a mano, no se vuelve a tildar.
+  const promoHasta = promoConsultaHasta(precios.promo_consulta_bonificada_hasta);
+  const hayPromoParaEsteCobro = concepto === "Consulta de ortodoncia" && consultaBonificadaEl(fecha, promoHasta);
+  const bonificadaTocada = useRef(false);
+  useEffect(() => {
+    if (hayPromoParaEsteCobro && !bonificadaTocada.current) {
+      setBonificada(true);
+      setPagoMixto(false);
+      setImporte(0);
+    }
+  }, [hayPromoParaEsteCobro]);
 
   const paciente = useMemo(() => pacientes.find((p) => p.id === pacienteId), [pacienteId, pacientes]);
   const estadoAumento = useMemo(
@@ -890,6 +904,7 @@ export default function CobroOrtodonciaFormModal({
                 className="mt-0.5"
                 checked={bonificada}
                 onChange={(e) => {
+                  bonificadaTocada.current = true;
                   setBonificada(e.target.checked);
                   if (e.target.checked) {
                     setPagoMixto(false);
@@ -899,6 +914,7 @@ export default function CobroOrtodonciaFormModal({
               />
               <span>
                 <strong>Consulta bonificada (gratis).</strong> Queda registrada en Caja con importe $0, así se cuenta como consulta realizada.
+                {hayPromoParaEsteCobro && <span className="mt-0.5 block font-semibold">🎁 Promoción vigente: las consultas están bonificadas hasta el {textoCortoDeFecha(promoHasta)}.</span>}
               </span>
             </label>
           )}

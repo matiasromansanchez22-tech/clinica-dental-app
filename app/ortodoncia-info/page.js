@@ -6,6 +6,7 @@ import GaleriaCasos from "@/components/publico/GaleriaCasos";
 import Revelar from "@/components/publico/Revelar";
 import SelectorTurno from "@/components/publico/SelectorTurno";
 import { pesosAR, registrarEscaneoPlan, urlWhatsApp, WHATSAPP_CLINICA_VISIBLE } from "@/lib/planReferidos";
+import { hoyEnArgentina, promoConsultaHasta, textoCortoDeFecha } from "@/lib/promoConsulta";
 
 // Página pública para pacientes (se abre con el QR o el link, sin iniciar sesión): cómo es el tratamiento de ortodoncia, turnos
 // disponibles para la primera consulta, casos reales, cuánto sale, preguntas frecuentes y un asistente que contesta dudas. Los valores
@@ -115,6 +116,18 @@ export default function OrtodonciaInfoPublica() {
     return () => window.removeEventListener("scroll", alBajar);
   }, []);
 
+  // Promoción: consulta de ortodoncia totalmente bonificada hasta una fecha (se carga en el Catálogo de Ortodoncia).
+  const promoHasta = promoConsultaHasta(v?.promo_consulta_bonificada_hasta);
+  const hayPromo = Boolean(promoHasta) && promoHasta >= hoyEnArgentina();
+  const preguntas = hayPromo
+    ? [
+        {
+          p: "¿Cuánto cuesta la primera consulta?",
+          r: `Por ahora está totalmente bonificada: sin ningún costo para los turnos hasta el ${textoCortoDeFecha(promoHasta)}. Elegí tu día y hora en la sección "Elegí tu turno".`,
+        },
+        ...PREGUNTAS,
+      ]
+    : PREGUNTAS;
   const hayPrecios = v && v.precio_instalacion_metalica_contado && v.precio_instalacion_porcelana_contado && v.cuota_control_metalico;
   const mesAnio = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" });
 
@@ -159,6 +172,15 @@ export default function OrtodonciaInfoPublica() {
               Ver valores
             </a>
           </div>
+          {hayPromo && (
+            <div className="mt-6 inline-flex items-center gap-3 rounded-2xl bg-brand-green px-5 py-3.5 text-brand-cream shadow-md">
+              <span className="text-3xl" aria-hidden="true">🎁</span>
+              <div>
+                <p className="font-heading text-xl font-extrabold leading-tight">Consulta totalmente bonificada</p>
+                <p className="text-sm text-brand-cream/90">Sin ningún costo, para turnos hasta el {textoCortoDeFecha(promoHasta)}</p>
+              </div>
+            </div>
+          )}
           <ul className="mt-8 flex flex-wrap gap-2.5">
             {["Valores a la vista", "Turnos online", "Asistente que responde todo el día"].map((t) => (
               <li key={t} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-brown shadow-sm ring-1 ring-brand-tan/70">
@@ -205,6 +227,14 @@ export default function OrtodonciaInfoPublica() {
         <Revelar>
           <h2 className="font-heading text-2xl font-extrabold text-brand-brown sm:text-3xl">Cuánto sale</h2>
         </Revelar>
+        {hayPromo && (
+          <Revelar>
+            <p className="mt-4 rounded-2xl bg-brand-mint/40 px-5 py-3 text-brand-green">
+              <strong className="font-heading text-lg">🎁 Primera consulta sin cargo</strong>
+              <span className="block text-sm">Totalmente bonificada para turnos hasta el {textoCortoDeFecha(promoHasta)}.</span>
+            </p>
+          </Revelar>
+        )}
         {hayPrecios ? (
           <>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -275,7 +305,7 @@ export default function OrtodonciaInfoPublica() {
           <h2 className="font-heading text-2xl font-extrabold text-brand-brown sm:text-3xl">Preguntas frecuentes</h2>
         </Revelar>
         <div className="mt-4 flex flex-col gap-2">
-          {PREGUNTAS.map((q) => (
+          {preguntas.map((q) => (
             <details key={q.p} className="group rounded-xl bg-white p-4 shadow-sm">
               <summary className="cursor-pointer list-none font-semibold text-brand-brown marker:hidden">
                 <span className="flex items-center justify-between gap-3">

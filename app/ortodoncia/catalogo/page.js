@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  actualizarConfiguracionOrtodoncia,
   actualizarConfiguracionOrtodonciaBulk,
   obtenerConfiguracionOrtodoncia,
 } from "@/lib/data/pacientesOrtodoncia";
+import { CLAVE_PROMO_CONSULTA, hoyEnArgentina, promoConsultaComoNumero, promoConsultaHasta, textoCortoDeFecha } from "@/lib/promoConsulta";
 
 const GRUPOS = [
   {
@@ -55,6 +57,71 @@ const GRUPOS = [
 ];
 
 const CAMPOS = GRUPOS.flatMap((g) => g.filas);
+
+// Promoción: consulta de ortodoncia totalmente bonificada hasta una fecha. Se muestra en la página pública, en lo que contesta el asistente,
+// en los pedidos de turno online y tilda sola la consulta bonificada al cobrar en Caja.
+function PromoConsulta({ config, onGuardado }) {
+  const actual = promoConsultaHasta(config[CLAVE_PROMO_CONSULTA]);
+  const [fecha, setFecha] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState(null);
+  const vigente = Boolean(actual) && actual >= hoyEnArgentina();
+
+  async function guardar(valor) {
+    setError(null);
+    setGuardando(true);
+    try {
+      await actualizarConfiguracionOrtodoncia(CLAVE_PROMO_CONSULTA, valor);
+      onGuardado(valor);
+      setFecha("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-lg border border-emerald-300">
+      <div className="bg-brand-green px-4 py-2.5 text-sm font-semibold text-white">🎁 Promoción: consulta bonificada</div>
+      <div className="space-y-3 px-4 py-3 text-sm text-gray-700">
+        <p>
+          {vigente ? (
+            <>La consulta de ortodoncia está <strong>totalmente bonificada hasta el {textoCortoDeFecha(actual)}</strong> (turnos de ese día inclusive).</>
+          ) : actual ? (
+            <>La última promoción terminó el {textoCortoDeFecha(actual)}. Hoy no hay ninguna vigente.</>
+          ) : (
+            <>Hoy no hay ninguna promoción vigente.</>
+          )}{" "}
+          Se ve en la página pública, el asistente la cuenta, los pedidos de turno online la mencionan y Caja tilda sola la consulta bonificada.
+        </p>
+        {error && <p className="rounded bg-red-50 px-2 py-1 text-red-800">{error}</p>}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-gray-600">
+            Bonificada hasta (inclusive)
+            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="mt-1 block rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
+          </label>
+          <button
+            disabled={!fecha || guardando}
+            onClick={() => guardar(promoConsultaComoNumero(fecha))}
+            className="rounded-md bg-brand-brown px-3 py-2 text-sm font-medium text-white hover:bg-brand-brown-dark disabled:opacity-50"
+          >
+            Cambiar la fecha
+          </button>
+          {vigente && (
+            <button
+              disabled={guardando}
+              onClick={() => window.confirm("¿Terminar la promoción hoy mismo? La consulta deja de figurar como bonificada.") && guardar(0)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Terminar la promoción
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function CatalogoOrtodonciaPage() {
   const [config, setConfig] = useState({});
@@ -148,6 +215,8 @@ export default function CatalogoOrtodonciaPage() {
               </div>
             </div>
           ))}
+
+          <PromoConsulta config={config} onGuardado={(valor) => setConfig((c) => ({ ...c, [CLAVE_PROMO_CONSULTA]: valor }))} />
 
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Todavía faltan cargar acá: <strong>Extracción de brackets (desinstalación)</strong> y{" "}

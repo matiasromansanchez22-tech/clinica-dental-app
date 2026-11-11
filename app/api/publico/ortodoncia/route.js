@@ -21,6 +21,7 @@ const CLAVES_PUBLICAS = [
   "fidelidad_visitas_descuento",
   "fidelidad_porcentaje_descuento",
   "fidelidad_visitas_control_gratis",
+  "promo_consulta_bonificada_hasta",
 ];
 
 export async function GET() {

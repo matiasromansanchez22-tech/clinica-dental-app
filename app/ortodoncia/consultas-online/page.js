@@ -14,7 +14,9 @@ import {
   obtenerHorariosPublicos,
   obtenerPedidosDeTurno,
   obtenerPreguntasAlAsistente,
+  obtenerPromoConsultaHasta,
 } from "@/lib/data/consultasOnline";
+import { consultaBonificadaEl } from "@/lib/promoConsulta";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
 import { URL_ORTODONCIA_INFO } from "@/lib/planReferidos";
 
@@ -34,11 +36,12 @@ function hace(creadoEn) {
 
 const linkWhatsApp = (numero, mensaje) => `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
 
-function Pedido({ p, onCambio, onError }) {
+function Pedido({ p, onCambio, onError, promoHasta }) {
   const [trabajando, setTrabajando] = useState(false);
   const hoy = fechaDeHoyISO();
   const primerNombre = p.nombre.split(" ")[0];
   const pendiente = p.estado === "Pendiente";
+  const bonificada = consultaBonificadaEl(p.fecha, promoHasta);
 
   async function accion(fn) {
     setTrabajando(true);
@@ -53,7 +56,7 @@ function Pedido({ p, onCambio, onError }) {
     }
   }
 
-  const mensajeConfirmar = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez. Recibimos tu pedido de turno para la consulta de ortodoncia el ${textoFecha(p.fecha)} a las ${p.hora}. ¿Lo confirmamos?`;
+  const mensajeConfirmar = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez. Recibimos tu pedido de turno para la consulta de ortodoncia el ${textoFecha(p.fecha)} a las ${p.hora}.${bonificada ? " Te recordamos que la consulta es totalmente bonificada 🎁." : ""} ¿Lo confirmamos?`;
   const mensajeOtro = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez por tu pedido de consulta de ortodoncia. Ese horario ya no lo tenemos disponible, ¿qué otros días y horarios te quedan bien así lo coordinamos?`;
 
   const colores = { Pendiente: "bg-amber-100 text-amber-900", Agendada: "bg-emerald-100 text-emerald-900", Rechazada: "bg-gray-200 text-gray-700", Cancelada: "bg-gray-200 text-gray-700" };
@@ -71,6 +74,7 @@ function Pedido({ p, onCambio, onError }) {
             WhatsApp {p.whatsapp.replace(/^549/, "")} · pedido {hace(p.created_at)}
             {p.lugar ? ` · vino de: ${p.lugar}` : ""}
           </p>
+          {bonificada && <p className="mt-1 text-xs font-semibold text-emerald-700">🎁 Consulta bonificada (promoción): se cobra $0.</p>}
           {p.nota && <p className="mt-1 text-xs text-gray-600">Nota: {p.nota}</p>}
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${colores[p.estado]}`}>{p.estado}</span>
@@ -115,6 +119,13 @@ function Pedido({ p, onCambio, onError }) {
 function PanelPedidos() {
   const [pedidos, setPedidos] = useState(null);
   const [error, setError] = useState(null);
+  const [promoHasta, setPromoHasta] = useState(null);
+
+  useEffect(() => {
+    obtenerPromoConsultaHasta()
+      .then(setPromoHasta)
+      .catch(() => {});
+  }, []);
 
   const cargar = useCallback(async () => {
     try {
@@ -149,7 +160,7 @@ function PanelPedidos() {
       ) : (
         <ul className="mt-2 flex flex-col gap-3">
           {pendientes.map((p) => (
-            <Pedido key={p.id} p={p} onCambio={cargar} onError={setError} />
+            <Pedido key={p.id} p={p} onCambio={cargar} onError={setError} promoHasta={promoHasta} />
           ))}
         </ul>
       )}
@@ -158,7 +169,7 @@ function PanelPedidos() {
           <h2 className="mt-6 text-sm font-bold uppercase tracking-wide text-gray-600">Ya gestionados</h2>
           <ul className="mt-2 flex flex-col gap-3">
             {historial.map((p) => (
-              <Pedido key={p.id} p={p} onCambio={cargar} onError={setError} />
+              <Pedido key={p.id} p={p} onCambio={cargar} onError={setError} promoHasta={promoHasta} />
             ))}
           </ul>
         </>
