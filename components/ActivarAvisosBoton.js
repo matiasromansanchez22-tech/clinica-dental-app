@@ -20,7 +20,8 @@ export default function ActivarAvisosBoton() {
   const [procesando, setProcesando] = useState(false);
 
   const esContador = perfil?.rol === "Contador";
-  const puedeActivar = perfil?.rol === "Duena" || perfil?.rol === "Secretaria" || esContador;
+  // Los odontólogos también: les llega el recordatorio de pacientes sin cargar en la Agenda.
+  const puedeActivar = perfil?.rol === "Duena" || perfil?.rol === "Secretaria" || perfil?.rol === "Odontologo" || esContador;
 
   useEffect(() => {
     if (!puedeActivar) return;
@@ -81,7 +82,11 @@ export default function ActivarAvisosBoton() {
       onClick={activado ? desactivar : activar}
       disabled={procesando}
       title={
-        esContador
+        perfil?.rol === "Odontologo"
+          ? activado
+            ? "Vas a recibir acá el recordatorio de los pacientes que te faltan cargar"
+            : "Recibí en este dispositivo el recordatorio de los pacientes que te faltan cargar"
+          : esContador
           ? activado
             ? "Vas a recibir acá el resumen del cierre de cada día"
             : "Recibí en este dispositivo el resumen del cierre de cada día"

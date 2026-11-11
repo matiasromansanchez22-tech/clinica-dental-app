@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import AvisoTurnosSinCargar from "@/components/AvisoTurnosSinCargar";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { obtenerActividadDelDia } from "@/lib/data/estadisticas";
 import { obtenerTurnosSinCerrarHoy } from "@/lib/data/cierres";
@@ -45,6 +46,7 @@ const ACCESOS_POR_ROL = {
   ],
   Odontologo: [
     { href: "/agenda", icon: "📅", label: "Agenda General" },
+    { href: "/pendientes-de-registro", icon: "📝", label: "Pendientes de registro" },
     { href: "/pacientes", icon: "🧑‍⚕️", label: "Pacientes General" },
     { href: "/ortodoncia/pacientes", icon: "🦷", label: "Pacientes Ortodoncia" },
     { href: "/presupuestos", icon: "📋", label: "Presupuestos" },
@@ -171,6 +173,8 @@ export default function Home() {
           {nombre ? `Hola, ${nombre} 👋` : "Clínica Dental Marianela Ramírez"}
         </h1>
       </div>
+
+      {(perfil?.rol === "Odontologo" || perfil?.rol === "Duena") && <AvisoTurnosSinCargar />}
 
       <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {accesos.map((a) => (

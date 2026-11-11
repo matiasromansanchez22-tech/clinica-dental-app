@@ -10,6 +10,8 @@ import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
 import { obtenerPrestacionesParticular } from "@/lib/data/caja";
 import { obtenerPendientesDeRegistro } from "@/lib/data/pendientesRegistro";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
+import { supabase } from "@/lib/supabaseClient";
+import { calcularCumplimientoRegistro, horaYFechaEnArgentina } from "@/lib/pendientesPorProfesional";
 
 const DIAS_SEMANA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
@@ -46,8 +48,20 @@ function PaginaPendientes() {
     if (perfil) obtenerVisitasPorCompletarOrtodoncia(propioId).then(setPorCompletar);
   }, [perfil, propioId]);
 
+  // Cumplimiento por profesional (cuántos de los turnos que vinieron ya tienen cargado qué se hizo): solo lo ve la Dueña.
+  const [cumplimiento, setCumplimiento] = useState(null);
+  async function recargarCumplimiento() {
+    const { ahora } = horaYFechaEnArgentina();
+    setCumplimiento(await calcularCumplimientoRegistro(supabase, { desde: sumarDias(hoy, -dias), hasta: hoy, hoy, ahora }));
+  }
+  useEffect(() => {
+    if (esDuena) recargarCumplimiento().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esDuena, dias]);
+
   async function recargar() {
     setPendientes(await obtenerPendientesDeRegistro(sumarDias(hoy, -dias), hoy));
+    if (esDuena) recargarCumplimiento().catch(() => {});
   }
 
   useEffect(() => {
@@ -76,12 +90,6 @@ function PaginaPendientes() {
         .sort((a, b) => (a.fecha === b.fecha ? a.horaInicio.localeCompare(b.horaInicio) : b.fecha.localeCompare(a.fecha))),
     [pendientes, propioId, profesionalElegido]
   );
-
-  const porProfesional = useMemo(() => {
-    const mapa = {};
-    for (const t of pendientes) mapa[t.profesionalDeTurno] = (mapa[t.profesionalDeTurno] || 0) + 1;
-    return Object.entries(mapa).sort((a, b) => b[1] - a[1]);
-  }, [pendientes]);
 
   const profesionalesConPendientes = useMemo(() => {
     const mapa = new Map();
@@ -127,13 +135,51 @@ function PaginaPendientes() {
         )}
       </div>
 
-      {esDuena && !cargando && porProfesional.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2 text-sm">
-          {porProfesional.map(([nombre, cantidad]) => (
-            <span key={nombre} className="rounded-md bg-amber-50 px-3 py-1.5 font-medium text-amber-800">
-              {nombre}: {cantidad}
+      {esDuena && cumplimiento && cumplimiento.vinieron > 0 && (
+        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-sm font-bold text-gray-900">
+            Cumplimiento de la carga · últimos {dias} días:{" "}
+            <span className={cumplimiento.porcentaje >= 90 ? "text-emerald-700" : cumplimiento.porcentaje >= 60 ? "text-amber-700" : "text-red-700"}>
+              {cumplimiento.porcentaje}% cargado
+            </span>{" "}
+            <span className="font-normal text-gray-500">
+              ({cumplimiento.cargados} de {cumplimiento.vinieron} turnos)
             </span>
-          ))}
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[460px] border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="py-1 pr-3 font-semibold">Profesional</th>
+                  <th className="px-3 py-1 text-right font-semibold">Vinieron</th>
+                  <th className="px-3 py-1 text-right font-semibold">Cargados</th>
+                  <th className="px-3 py-1 text-right font-semibold">Sin cargar</th>
+                  <th className="py-1 pl-3 font-semibold">Cumplimiento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cumplimiento.porProfesional.map((p) => (
+                  <tr key={p.id} className="border-t border-gray-100">
+                    <td className="py-1.5 pr-3 font-medium text-gray-900">{p.nombre}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">{p.vinieron}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">{p.cargados}</td>
+                    <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${p.sinCargar > 0 ? "text-red-700" : "text-gray-400"}`}>{p.sinCargar}</td>
+                    <td className="py-1.5 pl-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-28 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={`h-full ${p.porcentaje >= 90 ? "bg-emerald-500" : p.porcentaje >= 60 ? "bg-amber-500" : "bg-red-500"}`}
+                            style={{ width: `${p.porcentaje}%` }}
+                          />
+                        </div>
+                        <span className="text-xs tabular-nums text-gray-600">{p.porcentaje}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

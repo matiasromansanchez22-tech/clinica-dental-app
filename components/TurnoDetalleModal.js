@@ -7,6 +7,8 @@ import { obtenerCatalogo } from "@/lib/data/catalogo";
 import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import { obtenerHistorialTurnosGeneral } from "@/lib/data/pacientes";
 import { actualizarEstadoTurnoGeneral, obtenerTurnosGeneralPorFecha } from "@/lib/data/turnosGeneral";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { turnoTienePrestacionesCargadas } from "@/lib/data/prestacionesRealizadas";
 import QueSeHizoHoyGeneral from "@/components/QueSeHizoHoyGeneral";
 import HistorialClinicoGeneral from "@/components/HistorialClinicoGeneral";
 import PlanTratamiento from "@/components/PlanTratamiento";
@@ -33,6 +35,7 @@ function BotonAccion({ activo, children, ...props }) {
 }
 
 export default function TurnoDetalleModal({ turno, fecha, profesionales = [], catalogoParticular = [], onClose, onCambiado }) {
+  const { perfil } = useAuth();
   const [turnoActual, setTurnoActual] = useState(turno);
   const [guardando, setGuardando] = useState(null); // qué acción se está guardando
   const [error, setError] = useState(null);
@@ -502,11 +505,30 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
               <BotonAccion
                 activo={turnoActual.presencia === "Finalizado"}
                 disabled={guardando !== null}
-                onClick={() =>
+                onClick={async () => {
+                  // No se puede finalizar un turno sin haber cargado "qué se hizo" (la Dueña puede hacerlo igual, confirmando).
+                  if (turnoActual.presencia !== "Finalizado" && turnoActual.pacienteId) {
+                    setError(null);
+                    let cargado = true;
+                    try {
+                      cargado = await turnoTienePrestacionesCargadas(turnoActual.id);
+                    } catch {
+                      cargado = true; // si no se puede comprobar, no se frena al usuario
+                    }
+                    if (!cargado) {
+                      if (perfil?.rol !== "Duena") {
+                        setError(
+                          "Para finalizar el turno primero cargá “Qué se hizo hoy” (más abajo en esta ventana). Así queda registrado y se puede cobrar y liquidar bien."
+                        );
+                        return;
+                      }
+                      if (!window.confirm("Este turno no tiene cargado qué se hizo. ¿Finalizarlo igual?")) return;
+                    }
+                  }
                   aplicarCambio("finalizado", {
                     presencia: turnoActual.presencia === "Finalizado" ? "Pendiente" : "Finalizado",
-                  })
-                }
+                  });
+                }}
               >
                 {guardando === "finalizado" ? "Guardando..." : "✅ Finalizó el turno"}
               </BotonAccion>
