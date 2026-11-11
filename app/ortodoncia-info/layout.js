@@ -16,8 +16,8 @@ export const metadata = {
     description: DESCRIPCION,
     images: [
       {
-        url: "/brand/og-ortodoncia-3.jpg",
-        secureUrl: "https://clinica-dental-app-gamma.vercel.app/brand/og-ortodoncia-3.jpg",
+        url: "/brand/og-ortodoncia-4.jpg",
+        secureUrl: "https://clinica-dental-app-gamma.vercel.app/brand/og-ortodoncia-4.jpg",
         type: "image/jpeg",
         width: 1200,
         height: 630,
@@ -29,7 +29,7 @@ export const metadata = {
     card: "summary_large_image",
     title: TITULO,
     description: DESCRIPCION,
-    images: ["/brand/og-ortodoncia-3.jpg"],
+    images: ["/brand/og-ortodoncia-4.jpg"],
   },
 };
 
