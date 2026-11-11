@@ -7,10 +7,12 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import { fechaHoraArgentina } from "@/lib/data/historialPagos";
 import { obtenerBalanceMensual } from "@/lib/data/balance";
 import {
+  ajustarMediosPorTransferencias,
   crearSaldoReal,
   crearTransferenciaEntreCuentas,
   eliminarMovimientoCuenta,
   estimarSaldos,
+  MEDIOS_DE_ORIGEN,
   obtenerCuentas,
   obtenerMovimientosCuentas,
 } from "@/lib/data/cuentasDinero";
@@ -116,6 +118,8 @@ function TransferenciaModal({ cuentas, fechaInicial, onClose, onGuardado }) {
   const [monto, setMonto] = useState("");
   const [fecha, setFecha] = useState(fechaInicial);
   const [observaciones, setObservaciones] = useState("");
+  const [eraDeTarjeta, setEraDeTarjeta] = useState(false);
+  const [medioOrigen, setMedioOrigen] = useState(MEDIOS_DE_ORIGEN[0]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -127,7 +131,7 @@ function TransferenciaModal({ cuentas, fechaInicial, onClose, onGuardado }) {
     setGuardando(true);
     setError(null);
     try {
-      await crearTransferenciaEntreCuentas({ fecha, cuentaId: origen, cuentaDestinoId: destino, monto, observaciones });
+      await crearTransferenciaEntreCuentas({ fecha, cuentaId: origen, cuentaDestinoId: destino, monto, observaciones, medioOrigen: eraDeTarjeta ? medioOrigen : null });
       onGuardado();
     } catch (e) {
       setError(e.message);
@@ -171,6 +175,20 @@ function TransferenciaModal({ cuentas, fechaInicial, onClose, onGuardado }) {
       <label className="mt-3 flex flex-col gap-1 text-xs text-gray-700">
         Observaciones (opcional)
         <input value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className={CLASE_CAMPO} />
+      </label>
+      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-md border border-brand-tan bg-brand-cream/50 px-3 py-2 text-xs text-gray-700">
+        <input type="checkbox" checked={eraDeTarjeta} onChange={(e) => setEraDeTarjeta(e.target.checked)} className="mt-0.5" />
+        <span>
+          Esta plata era de cobros que figuran como <strong>Débito, Crédito</strong> u otro medio. En el control contra el Balance Mensual pasa a figurar como{" "}
+          <strong>Transferencia</strong>.
+          {eraDeTarjeta && (
+            <select value={medioOrigen} onChange={(e) => setMedioOrigen(e.target.value)} className="mt-2 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+              {MEDIOS_DE_ORIGEN.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          )}
+        </span>
       </label>
       <p className="mt-3 text-[11px] text-gray-500">Es plata propia que cambia de cuenta: no suma ni resta en ningún balance.</p>
     </ModalBase>
@@ -259,8 +277,10 @@ function CuentasContenido() {
   const hasta0 = estimarSaldos(cuentas, movimientos, hoy);
   const alCorte = estimarSaldos(cuentas, movimientos, corte);
   const nombre = (id) => cuentas.find((c) => c.id === id)?.nombre || "—";
-  const mediosSinEfectivo = (balance?.netoPorMedioPago || []).filter((f) => f.clave !== "Efectivo");
-  const netoSinEfectivo = mediosSinEfectivo.reduce((a, f) => a + f.monto, 0);
+  const mediosSinEfectivoCrudos = (balance?.netoPorMedioPago || []).filter((f) => f.clave !== "Efectivo");
+  // La plata que venía de Débito/Crédito y se pasó a otra cuenta figura como Transferencia (el total no cambia).
+  const { filas: mediosSinEfectivo, movido: mediosMovidos } = ajustarMediosPorTransferencias(mediosSinEfectivoCrudos, movimientos, desde, hasta);
+  const netoSinEfectivo = mediosSinEfectivoCrudos.reduce((a, f) => a + f.monto, 0);
   const diferencia = alCorte.total - netoSinEfectivo;
   const hayAlgunSaldo = alCorte.filas.some((f) => f.ultimoSaldoReal);
 
@@ -335,6 +355,11 @@ function CuentasContenido() {
                         ? "No hay movimientos por transferencia o tarjeta este mes."
                         : mediosSinEfectivo.map((f) => `${f.clave} ${formatoPesos(f.monto)}`).join(" · ")}
                     </span>
+                    {mediosMovidos.length > 0 && (
+                      <span className="block text-xs text-brand-green">
+                        Ya pasado a otra cuenta, cuenta como transferencia: {mediosMovidos.map((x) => `${formatoPesos(x.monto)} que venían de ${x.medio}`).join(" · ")}.
+                      </span>
+                    )}
                   </dt>
                   <dd className="font-semibold tabular-nums text-gray-900">{formatoPesos(netoSinEfectivo)}</dd>
                 </div>
@@ -392,6 +417,7 @@ function CuentasContenido() {
                       <td className="whitespace-nowrap px-3 py-2 tabular-nums text-gray-800">{formatoFecha(m.fecha)}</td>
                       <td className="px-3 py-2 text-gray-900">
                         {m.tipo === "Saldo real" ? `Saldo real de ${nombre(m.cuentaId)}` : `${nombre(m.cuentaId)} → ${nombre(m.cuentaDestinoId)}`}
+                        {m.medioOrigen && <span className="block text-[11px] font-medium text-brand-green">Era plata de {m.medioOrigen}: cuenta como transferencia en el control.</span>}
                         {m.observaciones && <span className="block text-[11px] text-gray-500">{m.observaciones}</span>}
                         <span className="block text-[11px] text-gray-400">
                           Cargado {fechaHoraArgentina(m.registradoEn)}
