@@ -14,14 +14,22 @@ export const metadata = {
     siteName: "Clínica Dental Marianela Ramírez",
     title: TITULO,
     description: DESCRIPCION,
-    url: "/ortodoncia-info",
-    images: [{ url: "/brand/og-ortodoncia-2.png", width: 1200, height: 630, alt: "Ortodoncia · Clínica Dental Marianela Ramírez" }],
+    images: [
+      {
+        url: "/brand/og-ortodoncia-3.jpg",
+        secureUrl: "https://clinica-dental-app-gamma.vercel.app/brand/og-ortodoncia-3.jpg",
+        type: "image/jpeg",
+        width: 1200,
+        height: 630,
+        alt: "Ortodoncia · Clínica Dental Marianela Ramírez",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: TITULO,
     description: DESCRIPCION,
-    images: ["/brand/og-ortodoncia-2.png"],
+    images: ["/brand/og-ortodoncia-3.jpg"],
   },
 };
 
