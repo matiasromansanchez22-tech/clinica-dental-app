@@ -66,6 +66,7 @@ function Fotos({ caso, onAbrir }) {
   const [indice, setIndice] = useState(0);
   const diapositivas = [
     { src: caso.antes, etiqueta: "Antes" },
+    ...(caso.intermedia ? [{ src: caso.intermedia, etiqueta: caso.etiquetaIntermedia }] : []),
     { src: caso.despues, etiqueta: caso.etiquetaDespues },
   ];
 
@@ -122,8 +123,8 @@ function Fotos({ caso, onAbrir }) {
 
 function Posteo({ caso, onAbrir }) {
   const [comparar, setComparar] = useState(false);
-  // Si la segunda foto no es "Después" (el resultado final), el tratamiento todavía sigue.
-  const enCurso = caso.etiquetaDespues && caso.etiquetaDespues !== "Después";
+  // Si el rótulo de la última foto no es "Después" ni "Resultado ...", el tratamiento todavía sigue.
+  const enCurso = !/^(despu[eé]s|resultado)/i.test(caso.etiquetaDespues || "Después");
   return (
     <article className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-brand-tan/70">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
@@ -142,7 +143,7 @@ function Posteo({ caso, onAbrir }) {
       {comparar ? <Comparador antes={caso.antes} despues={caso.despues} titulo={caso.titulo} etiquetaDespues={caso.etiquetaDespues} /> : <Fotos caso={caso} onAbrir={onAbrir} />}
 
       <div className="flex items-center justify-between gap-3 px-4 pt-3">
-        <p className="text-xs text-brand-charcoal/60">{comparar ? "Deslizá sobre la foto para comparar" : "Deslizá para ver cada foto · tocá para agrandar"}</p>
+        <p className="text-xs text-brand-charcoal/60">{comparar ? "Deslizá sobre la foto para comparar el antes y el final" : "Deslizá para ver cada foto · tocá para agrandar"}</p>
         <button
           onClick={() => setComparar((v) => !v)}
           className="shrink-0 rounded-full border-2 border-brand-green px-4 py-1.5 text-sm font-bold text-brand-green hover:bg-brand-green hover:text-brand-cream"

@@ -19,8 +19,11 @@ export async function GET() {
         .order("orden", { ascending: true })
         .order("created_at", { ascending: false })
         .limit(30);
-    let { data, error } = await pedir("id, titulo, descripcion, tratamiento, duracion_meses, foto_antes, foto_despues, etiqueta_despues");
-    if (error) ({ data, error } = await pedir("id, titulo, descripcion, tratamiento, duracion_meses, foto_antes, foto_despues"));
+    // La foto del medio la agrega la migración 201 y el rótulo, la 200: se prueba con todo y se va bajando si todavía faltan columnas.
+    const base = "id, titulo, descripcion, tratamiento, duracion_meses, foto_antes, foto_despues";
+    let { data, error } = await pedir(base + ", etiqueta_despues, foto_intermedia, etiqueta_intermedia");
+    if (error) ({ data, error } = await pedir(base + ", etiqueta_despues"));
+    if (error) ({ data, error } = await pedir(base));
     if (error) return Response.json({ ok: true, casos: [] });
     const url = (ruta) => supabase.storage.from("galeria").getPublicUrl(ruta).data.publicUrl;
     const casos = data.map((c) => ({
@@ -30,6 +33,8 @@ export async function GET() {
       tratamiento: c.tratamiento,
       duracionMeses: c.duracion_meses,
       etiquetaDespues: c.etiqueta_despues || "Después",
+      intermedia: c.foto_intermedia ? url(c.foto_intermedia) : null,
+      etiquetaIntermedia: c.etiqueta_intermedia || "Durante el tratamiento",
       antes: url(c.foto_antes),
       despues: url(c.foto_despues),
     }));

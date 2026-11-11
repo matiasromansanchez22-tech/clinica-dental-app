@@ -6,8 +6,8 @@ import { actualizarCaso, crearCaso, eliminarCaso, obtenerCasos, urlPublicaFoto }
 import { URL_ORTODONCIA_INFO } from "@/lib/planReferidos";
 
 const TRATAMIENTOS = ["Brackets metálicos", "Brackets de porcelana", "Ortodoncia", "Ortopedia"];
-const ETIQUETAS_FOTO_FINAL = ["Después", "Durante el tratamiento"];
-const VACIO = { titulo: "", tratamiento: "Brackets metálicos", duracionMeses: "", descripcion: "", consentimiento: false, publicar: true, etiquetaDespues: "Después" };
+const ETIQUETAS_FOTO_FINAL = ["Después", "Resultado final", "Hoy, con el tratamiento", "Durante el tratamiento"];
+const VACIO = { titulo: "", tratamiento: "Brackets metálicos", duracionMeses: "", descripcion: "", consentimiento: false, publicar: true, etiquetaDespues: "Después", etiquetaIntermedia: "Con brackets" };
 
 function SelectorFoto({ etiqueta, archivo, onElegir }) {
   const [vista, setVista] = useState(null);
@@ -37,6 +37,7 @@ function Contenido() {
   const [form, setForm] = useState(VACIO);
   const [antes, setAntes] = useState(null);
   const [despues, setDespues] = useState(null);
+  const [intermedia, setIntermedia] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -57,10 +58,11 @@ function Contenido() {
     if (!antes || !despues) return setError("Elegí las dos fotos: la del antes y la del después.");
     setSubiendo(true);
     try {
-      await crearCaso({ ...form, fotoAntes: antes, fotoDespues: despues });
+      await crearCaso({ ...form, fotoAntes: antes, fotoDespues: despues, fotoIntermedia: intermedia });
       setForm(VACIO);
       setAntes(null);
       setDespues(null);
+      setIntermedia(null);
       await cargar();
     } catch (err) {
       setError(err.message);
@@ -120,6 +122,15 @@ function Contenido() {
           <SelectorFoto etiqueta="Foto del ANTES" archivo={antes} onElegir={setAntes} />
           <SelectorFoto etiqueta="Foto del DESPUÉS" archivo={despues} onElegir={setDespues} />
         </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <SelectorFoto etiqueta="Foto del MEDIO (opcional)" archivo={intermedia} onElegir={setIntermedia} />
+          {intermedia && (
+            <label className="self-end text-xs text-gray-600">
+              La foto del medio dice
+              <input value={form.etiquetaIntermedia} onChange={(e) => setForm({ ...form, etiquetaIntermedia: e.target.value })} maxLength={40} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
+            </label>
+          )}
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className="text-xs text-gray-600 sm:col-span-3">
             Título (sin nombre del paciente)
@@ -169,9 +180,13 @@ function Contenido() {
       <ul className="mt-2 grid gap-4 sm:grid-cols-2">
         {(casos || []).map((c) => (
           <li key={c.id} className="rounded-xl border border-gray-200 bg-white p-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${c.foto_intermedia ? "grid-cols-3" : "grid-cols-2"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={urlPublicaFoto(c.foto_antes)} alt="Antes" className="h-32 w-full rounded-lg object-cover" />
+              {c.foto_intermedia && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={urlPublicaFoto(c.foto_intermedia)} alt="Del medio" className="h-32 w-full rounded-lg object-cover" />
+              )}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={urlPublicaFoto(c.foto_despues)} alt="Después" className="h-32 w-full rounded-lg object-cover" />
             </div>
