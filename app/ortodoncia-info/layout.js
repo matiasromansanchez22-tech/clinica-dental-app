@@ -15,13 +15,13 @@ export const metadata = {
     title: TITULO,
     description: DESCRIPCION,
     url: "/ortodoncia-info",
-    images: [{ url: "/brand/og-ortodoncia.png", width: 1200, height: 630, alt: "Ortodoncia · Clínica Dental Marianela Ramírez" }],
+    images: [{ url: "/brand/og-ortodoncia-2.png", width: 1200, height: 630, alt: "Ortodoncia · Clínica Dental Marianela Ramírez" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITULO,
     description: DESCRIPCION,
-    images: ["/brand/og-ortodoncia.png"],
+    images: ["/brand/og-ortodoncia-2.png"],
   },
 };
 
