@@ -14,6 +14,15 @@ function partesDeFecha(fechaISO) {
   return { dia: DIAS[f.getDay()], largo: DIAS_LARGOS[f.getDay()], numero: d, mes: MESES[m - 1], mesNumero: m };
 }
 
+// Franjas del día para elegir la preferencia: mañana (hasta las 12:30) o tarde (desde las 13:00).
+const LIMITE_TARDE = "13:00";
+const FRANJAS = [
+  { clave: "manana", texto: "Mañana", detalle: "hasta las 12:30" },
+  { clave: "tarde", texto: "Tarde", detalle: "desde las 13:00" },
+  { clave: "todas", texto: "Me da igual", detalle: "todos los horarios" },
+];
+const enFranja = (hora, franja) => franja === "todas" || (franja === "manana" ? hora < LIMITE_TARDE : hora >= LIMITE_TARDE);
+
 const campo = "w-full rounded-xl border-2 border-brand-tan bg-white px-4 py-3 text-base text-brand-charcoal outline-none focus:border-brand-brown";
 
 // "Elegí tu turno": muestra los días y horarios libres para una primera consulta, y deja pedir uno con nombre y WhatsApp. El pedido
@@ -21,6 +30,7 @@ const campo = "w-full rounded-xl border-2 border-brand-tan bg-white px-4 py-3 te
 export default function SelectorTurno({ lugar }) {
   const [estado, setEstado] = useState("cargando"); // cargando | listo | sin-horarios | error
   const [dias, setDias] = useState([]);
+  const [franja, setFranja] = useState("todas"); // preferencia: manana | tarde | todas
   const [fechaElegida, setFechaElegida] = useState(null);
   const [horaElegida, setHoraElegida] = useState(null);
   const [nombre, setNombre] = useState("");
@@ -49,7 +59,12 @@ export default function SelectorTurno({ lugar }) {
     cargar();
   }, []);
 
-  const diaActual = dias.find((d) => d.fecha === fechaElegida);
+  // Según la preferencia, solo quedan los días con horarios en esa franja y, en cada día, solo esas horas.
+  const diasDeLaFranja = dias.map((d) => ({ ...d, horas: d.horas.filter((h) => enFranja(h, franja)) })).filter((d) => d.horas.length > 0);
+  const cuantosDias = (f) => dias.filter((d) => d.horas.some((h) => enFranja(h, f))).length;
+  const diaActual = diasDeLaFranja.find((d) => d.fecha === fechaElegida) || diasDeLaFranja[0] || null;
+  const fechaActiva = diaActual?.fecha || null;
+  const horaActiva = diaActual?.horas.includes(horaElegida) ? horaElegida : null;
 
   async function pedir(e) {
     e.preventDefault();
@@ -59,10 +74,10 @@ export default function SelectorTurno({ lugar }) {
       const r = await fetch("/api/publico/solicitar-turno", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, whatsapp, fecha: fechaElegida, hora: horaElegida, acepta, lugar, sitioWeb: trampa }),
+        body: JSON.stringify({ nombre, whatsapp, fecha: fechaActiva, hora: horaActiva, acepta, lugar, sitioWeb: trampa }),
       }).then((x) => x.json());
       if (r.ok) {
-        setHecho({ texto: r.texto, nombre: nombre.trim(), bonificada: consultaBonificadaEl(fechaElegida, bonificadaHasta) });
+        setHecho({ texto: r.texto, nombre: nombre.trim(), bonificada: consultaBonificadaEl(fechaActiva, bonificadaHasta) });
       } else {
         setError(r.error || "No pudimos registrar tu pedido.");
         // Si el horario se ocupó mientras elegía, se actualiza la lista para que elija otro.
@@ -107,12 +122,41 @@ export default function SelectorTurno({ lugar }) {
 
       {estado === "listo" && !hecho && (
         <>
-          <p className="mt-1 text-sm text-brand-charcoal/75">Elegí el día y la hora que mejor te queden. Después te escribimos por WhatsApp para confirmarlo.</p>
+          <p className="mt-1 text-sm text-brand-charcoal/75">Contanos si preferís la mañana o la tarde y elegí día y hora. Después te escribimos por WhatsApp para confirmarlo.</p>
 
-          <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2" role="listbox" aria-label="Días disponibles">
-            {dias.map((d) => {
+          <p className="mt-4 text-sm font-semibold text-brand-brown">¿Cuándo te queda mejor?</p>
+          <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Preferencia de horario">
+            {FRANJAS.map((f) => {
+              const cantidad = cuantosDias(f.clave);
+              const activa = franja === f.clave;
+              return (
+                <button
+                  key={f.clave}
+                  type="button"
+                  role="radio"
+                  aria-checked={activa}
+                  disabled={cantidad === 0}
+                  onClick={() => {
+                    setFranja(f.clave);
+                    setHoraElegida(null);
+                  }}
+                  className={`flex flex-col items-center rounded-2xl border-2 px-2 py-2.5 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    activa ? "border-brand-green bg-brand-green text-brand-cream" : "border-brand-tan bg-white text-brand-brown hover:border-brand-green"
+                  }`}
+                >
+                  <span className="text-base font-extrabold leading-tight">{f.texto}</span>
+                  <span className="text-[11px] leading-tight opacity-80">{f.detalle}</span>
+                  <span className="mt-0.5 text-[11px] font-semibold">{cantidad === 0 ? "sin lugar" : `${cantidad} día${cantidad === 1 ? "" : "s"}`}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-4 text-sm font-semibold text-brand-brown">Elegí el día</p>
+          <div className="-mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-2" role="listbox" aria-label="Días disponibles">
+            {diasDeLaFranja.map((d) => {
               const p = partesDeFecha(d.fecha);
-              const activo = d.fecha === fechaElegida;
+              const activo = d.fecha === fechaActiva;
               return (
                 <button
                   key={d.fecha}
@@ -148,7 +192,7 @@ export default function SelectorTurno({ lugar }) {
                     type="button"
                     onClick={() => setHoraElegida(h)}
                     className={`rounded-xl border-2 py-2.5 text-base font-bold tabular-nums transition-colors ${
-                      h === horaElegida ? "border-brand-green bg-brand-green text-brand-cream" : "border-brand-tan bg-white text-brand-charcoal hover:border-brand-green"
+                      h === horaActiva ? "border-brand-green bg-brand-green text-brand-cream" : "border-brand-tan bg-white text-brand-charcoal hover:border-brand-green"
                     }`}
                   >
                     {h}
@@ -158,14 +202,14 @@ export default function SelectorTurno({ lugar }) {
             </div>
           )}
 
-          {horaElegida && (
+          {horaActiva && (
             <form onSubmit={pedir} className="mt-5 rounded-2xl bg-brand-cream p-4 ring-1 ring-brand-tan/70">
               <p className="font-semibold text-brand-brown">
-                Tu turno: {partesDeFecha(fechaElegida).largo} {partesDeFecha(fechaElegida).numero}/{String(partesDeFecha(fechaElegida).mesNumero).padStart(2, "0")} a las {horaElegida}
+                Tu turno: {partesDeFecha(fechaActiva).largo} {partesDeFecha(fechaActiva).numero}/{String(partesDeFecha(fechaActiva).mesNumero).padStart(2, "0")} a las {horaActiva}
               </p>
               {bonificadaHasta && (
                 <p className="mt-1 text-sm font-semibold text-brand-green">
-                  {consultaBonificadaEl(fechaElegida, bonificadaHasta)
+                  {consultaBonificadaEl(fechaActiva, bonificadaHasta)
                     ? "🎁 Tu consulta es totalmente bonificada: sin ningún costo."
                     : `Este día queda fuera de la consulta sin cargo (vale hasta el ${textoCortoDeFecha(bonificadaHasta)}). El valor te lo confirmamos por WhatsApp.`}
                 </p>
