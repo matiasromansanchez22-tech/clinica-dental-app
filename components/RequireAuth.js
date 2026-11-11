@@ -3,13 +3,14 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { esRutaPublica } from "@/lib/rutasPublicas";
 
 export default function RequireAuth({ children }) {
   const { user, perfil, cargando, perfilCargando, cerrarSesion } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  // El login y las páginas públicas del plan de referidos no piden iniciar sesión.
-  const esLogin = pathname === "/login" || pathname === "/referidos" || pathname === "/referidos/cartel";
+  // El login y las páginas públicas para pacientes no piden iniciar sesión (ver lib/rutasPublicas.js).
+  const esLogin = esRutaPublica(pathname);
 
   // La Asistente solo puede estar en Inicio, Mi horario y Cambiar contraseña:
   // si entra a cualquier otra dirección, se la lleva a su horario.

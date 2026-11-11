@@ -18,7 +18,9 @@ export async function POST(request) {
     const ua = request.headers.get("user-agent") || "";
     if (ES_ROBOT.test(ua)) return Response.json({ ok: true, contado: false });
 
-    const { visitante, lugar } = await request.json();
+    const { visitante, lugar, destino: destinoPedido } = await request.json();
+    // Qué página se abrió: el plan de referidos (la de siempre) o la de consultas de ortodoncia.
+    const destino = destinoPedido === "ortodoncia" ? "ortodoncia" : "referidos";
     if (typeof visitante !== "string" || !/^[a-zA-Z0-9-]{8,64}$/.test(visitante)) {
       return Response.json({ ok: false, error: "Visitante inválido." }, { status: 400 });
     }
@@ -33,15 +35,19 @@ export async function POST(request) {
     }
 
     const desde = new Date(Date.now() - VENTANA_MINUTOS * 60 * 1000).toISOString();
-    const { count } = await supabase
-      .from("qr_escaneos")
-      .select("id", { count: "exact", head: true })
-      .eq("visitante", visitante)
-      .eq("lugar", lugarFinal)
-      .gte("created_at", desde);
-    if (count > 0) return Response.json({ ok: true, contado: false });
+    // La columna "destino" la agrega la migración 198; mientras no esté, todo se cuenta como plan de referidos (como siempre).
+    const consultaRepetido = (conDestino) => {
+      let c = supabase.from("qr_escaneos").select("id", { count: "exact", head: true }).eq("visitante", visitante).eq("lugar", lugarFinal).gte("created_at", desde);
+      if (conDestino) c = c.eq("destino", destino);
+      return c;
+    };
+    let repetido = await consultaRepetido(true);
+    const conColumnaDestino = !repetido.error;
+    if (!conColumnaDestino) repetido = await consultaRepetido(false);
+    if (repetido.count > 0) return Response.json({ ok: true, contado: false });
 
-    const { error } = await supabase.from("qr_escaneos").insert({ lugar: lugarFinal, visitante, dispositivo: tipoDeDispositivo(ua) });
+    const fila = { lugar: lugarFinal, visitante, dispositivo: tipoDeDispositivo(ua), ...(conColumnaDestino ? { destino } : {}) };
+    const { error } = await supabase.from("qr_escaneos").insert(fila);
     if (error) throw error;
     return Response.json({ ok: true, contado: true });
   } catch (e) {

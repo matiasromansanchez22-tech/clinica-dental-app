@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import SoloDuena from "@/components/SoloDuena";
 import { fechaDeHoyISO, sumarDias } from "@/lib/agenda";
-import { urlPlanReferidos } from "@/lib/planReferidos";
+import { urlOrtodonciaInfo, urlPlanReferidos } from "@/lib/planReferidos";
+
+const DESTINOS = [
+  { clave: "ortodoncia", texto: "Consultas de ortodoncia", url: urlOrtodonciaInfo, cartel: "/ortodoncia-info/cartel" },
+  { clave: "referidos", texto: "Plan de referidos y fidelidad", url: urlPlanReferidos, cartel: "/referidos/cartel" },
+];
 import {
   cambiarActivoLugarQr,
   contarReferidosDesde,
@@ -155,8 +160,8 @@ function PorHora({ horas }) {
   );
 }
 
-function CartelDeLugar({ lugar, qr, escaneos, onActivo }) {
-  const link = urlPlanReferidos(lugar.clave);
+function CartelDeLugar({ lugar, qr, escaneos, onActivo, destino }) {
+  const link = destino.url(lugar.clave);
   const [copiado, setCopiado] = useState(false);
   async function copiar() {
     try {
@@ -178,7 +183,7 @@ function CartelDeLugar({ lugar, qr, escaneos, onActivo }) {
         <p className="mt-0.5 truncate text-[11px] text-gray-400">{link.replace("https://", "")}</p>
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
           <a
-            href={`/referidos/cartel${lugar.clave === "general" ? "" : `?lugar=${lugar.clave}`}`}
+            href={`${destino.cartel}${lugar.clave === "general" ? "" : `?lugar=${lugar.clave}`}`}
             target="_blank"
             rel="noreferrer"
             className="rounded-md bg-brand-brown px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-brown-dark"
@@ -209,8 +214,11 @@ function EscaneosContenido() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [nuevoLugar, setNuevoLugar] = useState("");
+  // Cuál de las dos páginas con QR se está mirando: la de consultas de ortodoncia o el plan de referidos y fidelidad.
+  const [destinoClave, setDestinoClave] = useState("ortodoncia");
+  const destino = DESTINOS.find((d) => d.clave === destinoClave);
 
-  const dias = PERIODOS.find((p) => p.clave === periodo).dias;
+  const dias =PERIODOS.find((p) => p.clave === periodo).dias;
   const desde = sumarDias(hoy, -(dias - 1));
   const desdeAnterior = sumarDias(hoy, -(dias * 2 - 1));
 
@@ -238,7 +246,7 @@ function EscaneosContenido() {
     let vigente = true;
     Promise.all(
       lugares.map((l) =>
-        QRCode.toString(urlPlanReferidos(l.clave), { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#2c282d", light: "#ffffff" } }).then((svg) => [l.clave, svg])
+        QRCode.toString(destino.url(l.clave), { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#2c282d", light: "#ffffff" } }).then((svg) => [l.clave, svg])
       )
     )
       .then((pares) => vigente && setQrs(Object.fromEntries(pares)))
@@ -246,10 +254,10 @@ function EscaneosContenido() {
     return () => {
       vigente = false;
     };
-  }, [lugares]);
+  }, [lugares, destino]);
 
   const datos = useMemo(() => {
-    const conFecha = escaneos.map((e) => ({ ...e, ...partesLocales(e.created_at) }));
+    const conFecha = escaneos.filter((e) => e.destino === destinoClave).map((e) => ({ ...e, ...partesLocales(e.created_at) }));
     const actuales = conFecha.filter((e) => e.fecha >= desde);
     const anteriores = conFecha.filter((e) => e.fecha < desde);
     const personas = (lista) => new Set(lista.map((e) => e.visitante)).size;
@@ -297,7 +305,7 @@ function EscaneosContenido() {
       nombreLugar,
       totalHistorico: conFecha.length,
     };
-  }, [escaneos, lugares, desde, dias, hoy]);
+  }, [escaneos, lugares, desde, dias, hoy, destinoClave]);
 
   async function agregarLugar(e) {
     e.preventDefault();
@@ -329,9 +337,20 @@ function EscaneosContenido() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-brown/70">Ortodoncia · Planes</p>
           <h1 className="font-heading text-3xl font-extrabold text-brand-brown">📲 Escaneos del QR</h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-600">
-            Cuántas veces se escaneó el QR de los planes de ortodoncia (tarjeta de fidelidad y plan de referidos), de qué cartel y a qué hora.
-            Es anónimo: no se guarda ningún dato de las personas.
+            Cuántas veces se escaneó cada QR, de qué cartel y a qué hora. Elegí qué página mirar: la de consultas de ortodoncia o el plan de
+            referidos y fidelidad. Es anónimo: no se guarda ningún dato de las personas.
           </p>
+          <div className="mt-2 flex overflow-hidden rounded-lg border border-brand-brown/40 text-sm">
+            {DESTINOS.map((d) => (
+              <button
+                key={d.clave}
+                onClick={() => setDestinoClave(d.clave)}
+                className={`px-3 py-1.5 font-medium ${destinoClave === d.clave ? "bg-brand-green text-white" : "bg-white text-brand-brown hover:bg-brand-tan/30"}`}
+              >
+                {d.texto}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex overflow-hidden rounded-lg border border-brand-tan">
           {PERIODOS.map((p) => (
@@ -360,11 +379,13 @@ function EscaneosContenido() {
               valor={formatoNumero(datos.hoyCantidad)}
               pie={<span className="text-xs text-gray-500">{datos.total > 0 ? `${datos.promedio.toLocaleString("es-AR", { maximumFractionDigits: 1 })} por día en promedio` : "todavía sin escaneos"}</span>}
             />
-            <Tarjeta
-              titulo="Referidos anotados"
-              valor={referidos == null ? "—" : formatoNumero(referidos)}
-              pie={<span className="text-xs text-gray-500">en recepción, en el mismo período</span>}
-            />
+            {destinoClave === "referidos" && (
+              <Tarjeta
+                titulo="Referidos anotados"
+                valor={referidos == null ? "—" : formatoNumero(referidos)}
+                pie={<span className="text-xs text-gray-500">en recepción, en el mismo período</span>}
+              />
+            )}
           </div>
 
           {datos.totalHistorico === 0 && (
@@ -429,7 +450,7 @@ function EscaneosContenido() {
             </p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {lugares.map((l) => (
-                <CartelDeLugar key={l.id} lugar={l} qr={qrs[l.clave]} escaneos={datos.conteoLugar[l.clave] || 0} onActivo={alternarLugar} />
+                <CartelDeLugar key={l.id} lugar={l} qr={qrs[l.clave]} escaneos={datos.conteoLugar[l.clave] || 0} onActivo={alternarLugar} destino={destino} />
               ))}
             </div>
             <form onSubmit={agregarLugar} className="mt-3 flex flex-wrap items-center gap-2">
