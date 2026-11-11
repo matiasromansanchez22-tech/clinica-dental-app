@@ -153,6 +153,24 @@ export default function AgendaGrid({
                           ✅ Consentimiento firmado
                         </div>
                       )}
+                      {turno.presupuesto && (
+                        <div
+                          className="mt-0.5 rounded bg-sky-100 px-1 py-0.5 text-[11px] font-semibold leading-tight text-sky-900"
+                          title={`Presupuesto ${turno.presupuesto.numero || ""} ${turno.presupuesto.estado === "Pendiente" ? "todavía sin aceptar" : "aceptado"}`.trim()}
+                        >
+                          📋 {turno.presupuesto.estado === "Pendiente" ? "Presupuesto pendiente de aceptar" : "Tiene presupuesto aceptado"}
+                        </div>
+                      )}
+                      {turno.planFinanciacion && (
+                        <div
+                          className={`mt-0.5 rounded px-1 py-0.5 text-[11px] font-semibold leading-tight ${
+                            turno.planFinanciacion.enMora ? "bg-red-100 text-red-900" : "bg-violet-100 text-violet-900"
+                          }`}
+                          title={`Plan de financiación ${turno.planFinanciacion.numero || ""}${turno.planFinanciacion.enMora ? " (en mora)" : ""}`.trim()}
+                        >
+                          💳 Plan de financiación{turno.planFinanciacion.enMora ? " · EN MORA" : ""}
+                        </div>
+                      )}
                       <div className="text-[11px] opacity-80 leading-tight">
                         {color.etiqueta}
                         {turno.confirmacion === "Confirmado" && color.etiqueta !== "Confirmado" && " · ✓ Confirmado"}

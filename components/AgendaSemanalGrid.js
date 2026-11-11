@@ -47,10 +47,14 @@ export default function AgendaSemanalGrid({ fechaInicio, turnos, bloques, onTurn
                           <button
                             key={turno.id}
                             onClick={() => onTurnoClick?.(turno)}
-                            title={`${turno.paciente} · ${bloque} · Consultorio ${turno.consultorio}`}
+                            title={`${turno.paciente} · ${bloque} · Consultorio ${turno.consultorio}${
+                              turno.presupuesto ? (turno.presupuesto.estado === "Pendiente" ? " · Presupuesto pendiente de aceptar" : " · Tiene presupuesto aceptado") : ""
+                            }${turno.planFinanciacion ? ` · Plan de financiación${turno.planFinanciacion.enMora ? " (en mora)" : ""}` : ""}`}
                             className={`w-full truncate rounded-sm px-1 py-0.5 text-left leading-tight hover:brightness-95 ${color.bg} ${color.text}`}
                           >
                             {turno.paciente}
+                            {turno.presupuesto && " 📋"}
+                            {turno.planFinanciacion && (turno.planFinanciacion.enMora ? " 💳⚠️" : " 💳")}
                           </button>
                         );
                       })}
