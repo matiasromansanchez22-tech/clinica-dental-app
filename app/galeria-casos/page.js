@@ -6,7 +6,8 @@ import { actualizarCaso, crearCaso, eliminarCaso, obtenerCasos, urlPublicaFoto }
 import { URL_ORTODONCIA_INFO } from "@/lib/planReferidos";
 
 const TRATAMIENTOS = ["Brackets metálicos", "Brackets de porcelana", "Ortodoncia", "Ortopedia"];
-const VACIO = { titulo: "", tratamiento: "Brackets metálicos", duracionMeses: "", descripcion: "", consentimiento: false, publicar: true };
+const ETIQUETAS_FOTO_FINAL = ["Después", "Durante el tratamiento"];
+const VACIO = { titulo: "", tratamiento: "Brackets metálicos", duracionMeses: "", descripcion: "", consentimiento: false, publicar: true, etiquetaDespues: "Después" };
 
 function SelectorFoto({ etiqueta, archivo, onElegir }) {
   const [vista, setVista] = useState(null);
@@ -128,6 +129,14 @@ function Contenido() {
             Tratamiento
             <select value={form.tratamiento} onChange={(e) => setForm({ ...form, tratamiento: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
               {TRATAMIENTOS.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-gray-600">
+            La segunda foto dice
+            <select value={form.etiquetaDespues} onChange={(e) => setForm({ ...form, etiquetaDespues: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+              {ETIQUETAS_FOTO_FINAL.map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>

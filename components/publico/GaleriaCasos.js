@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Deslizador de antes y después: se arrastra con el dedo o el mouse, o se mueve con el teclado (flechas).
-function AntesYDespues({ antes, despues, titulo }) {
+function AntesYDespues({ antes, despues, titulo, etiquetaDespues = "Después" }) {
   const [posicion, setPosicion] = useState(50);
   const caja = useRef(null);
   const arrastrando = useRef(false);
@@ -17,7 +17,10 @@ function AntesYDespues({ antes, despues, titulo }) {
   return (
     <div
       ref={caja}
-      className="relative aspect-[4/3] w-full cursor-ew-resize touch-pan-y select-none overflow-hidden rounded-2xl bg-brand-tan/40"
+      className="relative aspect-[3/2] w-full cursor-ew-resize touch-pan-y select-none overflow-hidden rounded-2xl bg-brand-tan/40 [-webkit-touch-callout:none]"
+      // Protección básica: sin menú de clic derecho ni arrastrar la foto (las fotos además llevan la marca de agua de la clínica dentro de la imagen)
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
       onPointerDown={(e) => {
         arrastrando.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -28,13 +31,13 @@ function AntesYDespues({ antes, despues, titulo }) {
       onPointerCancel={() => (arrastrando.current = false)}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={despues} alt={`${titulo}: después del tratamiento`} className="absolute inset-0 h-full w-full object-cover" draggable={false} loading="lazy" />
+      <img src={despues} alt={`${titulo}: después del tratamiento`} className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" draggable={false} loading="lazy" />
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - posicion}% 0 0)` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={antes} alt={`${titulo}: antes del tratamiento`} className="h-full w-full object-cover" draggable={false} loading="lazy" />
+        <img src={antes} alt={`${titulo}: antes del tratamiento`} className="pointer-events-none h-full w-full select-none object-cover" draggable={false} loading="lazy" />
       </div>
       <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Antes</span>
-      <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-brand-green/90 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Después</span>
+      <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-brand-green/90 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">{etiquetaDespues}</span>
       <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow" style={{ left: `${posicion}%` }}>
         <span className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-brand-brown shadow-lg" aria-hidden="true">
           ⇆
@@ -72,11 +75,11 @@ export default function GaleriaCasos() {
     <section id="trabajos" className="mx-auto max-w-5xl px-5 py-10">
       <p className="text-sm font-semibold uppercase tracking-widest text-brand-brown/70">Nuestros trabajos</p>
       <h2 className="font-heading mt-1 text-2xl font-extrabold text-brand-brown sm:text-3xl">Casos reales de nuestros pacientes</h2>
-      <p className="mt-2 max-w-2xl text-brand-charcoal/80">Deslizá cada foto para ver el antes y el después.</p>
+      <p className="mt-2 max-w-2xl text-brand-charcoal/80">Deslizá cada foto para comparar.</p>
       <div className="-mx-5 mt-6 flex snap-x snap-mandatory gap-5 overflow-x-auto px-5 pb-4">
         {casos.map((c) => (
           <article key={c.id} className="w-[85%] shrink-0 snap-center rounded-3xl bg-white p-4 shadow-sm ring-1 ring-brand-tan/70 sm:w-[420px]">
-            <AntesYDespues antes={c.antes} despues={c.despues} titulo={c.titulo} />
+            <AntesYDespues antes={c.antes} despues={c.despues} titulo={c.titulo} etiquetaDespues={c.etiquetaDespues} />
             <h3 className="font-heading mt-3 text-xl font-extrabold text-brand-brown">{c.titulo}</h3>
             {(c.tratamiento || c.duracionMeses) && (
               <p className="mt-0.5 text-sm font-semibold text-brand-green">
