@@ -28,6 +28,7 @@ import {
 import { obtenerCantidadAltasParaEscribir } from "@/lib/data/altasOrtodoncia";
 import { obtenerCantidadPrioridadesPorVolver } from "@/lib/data/prioridadesOrtodoncia";
 import { obtenerCantidadConsultasPorContactar } from "@/lib/data/consultasOrtodoncia";
+import { obtenerCantidadPedidosPendientes } from "@/lib/data/consultasOnline";
 import { obtenerAlertas } from "@/lib/data/queRevisar";
 
 const GRUPOS = [
@@ -80,6 +81,7 @@ const GRUPOS = [
       { href: "/ortodoncia/retomar", label: "📲 Retomar tratamiento", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/referidos", label: "🤝 Plan de referidos", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/fidelidad", label: "🎟️ Tarjeta de fidelidad", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/ortodoncia/consultas-online", label: "🌐 Consultas online (pedidos de la página)", badgeKey: "pedidosOnline", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/consultas", label: "🩺 Consultas (hasta la instalación)", badgeKey: "consultasPorContactar", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/ortodoncia/prioridades", label: "⭐ Prioridades (de otra ortodoncista)", badgeKey: "prioridadesPorVolver", ocultarRoles: ["Laboratorio"] },
       { href: "/ortodoncia/altas", label: "🏁 Altas (seguimiento cada 6 meses)", badgeKey: "altasParaEscribir", ocultarRoles: ["Odontologo", "Laboratorio"] },
@@ -99,6 +101,7 @@ const GRUPOS = [
   },
   { tipo: "link", href: "/calendario-contenido", label: "📅 Calendario de Contenido", soloRoles: ["Duena", "CM"] },
   { tipo: "link", href: "/biblioteca-marca", label: "🎨 Biblioteca de marca", soloRoles: ["Duena", "CM"] },
+  { tipo: "link", href: "/galeria-casos", label: "🖼️ Galería de casos", soloRoles: ["Duena", "CM"] },
   { tipo: "link", href: "/gerencial/estadisticas", label: "📊 Tablero Mensual", soloDuena: true },
   { tipo: "link", href: "/gerencial/metas", label: "🎯 Metas y Seguimiento", soloDuena: true },
   { tipo: "link", href: "/gastos-recurrentes", label: "💼 Gastos de la Clínica", soloDuena: true },
@@ -288,6 +291,10 @@ export default function NavBar() {
     if (perfil?.rol === "Duena" || perfil?.rol === "Secretaria") {
       obtenerCantidadConsultasPorContactar()
         .then((consultasPorContactar) => setBadges((b) => ({ ...b, consultasPorContactar })))
+        .catch(() => {});
+      // Pedidos de turno que llegaron desde la página pública y todavía no se atendieron.
+      obtenerCantidadPedidosPendientes()
+        .then((pedidosOnline) => setBadges((b) => ({ ...b, pedidosOnline })))
         .catch(() => {});
     }
 

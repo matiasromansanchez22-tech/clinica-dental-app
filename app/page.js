@@ -76,6 +76,7 @@ const ACCESOS_POR_ROL = {
   CM: [
     { href: "/calendario-contenido", icon: "📅", label: "Calendario de Contenido" },
     { href: "/biblioteca-marca", icon: "🎨", label: "Biblioteca de marca" },
+    { href: "/galeria-casos", icon: "🖼️", label: "Galería de casos" },
     { href: "/panoramicas", icon: "🩻", label: "Pano y fotos" },
   ],
 };
