@@ -23,6 +23,14 @@ const FRANJAS = [
 ];
 const enFranja = (hora, franja) => franja === "todas" || (franja === "manana" ? hora < LIMITE_TARDE : hora >= LIMITE_TARDE);
 
+// Tipo de turno: cambia lo que se pide (el documento es obligatorio en controles y continuaciones) y lo que se le dice a la persona.
+const TIPOS_TURNO = [
+  { clave: "Consulta", texto: "Primera consulta", detalle: "Todavía no soy paciente" },
+  { clave: "Control", texto: "Control", detalle: "Ya estoy en tratamiento" },
+  { clave: "Continuación", texto: "Continuación", detalle: "Empecé en otra clínica" },
+];
+const TEXTO_TIPO = { Consulta: "consulta de ortodoncia", Control: "control de ortodoncia", Continuación: "continuación de mi tratamiento de ortodoncia" };
+
 const campo = "w-full rounded-xl border-2 border-brand-tan bg-white px-4 py-3 text-base text-brand-charcoal outline-none focus:border-brand-brown";
 
 // "Elegí tu turno": muestra los días y horarios libres para una primera consulta, y deja pedir uno con nombre y WhatsApp. El pedido
@@ -35,6 +43,8 @@ export default function SelectorTurno({ lugar }) {
   const [horaElegida, setHoraElegida] = useState(null);
   const [nombre, setNombre] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [tipo, setTipo] = useState("Consulta"); // Consulta | Control | Continuación
+  const [dni, setDni] = useState("");
   const [acepta, setAcepta] = useState(false);
   const [trampa, setTrampa] = useState(""); // campo oculto: solo los robots lo completan
   const [enviando, setEnviando] = useState(false);
@@ -74,10 +84,10 @@ export default function SelectorTurno({ lugar }) {
       const r = await fetch("/api/publico/solicitar-turno", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, whatsapp, fecha: fechaActiva, hora: horaActiva, acepta, lugar, sitioWeb: trampa }),
+        body: JSON.stringify({ nombre, whatsapp, dni, tipo, fecha: fechaActiva, hora: horaActiva, acepta, lugar, sitioWeb: trampa }),
       }).then((x) => x.json());
       if (r.ok) {
-        setHecho({ texto: r.texto, nombre: nombre.trim(), bonificada: consultaBonificadaEl(fechaActiva, bonificadaHasta) });
+        setHecho({ texto: r.texto, nombre: nombre.trim(), tipo, bonificada: tipo === "Consulta" && consultaBonificadaEl(fechaActiva, bonificadaHasta) });
       } else {
         setError(r.error || "No pudimos registrar tu pedido.");
         // Si el horario se ocupó mientras elegía, se actualiza la lista para que elija otro.
@@ -101,9 +111,9 @@ export default function SelectorTurno({ lugar }) {
 
   return (
     <div id="turno" className="scroll-mt-20 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-brand-tan/70 sm:p-6">
-      <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">Primera consulta</p>
+      <p className="text-xs font-semibold uppercase tracking-widest text-brand-brown/70">Turnos de ortodoncia</p>
       <h2 className="font-heading mt-1 text-2xl font-extrabold text-brand-brown sm:text-3xl">Elegí tu turno</h2>
-      {bonificadaHasta && (
+      {bonificadaHasta && tipo === "Consulta" && (
         <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-mint/40 px-4 py-1.5 text-sm font-bold text-brand-green">
           🎁 Consulta totalmente bonificada hasta el {textoCortoDeFecha(bonificadaHasta)}
         </p>
@@ -122,7 +132,29 @@ export default function SelectorTurno({ lugar }) {
 
       {estado === "listo" && !hecho && (
         <>
-          <p className="mt-1 text-sm text-brand-charcoal/75">Contanos si preferís la mañana o la tarde y elegí día y hora. Después te escribimos por WhatsApp para confirmarlo.</p>
+          <p className="mt-1 text-sm text-brand-charcoal/75">Contanos qué turno necesitás, si preferís la mañana o la tarde y elegí día y hora. Después te escribimos por WhatsApp para confirmarlo.</p>
+
+          <p className="mt-4 text-sm font-semibold text-brand-brown">¿Qué turno necesitás?</p>
+          <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Tipo de turno">
+            {TIPOS_TURNO.map((t) => {
+              const activo = tipo === t.clave;
+              return (
+                <button
+                  key={t.clave}
+                  type="button"
+                  role="radio"
+                  aria-checked={activo}
+                  onClick={() => setTipo(t.clave)}
+                  className={`flex flex-col items-center rounded-2xl border-2 px-2 py-2.5 text-center transition-colors ${
+                    activo ? "border-brand-brown bg-brand-brown text-brand-cream" : "border-brand-tan bg-white text-brand-brown hover:border-brand-brown"
+                  }`}
+                >
+                  <span className="text-base font-extrabold leading-tight">{t.texto}</span>
+                  <span className="text-[11px] leading-tight opacity-80">{t.detalle}</span>
+                </button>
+              );
+            })}
+          </div>
 
           <p className="mt-4 text-sm font-semibold text-brand-brown">¿Cuándo te queda mejor?</p>
           <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Preferencia de horario">
@@ -174,7 +206,7 @@ export default function SelectorTurno({ lugar }) {
                   <span className="text-xs font-semibold uppercase">{p.dia}</span>
                   <span className="font-heading text-2xl font-extrabold leading-tight">{p.numero}</span>
                   <span className="text-[11px] uppercase opacity-80">{p.mes}</span>
-                  {consultaBonificadaEl(d.fecha, bonificadaHasta) && <span className="mt-0.5 rounded-full bg-brand-mint px-1.5 text-[9px] font-extrabold uppercase text-brand-green">sin cargo</span>}
+                  {tipo === "Consulta" && consultaBonificadaEl(d.fecha, bonificadaHasta) && <span className="mt-0.5 rounded-full bg-brand-mint px-1.5 text-[9px] font-extrabold uppercase text-brand-green">sin cargo</span>}
                 </button>
               );
             })}
@@ -207,7 +239,7 @@ export default function SelectorTurno({ lugar }) {
               <p className="font-semibold text-brand-brown">
                 Tu turno: {partesDeFecha(fechaActiva).largo} {partesDeFecha(fechaActiva).numero}/{String(partesDeFecha(fechaActiva).mesNumero).padStart(2, "0")} a las {horaActiva}
               </p>
-              {bonificadaHasta && (
+              {bonificadaHasta && tipo === "Consulta" && (
                 <p className="mt-1 text-sm font-semibold text-brand-green">
                   {consultaBonificadaEl(fechaActiva, bonificadaHasta)
                     ? "🎁 Tu consulta es totalmente bonificada: sin ningún costo."
@@ -222,6 +254,21 @@ export default function SelectorTurno({ lugar }) {
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-brand-charcoal/80">Tu WhatsApp</span>
                   <input className={campo} value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="341 555 1234" required maxLength={20} />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block text-sm font-medium text-brand-charcoal/80">
+                    Número de documento (DNI) {tipo === "Consulta" ? <span className="text-brand-charcoal/50">(opcional)</span> : <span className="text-brand-charcoal/50">— para encontrar tu ficha</span>}
+                  </span>
+                  <input
+                    className={campo}
+                    value={dni}
+                    onChange={(e) => setDni(e.target.value.replace(/[^\d.]/g, ""))}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="Sin puntos, por ejemplo 30123456"
+                    required={tipo !== "Consulta"}
+                    maxLength={11}
+                  />
                 </label>
               </div>
               {/* Campo trampa para robots: está fuera de la vista y las personas no lo ven ni lo completan */}
@@ -241,7 +288,7 @@ export default function SelectorTurno({ lugar }) {
               {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
               <button
                 type="submit"
-                disabled={enviando || !acepta || !nombre.trim() || !whatsapp.trim()}
+                disabled={enviando || !acepta || !nombre.trim() || !whatsapp.trim() || (tipo !== "Consulta" && !dni.trim())}
                 className="mt-4 w-full rounded-full bg-brand-green px-6 py-3.5 text-base font-bold text-brand-cream transition-opacity disabled:opacity-50 sm:w-auto"
               >
                 {enviando ? "Enviando…" : "Pedir este turno"}
@@ -259,7 +306,7 @@ export default function SelectorTurno({ lugar }) {
           </p>
           {hecho.bonificada && <p className="mt-2 font-semibold text-brand-green">🎁 Recordá que tu consulta es totalmente bonificada.</p>}
           <div className="mt-4">
-            {botonWhatsApp(`¡Hola! Soy ${hecho.nombre}. Acabo de pedir turno de consulta de ortodoncia para el ${hecho.texto} desde la página.`, "bg-brand-green text-brand-cream")}
+            {botonWhatsApp(`¡Hola! Soy ${hecho.nombre}. Acabo de pedir turno para ${TEXTO_TIPO[hecho.tipo] || TEXTO_TIPO.Consulta} para el ${hecho.texto} desde la página.`, "bg-brand-green text-brand-cream")}
           </div>
           <p className="mt-3 text-xs text-brand-charcoal/60">WhatsApp {WHATSAPP_CLINICA_VISIBLE}</p>
         </div>

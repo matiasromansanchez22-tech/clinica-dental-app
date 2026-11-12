@@ -41,7 +41,10 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
   const hoy = fechaDeHoyISO();
   const primerNombre = p.nombre.split(" ")[0];
   const pendiente = p.estado === "Pendiente";
-  const bonificada = consultaBonificadaEl(p.fecha, promoHasta);
+  const tipo = p.tipo || "Consulta";
+  const bonificada = tipo === "Consulta" && consultaBonificadaEl(p.fecha, promoHasta);
+  const nombreTurno = { Consulta: "la consulta de ortodoncia", Control: "el control de ortodoncia", Continuación: "la continuación de tu tratamiento de ortodoncia" }[tipo];
+  const coloresTipo = { Consulta: "bg-sky-100 text-sky-900", Control: "bg-violet-100 text-violet-900", Continuación: "bg-orange-100 text-orange-900" };
 
   async function accion(fn) {
     setTrabajando(true);
@@ -56,8 +59,8 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
     }
   }
 
-  const mensajeConfirmar = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez. Recibimos tu pedido de turno para la consulta de ortodoncia el ${textoFecha(p.fecha)} a las ${p.hora}.${bonificada ? " Te recordamos que la consulta es totalmente bonificada 🎁." : ""} ¿Lo confirmamos?`;
-  const mensajeOtro = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez por tu pedido de consulta de ortodoncia. Ese horario ya no lo tenemos disponible, ¿qué otros días y horarios te quedan bien así lo coordinamos?`;
+  const mensajeConfirmar = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez. Recibimos tu pedido de turno para ${nombreTurno} el ${textoFecha(p.fecha)} a las ${p.hora}.${bonificada ? " Te recordamos que la consulta es totalmente bonificada 🎁." : ""} ¿Lo confirmamos?`;
+  const mensajeOtro = `¡Hola ${primerNombre}! Te escribimos de Clínica Dental Marianela Ramírez por tu pedido de turno para ${nombreTurno}. Ese horario ya no lo tenemos disponible, ¿qué otros días y horarios te quedan bien así lo coordinamos?`;
 
   const colores = { Pendiente: "bg-amber-100 text-amber-900", Agendada: "bg-emerald-100 text-emerald-900", Rechazada: "bg-gray-200 text-gray-700", Cancelada: "bg-gray-200 text-gray-700" };
 
@@ -65,13 +68,16 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
     <li className={`rounded-xl border bg-white p-4 shadow-sm ${pendiente ? "border-amber-300" : "border-gray-200"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-base font-bold text-gray-900">{p.nombre}</p>
+          <p className="text-base font-bold text-gray-900">
+            {p.nombre} <span className={`ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${coloresTipo[tipo]}`}>{tipo}</span>
+          </p>
           <p className="text-sm text-gray-700">
             <strong>{textoFecha(p.fecha)} · {p.hora}</strong> · con {p.profesionalNombre} · consultorio {p.consultorio}
             {pendiente && p.fecha < hoy && <span className="ml-2 rounded bg-red-100 px-1.5 text-xs font-semibold text-red-800">fecha vencida</span>}
           </p>
           <p className="text-xs text-gray-500">
-            WhatsApp {p.whatsapp.replace(/^549/, "")} · pedido {hace(p.created_at)}
+            WhatsApp {p.whatsapp.replace(/^549/, "")}
+            {p.dni ? ` · DNI ${p.dni}` : ""} · pedido {hace(p.created_at)}
             {p.lugar ? ` · vino de: ${p.lugar}` : ""}
           </p>
           {bonificada && <p className="mt-1 text-xs font-semibold text-emerald-700">🎁 Consulta bonificada (promoción): se cobra $0.</p>}
@@ -111,7 +117,7 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
           </>
         )}
       </div>
-      {pendiente && <p className="mt-2 text-xs text-gray-500">El horario está reservado hasta que lo confirmes o lo des de baja. Al confirmar se crea el turno de consulta en la Agenda de Ortodoncia; si lo das de baja, el horario se libera para otros pacientes.</p>}
+      {pendiente && <p className="mt-2 text-xs text-gray-500">El horario está reservado hasta que lo confirmes o lo des de baja. Al confirmar se crea el turno en la Agenda de Ortodoncia ({tipo === "Consulta" ? "consulta" : "control"}{tipo === "Control" ? ", sobre la ficha del paciente que ya existe" : tipo === "Continuación" ? ", con la ficha marcada como continuación de otra clínica" : ""}); si lo das de baja, el horario se libera para otros pacientes.</p>}
     </li>
   );
 }

@@ -6,6 +6,8 @@ import { enviarPushASuscripciones, prepararWebPush } from "@/lib/server/push";
 // El pedido queda "Pendiente" y reserva el horario hasta que Recepción lo agenda o lo rechaza.
 export const dynamic = "force-dynamic";
 
+const TIPOS = ["Consulta", "Control", "Continuación"];
+const TEXTO_TIPO = { Consulta: "consulta", Control: "control", Continuación: "continuación" };
 const MAX_PEDIDOS_POR_HORA = 4;
 const MAX_PENDIENTES_POR_NUMERO = 2;
 
@@ -28,6 +30,12 @@ export async function POST(request) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{2}:\d{2}$/.test(hora)) return error("Elegí un día y un horario.");
     if (cuerpo.acepta !== true) return error("Para pedir el turno tenés que aceptar que te contactemos por WhatsApp.");
     const lugar = /^[a-z0-9-]{1,40}$/.test(String(cuerpo.lugar || "")) ? String(cuerpo.lugar) : null;
+    // Tipo de turno (consulta nueva, control o continuación) y documento. En controles y continuaciones el documento es obligatorio:
+    // es lo que le permite a Recepción encontrar la ficha.
+    const tipo = TIPOS.includes(cuerpo.tipo) ? cuerpo.tipo : "Consulta";
+    const dni = String(cuerpo.dni || "").replace(/\D/g, "");
+    if (dni && (dni.length < 6 || dni.length > 9)) return error("Revisá el número de documento: tiene que tener entre 6 y 9 números, sin puntos.");
+    if (tipo !== "Consulta" && !dni) return error("Escribí tu número de documento para que encontremos tu ficha.");
 
     const supabase = clienteServidor();
     const ipHash = hashDeConexion(request);
@@ -48,11 +56,11 @@ export async function POST(request) {
     const slot = libres.dias[0]?.slots.find((s) => s.hora === hora);
     if (!slot) return error("Ese horario ya no está disponible. Elegí otro, por favor.", 409);
 
-    const { data: creada, error: errorInsert } = await supabase
-      .from("solicitudes_turno_ortodoncia")
-      .insert({ nombre, whatsapp, fecha, hora_inicio: hora, duracion_min: libres.duracionMin, profesional_id: slot.profesionalId, consultorio: slot.consultorio, lugar, ip_hash: ipHash })
-      .select("id, created_at")
-      .single();
+    const fila = { nombre, whatsapp, fecha, hora_inicio: hora, duracion_min: libres.duracionMin, profesional_id: slot.profesionalId, consultorio: slot.consultorio, lugar, ip_hash: ipHash };
+    const insertar = (datos) => supabase.from("solicitudes_turno_ortodoncia").insert(datos).select("id, created_at").single();
+    let { data: creada, error: errorInsert } = await insertar({ ...fila, tipo, dni: dni || null });
+    // Si todavía no se corrió la migración 203 (faltan las columnas tipo y dni), el pedido se guarda igual, sin esos dos datos.
+    if (errorInsert && /tipo|dni|column|schema cache/i.test(errorInsert.message || "")) ({ data: creada, error: errorInsert } = await insertar(fila));
     if (errorInsert) throw errorInsert;
 
     // Si dos personas pidieron el mismo horario casi a la vez, se queda la primera.
@@ -75,7 +83,7 @@ export async function POST(request) {
         const { data: subs } = await supabase.from("push_subscriptions").select("*, usuario:perfiles(rol)");
         const destinatarios = (subs || []).filter((s) => ["Secretaria", "Duena"].includes(s.usuario?.rol));
         await enviarPushASuscripciones(supabase, destinatarios, {
-          title: "🦷 Nuevo pedido de consulta de ortodoncia",
+          title: `🦷 Nuevo pedido de ${TEXTO_TIPO[tipo]} de ortodoncia`,
           body: `${nombre} pidió turno el ${textoDeDia(fecha)} a las ${hora}. Hay que escribirle por WhatsApp para confirmar.`,
           url: "/ortodoncia/consultas-online",
           persistente: true,
