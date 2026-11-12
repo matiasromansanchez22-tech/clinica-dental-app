@@ -16,6 +16,7 @@ import {
   crearLugarQr,
   obtenerEscaneosDesde,
   obtenerLugaresQr,
+  obtenerTurnosPorDia,
   partesLocales,
   ZONA_HORARIA,
 } from "@/lib/data/escaneosQr";
@@ -210,6 +211,7 @@ function EscaneosContenido() {
   const [escaneos, setEscaneos] = useState([]);
   const [lugares, setLugares] = useState([]);
   const [referidos, setReferidos] = useState(null);
+  const [turnos, setTurnos] = useState(null);
   const [qrs, setQrs] = useState({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -225,10 +227,16 @@ function EscaneosContenido() {
   async function cargar() {
     setError(null);
     try {
-      const [e, l, r] = await Promise.all([obtenerEscaneosDesde(desdeAnterior), obtenerLugaresQr(), contarReferidosDesde(desde).catch(() => null)]);
+      const [e, l, r, t] = await Promise.all([
+        obtenerEscaneosDesde(desdeAnterior),
+        obtenerLugaresQr(),
+        contarReferidosDesde(desde).catch(() => null),
+        obtenerTurnosPorDia(desde, hoy).catch(() => null),
+      ]);
       setEscaneos(e);
       setLugares(l);
       setReferidos(r);
+      setTurnos(t);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -306,6 +314,31 @@ function EscaneosContenido() {
       totalHistorico: conFecha.length,
     };
   }, [escaneos, lugares, desde, dias, hoy, destinoClave]);
+
+  // Cruce día por día: turnos (General + Ortodoncia) contra escaneos del QR de beneficios (siempre el plan de referidos y fidelidad).
+  const cruce = useMemo(() => {
+    if (!turnos) return null;
+    const escPorDia = {};
+    for (const e of escaneos) {
+      if (e.destino !== "referidos") continue;
+      const { fecha } = partesLocales(e.created_at);
+      if (fecha < desde) continue;
+      const d = (escPorDia[fecha] ||= { escaneos: 0, personas: new Set() });
+      d.escaneos++;
+      d.personas.add(e.visitante);
+    }
+    const filas = [];
+    for (let i = 0; i < dias; i++) {
+      const fecha = sumarDias(hoy, -i);
+      const t = turnos[fecha] || { general: 0, generalVino: 0, ortodoncia: 0, ortodonciaVino: 0 };
+      const q = escPorDia[fecha] || { escaneos: 0, personas: new Set() };
+      const total = t.general + t.ortodoncia;
+      if (total === 0 && q.escaneos === 0 && fecha !== hoy) continue; // domingos y días sin movimiento
+      filas.push({ fecha, general: t.general, ortodoncia: t.ortodoncia, total, vinieron: t.generalVino + t.ortodonciaVino, escaneos: q.escaneos, personas: q.personas.size });
+    }
+    const suma = (campo) => filas.reduce((s, f) => s + f[campo], 0);
+    return { filas, hoy: filas.find((f) => f.fecha === hoy), total: { general: suma("general"), ortodoncia: suma("ortodoncia"), total: suma("total"), vinieron: suma("vinieron"), escaneos: suma("escaneos"), personas: suma("personas") } };
+  }, [turnos, escaneos, desde, dias, hoy]);
 
   async function agregarLugar(e) {
     e.preventDefault();
@@ -387,6 +420,81 @@ function EscaneosContenido() {
               />
             )}
           </div>
+
+          {cruce && (
+            <section className="mt-4 rounded-xl border border-brand-tan/60 bg-white p-4">
+              <h2 className="font-heading text-sm font-bold text-brand-brown">Pacientes del día vs. escaneos del QR de beneficios</h2>
+              <p className="text-xs text-gray-500">
+                Turnos de Odontología General y Ortodoncia (sin cancelados ni sobreturnos) y cuántas personas escanearon el QR del plan de referidos y
+                fidelidad ese mismo día. Como el QR es anónimo, no se puede saber quién fue: es una comparación de cantidades.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Tarjeta
+                  titulo="Turnos de hoy"
+                  valor={formatoNumero(cruce.hoy?.total || 0)}
+                  pie={<span className="text-xs text-gray-500">General {cruce.hoy?.general || 0} · Ortodoncia {cruce.hoy?.ortodoncia || 0}</span>}
+                />
+                <Tarjeta
+                  titulo="Ya vinieron hoy"
+                  valor={formatoNumero(cruce.hoy?.vinieron || 0)}
+                  pie={<span className="text-xs text-gray-500">de {cruce.hoy?.total || 0} turnos</span>}
+                />
+                <Tarjeta
+                  titulo="Escanearon hoy"
+                  valor={formatoNumero(cruce.hoy?.personas || 0)}
+                  destacada
+                  pie={<span className="text-xs">{formatoNumero(cruce.hoy?.escaneos || 0)} escaneo{(cruce.hoy?.escaneos || 0) === 1 ? "" : "s"} en total</span>}
+                />
+                <Tarjeta
+                  titulo={`Escanearon cada 10 turnos (${periodo === "hoy" ? "hoy" : `últimos ${dias} días`})`}
+                  valor={cruce.total.total ? (Math.round((cruce.total.personas / cruce.total.total) * 100) / 10).toLocaleString("es-AR", { maximumFractionDigits: 1 }) : "—"}
+                  pie={<span className="text-xs text-gray-500">{formatoNumero(cruce.total.personas)} personas / {formatoNumero(cruce.total.total)} turnos</span>}
+                />
+              </div>
+              <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-brand-tan/40">
+                <table className="w-full min-w-[34rem] text-sm">
+                  <thead className="sticky top-0 bg-brand-cream text-xs uppercase tracking-wide text-brand-brown">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Día</th>
+                      <th className="px-3 py-2 text-right">General</th>
+                      <th className="px-3 py-2 text-right">Ortodoncia</th>
+                      <th className="px-3 py-2 text-right">Total turnos</th>
+                      <th className="px-3 py-2 text-right">Vinieron</th>
+                      <th className="px-3 py-2 text-right">Escanearon (personas)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-brand-tan/30 tabular-nums">
+                    {cruce.filas.map((f) => (
+                      <tr key={f.fecha} className={f.fecha === hoy ? "bg-brand-cream/60 font-semibold" : ""}>
+                        <td className="px-3 py-1.5">
+                          {DIAS_CORTOS[new Date(`${f.fecha}T12:00:00`).getDay()]} {fechaCorta(f.fecha)}
+                          {f.fecha === hoy && <span className="ml-1 text-xs font-normal text-brand-brown">(hoy)</span>}
+                        </td>
+                        <td className="px-3 py-1.5 text-right">{f.general}</td>
+                        <td className="px-3 py-1.5 text-right">{f.ortodoncia}</td>
+                        <td className="px-3 py-1.5 text-right">{f.total}</td>
+                        <td className="px-3 py-1.5 text-right">{f.vinieron}</td>
+                        <td className="px-3 py-1.5 text-right">
+                          {f.personas}
+                          {f.escaneos > f.personas && <span className="text-xs font-normal text-gray-500"> ({f.escaneos} escaneos)</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-brand-cream/60 font-semibold tabular-nums">
+                    <tr>
+                      <td className="px-3 py-2">Total</td>
+                      <td className="px-3 py-2 text-right">{cruce.total.general}</td>
+                      <td className="px-3 py-2 text-right">{cruce.total.ortodoncia}</td>
+                      <td className="px-3 py-2 text-right">{cruce.total.total}</td>
+                      <td className="px-3 py-2 text-right">{cruce.total.vinieron}</td>
+                      <td className="px-3 py-2 text-right">{cruce.total.personas}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </section>
+          )}
 
           {datos.totalHistorico === 0 && (
             <div className="mt-4 rounded-xl border border-brand-tan bg-brand-cream px-4 py-3 text-sm text-brand-brown">
