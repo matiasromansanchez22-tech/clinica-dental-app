@@ -13,6 +13,7 @@ import {
   marcarIngreso,
   MARGEN_MIN,
   obtenerIngresosPorRango,
+  obtenerPrimerDiaDeRegistro,
   obtenerProfesionalesConHorario,
   resumenPorProfesional,
   turnosEsperadosDeFecha,
@@ -300,6 +301,7 @@ function PanelInforme({ profesionales }) {
   const hoy = fechaDeHoyISO();
   const [periodo, setPeriodo] = useState("30");
   const [ingresos, setIngresos] = useState(null);
+  const [primerDiaRegistro, setPrimerDiaRegistro] = useState(null);
   const [error, setError] = useState(null);
   const dias = PERIODOS.find((p) => p.clave === periodo).dias;
   const desde = sumarDias(hoy, -(dias - 1));
@@ -307,7 +309,9 @@ function PanelInforme({ profesionales }) {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      setIngresos(await obtenerIngresosPorRango(desde, hoy));
+      const [lista, primero] = await Promise.all([obtenerIngresosPorRango(desde, hoy), obtenerPrimerDiaDeRegistro()]);
+      setIngresos(lista);
+      setPrimerDiaRegistro(primero);
     } catch (e) {
       setError(e.message);
     }
@@ -317,18 +321,20 @@ function PanelInforme({ profesionales }) {
     cargar();
   }, [cargar]);
 
-  // Días pasados con horario en la Agenda en los que nadie marcó el ingreso (según el horario cargado hoy en la Agenda).
+  // Días pasados (desde que se empezó a marcar) con horario en la Agenda en los que nadie marcó el ingreso (según el horario cargado hoy en la Agenda).
   const sinMarcarPorProfesional = useMemo(() => {
     if (!ingresos) return {};
     const marcados = new Set(ingresos.map((i) => `${i.fecha}|${i.profesionalId}|${i.turno}`));
     const cuenta = {};
-    for (let d = desde; d < hoy; d = sumarDias(d, 1)) {
+    // Se cuenta desde el primer día en que se empezó a marcar: antes de eso el registro todavía no existía.
+    const primerDia = primerDiaRegistro || hoy;
+    for (let d = primerDia > desde ? primerDia : desde; d < hoy; d = sumarDias(d, 1)) {
       for (const e of turnosEsperadosDeFecha(profesionales, d)) {
         if (!marcados.has(`${d}|${e.profesionalId}|${e.turno}`)) cuenta[e.profesionalId] = (cuenta[e.profesionalId] || 0) + 1;
       }
     }
     return cuenta;
-  }, [ingresos, profesionales, desde, hoy]);
+  }, [ingresos, primerDiaRegistro, profesionales, desde, hoy]);
 
   const resumen = useMemo(() => resumenPorProfesional(ingresos || []), [ingresos]);
   const total = useMemo(() => {
@@ -421,7 +427,7 @@ function PanelInforme({ profesionales }) {
             </div>
           )}
           <p className="mt-2 text-xs text-gray-500">
-            “Sin marcar” cuenta los días pasados en los que el profesional tenía horario en la Agenda y nadie marcó su ingreso (según el horario que hoy está cargado en la Agenda).
+            “Sin marcar” cuenta los días pasados, desde el primer día que se marcó un ingreso, en los que el profesional tenía horario en la Agenda y nadie marcó su ingreso (según el horario que hoy está cargado en la Agenda).
             El cumplimiento es el porcentaje de ingresos marcados en los que llegó con tiempo.
           </p>
 
