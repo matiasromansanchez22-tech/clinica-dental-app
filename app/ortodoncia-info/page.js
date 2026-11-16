@@ -198,6 +198,12 @@ export default function OrtodonciaInfoPublica() {
         <Revelar>
           <SelectorTurno lugar={lugar} />
         </Revelar>
+        <p className="mt-4 rounded-2xl bg-white px-5 py-4 text-center text-sm text-brand-charcoal/85 shadow-sm ring-1 ring-brand-tan/60">
+          ¿Necesitás otra consulta, como una limpieza, un conducto, encías o prótesis?{" "}
+          <a href="/odontologia-info#turno" className="font-bold text-brand-green underline">
+            Pedí tu turno de odontología general →
+          </a>
+        </p>
       </section>
 
       <section className="mx-auto max-w-3xl px-5 py-10">
