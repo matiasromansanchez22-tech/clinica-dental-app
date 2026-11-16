@@ -67,26 +67,28 @@ export async function POST(request) {
     if (!slot) return error("Ese horario ya no está disponible. Elegí otro, por favor.", 409);
     const opcion = elegirOpcion(slot, dia.carga);
 
-    const { data: creada, error: errorInsert } = await supabase
-      .from("solicitudes_turno_ortodoncia")
-      .insert({
-        area: "General",
-        motivo: motivo.nombre,
-        obra_social: obraSocial,
-        nombre,
-        whatsapp,
-        dni: dni || null,
-        tipo: esPaciente ? "Control" : "Consulta",
-        fecha,
-        hora_inicio: hora,
-        duracion_min: libres.duracionMin,
-        profesional_id: opcion.profesionalId,
-        consultorio: opcion.consultorio,
-        lugar,
-        ip_hash: ipHash,
-      })
-      .select("id, created_at")
-      .single();
+    const base = {
+      area: "General",
+      motivo: motivo.nombre,
+      obra_social: obraSocial,
+      nombre,
+      whatsapp,
+      fecha,
+      hora_inicio: hora,
+      duracion_min: libres.duracionMin,
+      profesional_id: opcion.profesionalId,
+      consultorio: opcion.consultorio,
+      lugar,
+      ip_hash: ipHash,
+    };
+    const insertar = (datos) => supabase.from("solicitudes_turno_ortodoncia").insert(datos).select("id, created_at").single();
+    // "tipo" (Control = ya es paciente) y "dni" vienen de la migración 203. Si todavía no se corrió, el pedido se guarda igual y esos
+    // datos van en la nota, para que Recepción los vea y el panel los lea de ahí.
+    let { data: creada, error: errorInsert } = await insertar({ ...base, tipo: esPaciente ? "Control" : "Consulta", dni: dni || null });
+    if (errorInsert && /'tipo'|'dni'/.test(errorInsert.message || "")) {
+      const nota = [esPaciente ? "Ya es paciente" : null, dni ? `DNI ${dni}` : null].filter(Boolean).join(" · ") || null;
+      ({ data: creada, error: errorInsert } = await insertar({ ...base, nota }));
+    }
     if (errorInsert) {
       if (/area|motivo|obra_social|column|schema cache/i.test(errorInsert.message || "")) {
         return error("La página de turnos todavía no está lista. Escribinos por WhatsApp y te damos turno.", 503);
