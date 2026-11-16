@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AgendaGrid from "@/components/AgendaGrid";
 import AgendaSemanalGrid from "@/components/AgendaSemanalGrid";
 import BuscarTurnoPacienteBox from "@/components/BuscarTurnoPacienteBox";
@@ -43,6 +44,7 @@ const leyenda = [
 ];
 
 export default function AgendaPage() {
+  const router = useRouter();
   const [fecha, setFecha] = useState(fechaDeHoyISO());
   const [vista, setVista] = useState("dia"); // "dia" | "semana"
   const [turnos, setTurnos] = useState([]);
@@ -71,11 +73,17 @@ export default function AgendaPage() {
   const inicioSemana = inicioDeSemana(fecha);
   const finSemana = sumarDias(inicioSemana, 6);
 
+  // Un pedido de turno online pendiente no se abre como turno: se resuelve (confirmar o dar de baja) en Consultas online.
+  function abrirTurno(turno) {
+    if (turno.pedidoOnline) router.push("/ortodoncia/consultas-online");
+    else setTurnoElegido(turno);
+  }
+
   async function recargarTurnos() {
     const data =
       vista === "semana"
-        ? await obtenerTurnosGeneralPorRango(inicioSemana, finSemana)
-        : await obtenerTurnosGeneralPorFecha(fecha);
+        ? await obtenerTurnosGeneralPorRango(inicioSemana, finSemana, { conPedidosOnline: true })
+        : await obtenerTurnosGeneralPorFecha(fecha, { conPedidosOnline: true });
     setTurnos(data);
   }
 
@@ -87,7 +95,9 @@ export default function AgendaPage() {
     }
     setCargando(true);
     const turnosPromise =
-      vista === "semana" ? obtenerTurnosGeneralPorRango(inicioSemana, finSemana) : obtenerTurnosGeneralPorFecha(fecha);
+      vista === "semana"
+        ? obtenerTurnosGeneralPorRango(inicioSemana, finSemana, { conPedidosOnline: true })
+        : obtenerTurnosGeneralPorFecha(fecha, { conPedidosOnline: true });
     Promise.all([turnosPromise, obtenerProfesionales(), obtenerPacientesActivos()])
       .then(([turnosData, profesionalesData, pacientesData]) => {
         setTurnos(turnosData);
@@ -194,7 +204,7 @@ export default function AgendaPage() {
             fechaInicio={inicioSemana}
             turnos={turnos}
             bloques={bloques}
-            onTurnoClick={(turno) => setTurnoElegido(turno)}
+            onTurnoClick={abrirTurno}
           />
         ) : (
           <AgendaGrid
@@ -202,7 +212,7 @@ export default function AgendaPage() {
             bloques={bloques}
             onSlotClick={(consultorio, hora) => setSlotElegido({ consultorio, hora })}
             onMarcarConsentimiento={puedeMarcarConsentimiento ? marcarConsentimiento : undefined}
-            onTurnoClick={(turno) => setTurnoElegido(turno)}
+            onTurnoClick={abrirTurno}
           />
         )}
       </div>

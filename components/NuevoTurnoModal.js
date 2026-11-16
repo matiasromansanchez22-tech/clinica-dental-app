@@ -226,7 +226,7 @@ export default function NuevoTurnoModal({
           return;
         }
 
-        const turnosDelDia = await obtenerTurnosGeneralPorFecha(fechaLocal);
+        const turnosDelDia = await obtenerTurnosGeneralPorFecha(fechaLocal, { conPedidosOnline: true });
         const turnosVisibles = turnosDelDia.filter(seMuestraEnGrilla);
 
         const libres = [];
@@ -298,7 +298,7 @@ export default function NuevoTurnoModal({
       return;
     }
 
-    const turnosDelDia = await obtenerTurnosGeneralPorFecha(fechaLocal);
+    const turnosDelDia = await obtenerTurnosGeneralPorFecha(fechaLocal, { conPedidosOnline: true });
     const conflicto = hayConflictoDeHorario({
       turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
       consultorio,

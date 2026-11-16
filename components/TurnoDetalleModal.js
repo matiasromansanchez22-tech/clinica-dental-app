@@ -151,7 +151,7 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
       const duracionNueva = suma > 0 ? suma : turnoActual.duracionMin;
 
       if (duracionNueva !== turnoActual.duracionMin) {
-        const turnosDelDia = await obtenerTurnosGeneralPorFecha(turnoActual.fecha);
+        const turnosDelDia = await obtenerTurnosGeneralPorFecha(turnoActual.fecha, { conPedidosOnline: true });
         const conflicto = hayConflictoDeHorario({
           turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
           consultorio: turnoActual.consultorio,
@@ -239,7 +239,7 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
     setError(null);
     setCambiandoProfesional(true);
     try {
-      const turnosDelDia = await obtenerTurnosGeneralPorFecha(turnoActual.fecha);
+      const turnosDelDia = await obtenerTurnosGeneralPorFecha(turnoActual.fecha, { conPedidosOnline: true });
       const conflicto = hayConflictoDeHorario({
         turnosVisibles: turnosDelDia.filter(seMuestraEnGrilla),
         consultorio: turnoActual.consultorio,
@@ -269,7 +269,7 @@ export default function TurnoDetalleModal({ turno, fecha, profesionales = [], ca
     setError(null);
     setMoviendo(true);
     try {
-      const turnosDelDiaDestino = await obtenerTurnosGeneralPorFecha(nuevaFecha);
+      const turnosDelDiaDestino = await obtenerTurnosGeneralPorFecha(nuevaFecha, { conPedidosOnline: true });
       const conflicto = hayConflictoDeHorario({
         turnosVisibles: turnosDelDiaDestino.filter(seMuestraEnGrilla),
         consultorio: Number(nuevoConsultorio),

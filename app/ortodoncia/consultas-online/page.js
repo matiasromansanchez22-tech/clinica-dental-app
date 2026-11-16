@@ -18,7 +18,8 @@ import {
 } from "@/lib/data/consultasOnline";
 import { consultaBonificadaEl } from "@/lib/promoConsulta";
 import { obtenerProfesionales } from "@/lib/data/profesionales";
-import { URL_ORTODONCIA_INFO } from "@/lib/planReferidos";
+import { URL_ODONTOLOGIA_INFO, URL_ORTODONCIA_INFO } from "@/lib/planReferidos";
+import { PanelDiasPuntuales, PanelMotivosGeneral } from "@/components/PanelesGeneralOnline";
 
 const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
@@ -41,9 +42,12 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
   const hoy = fechaDeHoyISO();
   const primerNombre = p.nombre.split(" ")[0];
   const pendiente = p.estado === "Pendiente";
+  const esGeneral = p.area === "General";
   const tipo = p.tipo || "Consulta";
-  const bonificada = tipo === "Consulta" && consultaBonificadaEl(p.fecha, promoHasta);
-  const nombreTurno = { Consulta: "la consulta de ortodoncia", Control: "el control de ortodoncia", Continuación: "la continuación de tu tratamiento de ortodoncia" }[tipo];
+  const bonificada = !esGeneral && tipo === "Consulta" && consultaBonificadaEl(p.fecha, promoHasta);
+  const nombreTurno = esGeneral
+    ? (p.motivo || "odontología").toLowerCase()
+    : { Consulta: "la consulta de ortodoncia", Control: "el control de ortodoncia", Continuación: "la continuación de tu tratamiento de ortodoncia" }[tipo];
   const coloresTipo = { Consulta: "bg-sky-100 text-sky-900", Control: "bg-violet-100 text-violet-900", Continuación: "bg-orange-100 text-orange-900" };
 
   async function accion(fn) {
@@ -69,7 +73,12 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-base font-bold text-gray-900">
-            {p.nombre} <span className={`ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${coloresTipo[tipo]}`}>{tipo}</span>
+            {p.nombre}{" "}
+            {esGeneral ? (
+              <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 align-middle text-xs font-semibold text-emerald-900">General{tipo === "Control" ? " · ya es paciente" : ""}</span>
+            ) : (
+              <span className={`ml-1 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${coloresTipo[tipo]}`}>{tipo}</span>
+            )}
           </p>
           <p className="text-sm text-gray-700">
             <strong>{textoFecha(p.fecha)} · {p.hora}</strong> · con {p.profesionalNombre} · consultorio {p.consultorio}
@@ -80,6 +89,11 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
             {p.dni ? ` · DNI ${p.dni}` : ""} · pedido {hace(p.created_at)}
             {p.lugar ? ` · vino de: ${p.lugar}` : ""}
           </p>
+          {esGeneral && (
+            <p className="mt-1 text-xs font-semibold text-gray-800">
+              Motivo: {p.motivo || "—"} · Obra social: {p.obra_social || "no indicó"}
+            </p>
+          )}
           {bonificada && <p className="mt-1 text-xs font-semibold text-emerald-700">🎁 Consulta bonificada (promoción): se cobra $0.</p>}
           {p.nota && <p className="mt-1 text-xs text-gray-600">Nota: {p.nota}</p>}
         </div>
@@ -117,7 +131,7 @@ function Pedido({ p, onCambio, onError, promoHasta }) {
           </>
         )}
       </div>
-      {pendiente && <p className="mt-2 text-xs text-gray-500">El horario está reservado hasta que lo confirmes o lo des de baja. Al confirmar se crea el turno en la Agenda de Ortodoncia ({tipo === "Consulta" ? "consulta" : "control"}{tipo === "Control" ? ", sobre la ficha del paciente que ya existe" : tipo === "Continuación" ? ", con la ficha marcada como continuación de otra clínica" : ""}); si lo das de baja, el horario se libera para otros pacientes.</p>}
+      {pendiente && <p className="mt-2 text-xs text-gray-500">El horario está reservado hasta que lo confirmes o lo des de baja. Al confirmar se crea el turno en la Agenda de {esGeneral ? "Odontología General (busca la ficha por DNI o WhatsApp y la crea si no existe)" : `Ortodoncia (${tipo === "Consulta" ? "consulta" : "control"}${tipo === "Control" ? ", sobre la ficha del paciente que ya existe" : tipo === "Continuación" ? ", con la ficha marcada como continuación de otra clínica" : ""})`}; si lo das de baja, el horario se libera para otros pacientes.</p>}
     </li>
   );
 }
@@ -385,15 +399,22 @@ function Contenido() {
   const [pestana, setPestana] = useState("pedidos");
   const pestanas = [
     ["pedidos", "Pedidos de turno"],
-    ...(esDuena ? [["horarios", "Horarios que se ofrecen"], ["preguntas", "Preguntas al asistente"]] : []),
+    ...(esDuena
+      ? [
+          ["horarios", "Horarios de ortodoncia"],
+          ["motivos", "Motivos de General"],
+          ["puntuales", "Días puntuales"],
+          ["preguntas", "Preguntas al asistente"],
+        ]
+      : []),
   ];
 
   return (
     <main className="mx-auto max-w-4xl p-6">
       <h1 className="text-2xl font-bold text-gray-900">🌐 Consultas online</h1>
       <p className="mt-0.5 text-sm text-gray-500">
-        Lo que llega desde la página pública de ortodoncia (<a href={URL_ORTODONCIA_INFO} target="_blank" rel="noreferrer" className="underline">{URL_ORTODONCIA_INFO.replace("https://", "")}</a>): pedidos de turno,
-        horarios que se ofrecen y preguntas al asistente.
+        Lo que llega desde las páginas públicas de ortodoncia (<a href={URL_ORTODONCIA_INFO} target="_blank" rel="noreferrer" className="underline">{URL_ORTODONCIA_INFO.replace("https://", "")}</a>) y de
+        Odontología General (<a href={URL_ODONTOLOGIA_INFO} target="_blank" rel="noreferrer" className="underline">{URL_ODONTOLOGIA_INFO.replace("https://", "")}</a>): pedidos de turno, horarios y preguntas al asistente.
       </p>
       <div className="mt-4 flex flex-wrap overflow-hidden rounded-md border border-gray-300 text-sm">
         {pestanas.map(([clave, texto]) => (
@@ -404,6 +425,8 @@ function Contenido() {
       </div>
       {pestana === "pedidos" && <PanelPedidos />}
       {pestana === "horarios" && esDuena && <PanelHorarios />}
+      {pestana === "motivos" && esDuena && <PanelMotivosGeneral />}
+      {pestana === "puntuales" && esDuena && <PanelDiasPuntuales />}
       {pestana === "preguntas" && esDuena && <PanelPreguntas />}
     </main>
   );
