@@ -148,6 +148,7 @@ const GRUPOS = [
       { href: "/gerencial/rutina", label: "🗓 Mi rutina semanal" },
       { href: "/gerencial/comparativa-mecanicos", label: "🔧 Comparativa de mecánicos" },
       { href: "/gerencial/cuentas-mecanicos", label: "🔧 Cuentas por mecánico" },
+      { href: "/gerencial/limpio-laboratorio", label: "🧾 Laboratorio: pagado y limpio" },
       { href: "/gerencial/rentabilidad-diaria", label: "📅 Rentabilidad diaria por profesional" },
       { href: "/gerencial/registro-pacientes", label: "📋 Registro de pacientes por profesional" },
       { href: "/gerencial/pacientes-por-obra-social", label: "🏥 Pacientes por obra social" },
