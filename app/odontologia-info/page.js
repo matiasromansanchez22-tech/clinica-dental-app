@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Revelar from "@/components/publico/Revelar";
+import VolverAtras from "@/components/publico/VolverAtras";
 import SelectorTurnoGeneral from "@/components/publico/SelectorTurnoGeneral";
 import { urlWhatsApp, WHATSAPP_CLINICA_VISIBLE } from "@/lib/planReferidos";
 
@@ -54,12 +55,15 @@ function BotonWhatsApp({ className = "", children = "Escribirnos por WhatsApp" }
 export default function OdontologiaInfoPage() {
   const [bajo, setBajo] = useState(false);
   const [lugar, setLugar] = useState(null);
+  const [desde, setDesde] = useState(null); // página de la que viene la persona ("ortodoncia"), para ofrecerle volver
 
   useEffect(() => {
     const alScroll = () => setBajo(window.scrollY > 520);
     alScroll();
     window.addEventListener("scroll", alScroll, { passive: true });
-    setLugar(new URLSearchParams(window.location.search).get("lugar"));
+    const parametros = new URLSearchParams(window.location.search);
+    setLugar(parametros.get("lugar"));
+    setDesde(parametros.get("desde"));
     return () => window.removeEventListener("scroll", alScroll);
   }, []);
 
@@ -75,14 +79,23 @@ export default function OdontologiaInfoPage() {
         aria-hidden={!bajo}
       >
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" className="h-10 w-auto mix-blend-multiply" />
+          {desde === "ortodoncia" ? (
+            <VolverAtras href={`/ortodoncia-info${lugar ? `?lugar=${lugar}` : ""}#turno`} texto="Volver a ortodoncia" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" className="h-10 w-auto mix-blend-multiply" />
+          )}
           <a href="#turno" tabIndex={bajo ? 0 : -1} className="rounded-full bg-brand-green px-5 py-2 text-sm font-bold text-brand-cream">
             Pedir turno
           </a>
         </div>
       </div>
 
+      {desde === "ortodoncia" && (
+        <div className="mx-auto max-w-5xl px-5 pt-4">
+          <VolverAtras href={`/ortodoncia-info${lugar ? `?lugar=${lugar}` : ""}#turno`} texto="Volver a ortodoncia" />
+        </div>
+      )}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" className="h-14 w-auto mix-blend-multiply" />
@@ -136,7 +149,7 @@ export default function OdontologiaInfoPage() {
                   <p className="font-semibold text-brand-brown">{e.titulo}</p>
                   <p className="mt-0.5 text-sm text-brand-charcoal/80">{e.texto}</p>
                   {e.link && (
-                    <a href={e.link} className="mt-1 inline-block text-sm font-semibold text-brand-green underline">
+                    <a href={`${e.link}?desde=odontologia${lugar ? `&lugar=${lugar}` : ""}`} className="mt-1 inline-block text-sm font-semibold text-brand-green underline">
                       Ver ortodoncia →
                     </a>
                   )}

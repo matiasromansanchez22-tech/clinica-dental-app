@@ -165,7 +165,7 @@ export default function SelectorTurnoGeneral({ lugar }) {
           {motivo?.accion === "ortodoncia" && (
             <div className="mt-4 rounded-2xl bg-brand-cream p-4 ring-1 ring-brand-tan/70">
               <p className="text-sm text-brand-charcoal/90">Los turnos de ortodoncia se piden en su propia página, con los valores y los horarios de la consulta.</p>
-              <a href="/ortodoncia-info#turno" className="mt-3 inline-flex items-center justify-center rounded-full bg-brand-green px-6 py-3 text-base font-bold text-brand-cream">
+              <a href={`/ortodoncia-info?desde=odontologia${lugar ? `&lugar=${lugar}` : ""}#turno`} className="mt-3 inline-flex items-center justify-center rounded-full bg-brand-green px-6 py-3 text-base font-bold text-brand-cream">
                 Ir a ortodoncia
               </a>
             </div>

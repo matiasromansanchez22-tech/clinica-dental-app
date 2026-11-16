@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ChatOrtodoncia from "@/components/publico/ChatOrtodoncia";
 import GaleriaCasos from "@/components/publico/GaleriaCasos";
 import Revelar from "@/components/publico/Revelar";
+import VolverAtras from "@/components/publico/VolverAtras";
 import SelectorTurno from "@/components/publico/SelectorTurno";
 import { pesosAR, registrarEscaneoPlan, urlWhatsApp, WHATSAPP_CLINICA_VISIBLE } from "@/lib/planReferidos";
 import { hoyEnArgentina, promoConsultaHasta, textoCortoDeFecha } from "@/lib/promoConsulta";
@@ -94,12 +95,15 @@ function TarjetaValores({ titulo, subtitulo, contado, cuotaDe, control, bracket,
 export default function OrtodonciaInfoPublica() {
   const [v, setV] = useState(null); // valores de la configuración; null = todavía no llegaron o no se pudieron leer
   const [lugar, setLugar] = useState(null);
+  const [desde, setDesde] = useState(null); // página de la que viene la persona ("odontologia"), para ofrecerle volver
   const [bajo, setBajo] = useState(false); // ya se bajó de la parte de arriba: aparece la barra fija con el botón de turno
 
   // Cada vez que alguien abre la página (por el QR o el link) se anota la visita, de forma anónima.
   useEffect(() => {
     registrarEscaneoPlan("ortodoncia");
-    setLugar(new URLSearchParams(window.location.search).get("lugar") || null);
+    const parametros = new URLSearchParams(window.location.search);
+    setLugar(parametros.get("lugar") || null);
+    setDesde(parametros.get("desde") || null);
   }, []);
 
   useEffect(() => {
@@ -144,14 +148,23 @@ export default function OrtodonciaInfoPublica() {
         aria-hidden={!bajo}
       >
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" className="h-10 w-auto mix-blend-multiply" />
+          {desde === "odontologia" ? (
+            <VolverAtras href={`/odontologia-info${lugar ? `?lugar=${lugar}` : ""}#turno`} texto="Volver a odontología general" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" className="h-10 w-auto mix-blend-multiply" />
+          )}
           <a href="#turno" tabIndex={bajo ? 0 : -1} className="rounded-full bg-brand-green px-5 py-2 text-sm font-bold text-brand-cream">
             Elegir mi turno
           </a>
         </div>
       </div>
 
+      {desde === "odontologia" && (
+        <div className="mx-auto max-w-5xl px-5 pt-4">
+          <VolverAtras href={`/odontologia-info${lugar ? `?lugar=${lugar}` : ""}#turno`} texto="Volver a odontología general" />
+        </div>
+      )}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-claro.png" alt="Clínica Dental Marianela Ramírez" className="h-14 w-auto mix-blend-multiply" />
@@ -200,7 +213,7 @@ export default function OrtodonciaInfoPublica() {
         </Revelar>
         <p className="mt-4 rounded-2xl bg-white px-5 py-4 text-center text-sm text-brand-charcoal/85 shadow-sm ring-1 ring-brand-tan/60">
           ¿Necesitás otra consulta, como una limpieza, un conducto, encías o prótesis?{" "}
-          <a href="/odontologia-info#turno" className="font-bold text-brand-green underline">
+          <a href={`/odontologia-info?desde=ortodoncia${lugar ? `&lugar=${lugar}` : ""}#turno`} className="font-bold text-brand-green underline">
             Pedí tu turno de odontología general →
           </a>
         </p>
