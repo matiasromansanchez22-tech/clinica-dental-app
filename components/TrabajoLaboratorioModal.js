@@ -8,9 +8,12 @@ import {
   actualizarValorTrabajo,
   agregarEventoTrabajo,
   calcularEstadoDemora,
+  canonicalizarLaboratorio,
   crearTrabajoLaboratorio,
   eliminarTrabajoLaboratorio,
+  esMecanicoDeLaLista,
   obtenerEventosTrabajo,
+  precioPacienteDeCatalogo,
   resolverIdCatalogo,
 } from "@/lib/data/laboratorio";
 import { obtenerPrecioMecanico, obtenerPreciosDelMecanico } from "@/lib/data/mecanicosPrecios";
@@ -169,6 +172,58 @@ function CalculadoraPiezas({ onUsar }) {
   );
 }
 
+// A qué prestación de la clínica corresponde el trabajo: es lo que paga el paciente. Es independiente del nombre que le pone el
+// mecánico, y de acá sale el margen (lo que paga el paciente menos lo que cobra el mecánico).
+function SelectorPrestacionClinica({ catalogo, valor, onChange, costoMecanico, obligatorio, nota }) {
+  const conLab = catalogo.filter((c) => c.requiere_laboratorio);
+  const otras = catalogo.filter((c) => !c.requiere_laboratorio);
+  const porCategoria = (lista) => {
+    const mapa = {};
+    for (const c of lista) (mapa[c.categoria || "Otras"] ||= []).push(c);
+    return Object.entries(mapa).sort((a, b) => a[0].localeCompare(b[0]));
+  };
+  const elegida = catalogo.find((c) => c.id === valor);
+  const precio = precioPacienteDeCatalogo(elegida);
+  const costo = Number(costoMecanico) || 0;
+  const opcion = (c) => (
+    <option key={c.id} value={c.id}>
+      {c.prestacion} — {formatoPesos(precioPacienteDeCatalogo(c))}
+    </option>
+  );
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5">
+      <label className="flex flex-col gap-1 text-xs font-medium text-gray-700">
+        Prestación de la clínica (lo que paga el paciente){obligatorio ? " *" : ""}
+        <select value={valor || ""} onChange={(e) => onChange(e.target.value)} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-normal">
+          <option value="">— Elegí la prestación —</option>
+          {porCategoria(conLab).map(([cat, lista]) => (
+            <optgroup key={`l-${cat}`} label={`${cat} (con laboratorio)`}>
+              {lista.map(opcion)}
+            </optgroup>
+          ))}
+          {otras.length > 0 && <optgroup label="Otras prestaciones">{otras.map(opcion)}</optgroup>}
+        </select>
+      </label>
+      {elegida ? (
+        <p className="text-[11px] text-gray-700">
+          El paciente paga <strong>{formatoPesos(precio)}</strong> (efectivo; de lista {formatoPesos(Number(elegida.valor_lista) || 0)}).
+          {costo > 0 ? (
+            <>
+              {" "}
+              Si el mecánico cobra {formatoPesos(costo)}, quedan{" "}
+              <strong className={precio - costo >= 0 ? "text-emerald-700" : "text-red-700"}>{formatoPesos(precio - costo)}</strong> antes de los honorarios del profesional.
+            </>
+          ) : (
+            " Cuando cargues lo que cobra el mecánico, acá aparece cuánto queda."
+          )}
+        </p>
+      ) : (
+        <p className="text-[11px] text-gray-500">{nota || "Sin esto no se puede calcular cuánto queda limpio del trabajo."}</p>
+      )}
+    </div>
+  );
+}
+
 function NuevoTrabajoFormulario({
   pacientesGeneral,
   pacientesOrtodoncia,
@@ -194,6 +249,26 @@ function NuevoTrabajoFormulario({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [preciosDelMecanico, setPreciosDelMecanico] = useState([]);
+  const [idCatalogoElegido, setIdCatalogoElegido] = useState("");
+  const [catalogoTocado, setCatalogoTocado] = useState(false);
+
+  // Si lo que se escribió coincide con una prestación del catálogo (o ya está vinculado en la comparativa de mecánicos), se
+  // preselecciona sola; igual se puede cambiar a mano.
+  useEffect(() => {
+    if (catalogoTocado || !tipoTrabajo.trim()) return;
+    let cancelado = false;
+    const t = setTimeout(() => {
+      resolverIdCatalogo(laboratorio, tipoTrabajo, catalogo)
+        .then((id) => {
+          if (!cancelado && id) setIdCatalogoElegido(id);
+        })
+        .catch(() => {});
+    }, 400);
+    return () => {
+      cancelado = true;
+      clearTimeout(t);
+    };
+  }, [laboratorio, tipoTrabajo, catalogoTocado, catalogo]);
 
   // Sugiere el valor de la comparativa de mecánicos para ese laboratorio +
   // tipo de trabajo, multiplicado por la cantidad (ej. 2 coronas de
@@ -273,6 +348,10 @@ function NuevoTrabajoFormulario({
       setError("Elegí un paciente y completá el tipo de trabajo.");
       return;
     }
+    if (tipoPaciente === "General" && !idCatalogoElegido) {
+      setError("Elegí a qué prestación de la clínica corresponde el trabajo: es lo que paga el paciente y sirve para saber cuánto queda limpio.");
+      return;
+    }
     const cantidadNum = Math.max(Number(cantidad) || 1, 1);
     const notaCantidad =
       cantidadNum > 1
@@ -286,9 +365,9 @@ function NuevoTrabajoFormulario({
         pacienteId: pacienteElegido.id,
         pacienteNombre: nombreDe(pacienteElegido),
         tipoTrabajo: tipoTrabajo.trim(),
-        idCatalogo: await resolverIdCatalogo(laboratorio, tipoTrabajo, catalogo),
+        idCatalogo: idCatalogoElegido || (await resolverIdCatalogo(laboratorio, tipoTrabajo, catalogo)),
         pieza: pieza.trim(),
-        laboratorio: laboratorio.trim(),
+        laboratorio: canonicalizarLaboratorio(laboratorio, laboratoriosSugeridos),
         profesionalId: profesionalId || null,
         fechaInicio,
         valor,
@@ -387,6 +466,11 @@ function NuevoTrabajoFormulario({
                 <option key={l} value={l} />
               ))}
             </datalist>
+            {laboratorio.trim() && !esMecanicoDeLaLista(laboratorio, laboratoriosSugeridos) && (
+              <span className="text-[11px] font-normal text-amber-700">
+                Ese mecánico no está en la lista: si es nuevo, está bien; si no, elegilo de la lista para que no figure dos veces.
+              </span>
+            )}
           </label>
 
           <CatalogoMecanico laboratorio={laboratorio} precios={preciosDelMecanico} onElegir={elegirDelCatalogo} />
@@ -419,6 +503,17 @@ function NuevoTrabajoFormulario({
               />
             </label>
           </div>
+
+          <SelectorPrestacionClinica
+            catalogo={catalogo}
+            valor={idCatalogoElegido}
+            onChange={(id) => {
+              setIdCatalogoElegido(id);
+              setCatalogoTocado(true);
+            }}
+            costoMecanico={valor}
+            obligatorio={tipoPaciente === "General"}
+          />
 
           <div className="grid grid-cols-[5rem_1fr] gap-3">
             <label className="flex flex-col gap-1 text-xs text-gray-700">
@@ -541,6 +636,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
   const [editTipoTrabajo, setEditTipoTrabajo] = useState(trabajo.tipoTrabajo || "");
   const [editPieza, setEditPieza] = useState(trabajo.pieza || "");
   const [editLaboratorio, setEditLaboratorio] = useState(trabajo.laboratorio || "");
+  const [editIdCatalogo, setEditIdCatalogo] = useState(trabajo.idCatalogo || "");
   const [editProfesionalId, setEditProfesionalId] = useState(trabajo.profesionalId || "");
   const [editObservaciones, setEditObservaciones] = useState(trabajo.observaciones || "");
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
@@ -589,10 +685,11 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     setEditTipoTrabajo(trabajo.tipoTrabajo || "");
     setEditPieza(trabajo.pieza || "");
     setEditLaboratorio(trabajo.laboratorio || "");
+    setEditIdCatalogo(trabajo.idCatalogo || "");
     setEditProfesionalId(trabajo.profesionalId || "");
     setEditObservaciones(trabajo.observaciones || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trabajo.tipoTrabajo, trabajo.pieza, trabajo.laboratorio, trabajo.profesionalId, trabajo.observaciones]);
+  }, [trabajo.tipoTrabajo, trabajo.pieza, trabajo.laboratorio, trabajo.profesionalId, trabajo.observaciones, trabajo.idCatalogo]);
 
   async function guardarEdicion() {
     if (!editTipoTrabajo.trim()) {
@@ -604,9 +701,9 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
     try {
       await actualizarTrabajoLaboratorio(trabajo.id, {
         tipoTrabajo: editTipoTrabajo.trim(),
-        idCatalogo: await resolverIdCatalogo(editLaboratorio, editTipoTrabajo, catalogo),
+        idCatalogo: editIdCatalogo || (await resolverIdCatalogo(editLaboratorio, editTipoTrabajo, catalogo)),
         pieza: editPieza.trim(),
-        laboratorio: editLaboratorio.trim(),
+        laboratorio: canonicalizarLaboratorio(editLaboratorio, laboratoriosSugeridos),
         profesionalId: editProfesionalId,
         observaciones: editObservaciones.trim(),
       });
@@ -782,6 +879,13 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
                 />
               </label>
             </div>
+            <SelectorPrestacionClinica
+              catalogo={catalogo}
+              valor={editIdCatalogo}
+              onChange={setEditIdCatalogo}
+              costoMecanico={trabajo.valor}
+              obligatorio={trabajo.tipoPaciente !== "Ortodoncia"}
+            />
             <label className="flex flex-col gap-1 text-xs text-gray-700">
               Profesional
               <select
@@ -814,6 +918,7 @@ function DetalleTrabajo({ trabajo, config, catalogo, profesionales, laboratorios
                   setEditTipoTrabajo(trabajo.tipoTrabajo || "");
                   setEditPieza(trabajo.pieza || "");
                   setEditLaboratorio(trabajo.laboratorio || "");
+                  setEditIdCatalogo(trabajo.idCatalogo || "");
                   setEditProfesionalId(trabajo.profesionalId || "");
                   setEditObservaciones(trabajo.observaciones || "");
                 }}

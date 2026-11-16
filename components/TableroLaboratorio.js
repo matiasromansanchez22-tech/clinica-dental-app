@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { COLOR_SEMAFORO, DIAS_ENTREGADOS_VISIBLES, ETAPAS, calcularCircuito } from "@/lib/circuitoLaboratorio";
-import { claveTurnoTrabajo, registrarPasoCircuito } from "@/lib/data/laboratorio";
+import { actualizarValorTrabajo, claveTurnoTrabajo, registrarPasoCircuito } from "@/lib/data/laboratorio";
+import { obtenerPrecioMecanico } from "@/lib/data/mecanicosPrecios";
 import { fechaDeHoyISO } from "@/lib/agenda";
 import { textoDeuda } from "@/lib/data/deudaPacientes";
 
@@ -173,6 +174,37 @@ export default function TableroLaboratorio({
 La regla es que no retira el trabajo si debe algo. ¿Lo entregás igual?`
       );
       if (!seguir) return;
+    }
+    // Regla: no se marca como recibido sin saber cuánto cobra el mecánico. Si todavía no está cargado, se pregunta acá mismo
+    // (sugiriendo el precio de la comparativa de mecánicos, si lo tiene).
+    if (accion.tipos.includes("Recibido del mecánico") && !(Number(trabajo.valor) > 0)) {
+      let sugerido = "";
+      try {
+        const precio = await obtenerPrecioMecanico(trabajo.laboratorio, trabajo.tipoTrabajo);
+        if (precio) sugerido = String(precio);
+      } catch {
+        // sin sugerencia
+      }
+      const respuesta = window.prompt(
+        `¿Cuánto cobra el mecánico por este trabajo?
+${trabajo.pacienteNombre} — ${trabajo.tipoTrabajo}${trabajo.laboratorio ? ` (${trabajo.laboratorio})` : ""}
+
+Escribí solo el número, en pesos.`,
+        sugerido
+      );
+      if (respuesta === null) return;
+      const monto = Number(String(respuesta).replace(/[^d.]/g, ""));
+      if (!monto || monto <= 0) {
+        setError("Para marcarlo como recibido hace falta cargar cuánto cobra el mecánico.");
+        return;
+      }
+      try {
+        await actualizarValorTrabajo(trabajo.id, monto);
+      } catch (e) {
+        setError(e.message);
+        return;
+      }
+      trabajo = { ...trabajo, valor: monto };
     }
     setOcupado(true);
     setError(null);

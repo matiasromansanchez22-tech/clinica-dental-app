@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { fechaDeHoyISO } from "@/lib/agenda";
-import { marcarTrabajoEnviado } from "@/lib/data/laboratorio";
+import { canonicalizarLaboratorio, marcarTrabajoEnviado } from "@/lib/data/laboratorio";
 
 export default function MarcarEnviadoModal({ trabajo, laboratoriosSugeridos, onClose, onGuardado }) {
   const [laboratorio, setLaboratorio] = useState(trabajo.laboratorio || "");
@@ -18,7 +18,7 @@ export default function MarcarEnviadoModal({ trabajo, laboratoriosSugeridos, onC
     setGuardando(true);
     setError(null);
     try {
-      await marcarTrabajoEnviado(trabajo.id, fecha, laboratorio.trim());
+      await marcarTrabajoEnviado(trabajo.id, fecha, canonicalizarLaboratorio(laboratorio, laboratoriosSugeridos));
       await onGuardado();
     } catch (e) {
       setError(e.message);
