@@ -14,15 +14,15 @@ const primerNombre = (n) => String(n || "").split(" ")[0];
 
 export async function GET(request) {
   try {
+    // Esta ruta manda un aviso al celular, así que SIEMPRE exige la clave del cron (CRON_SECRET): sin ella no hace nada. Vercel la manda
+    // sola en cada ejecución programada cuando la variable está cargada en el proyecto.
+    if (!process.env.CRON_SECRET) return Response.json({ ok: false, error: "Falta configurar CRON_SECRET en Vercel: no se envía nada." }, { status: 200 });
     const auth = request.headers.get("authorization");
-    const hayClave = Boolean(process.env.CRON_SECRET);
-    const autorizado = hayClave && auth === `Bearer ${process.env.CRON_SECRET}`;
-    if (hayClave && !autorizado) return Response.json({ ok: false, error: "No autorizado." }, { status: 401 });
+    if (auth !== `Bearer ${process.env.CRON_SECRET}`) return Response.json({ ok: false, error: "No autorizado." }, { status: 401 });
 
     const parametros = new URL(request.url).searchParams;
     const simular = parametros.get("simular") === "1";
     const forzar = parametros.get("forzar") === "1";
-    if ((simular || forzar) && !autorizado) return Response.json({ ok: false, error: "No autorizado." }, { status: 401 });
 
     const { hoy, ahora } = horaYFechaEnArgentina();
     const diaSemana = new Date(`${hoy}T12:00:00Z`).getUTCDay();
@@ -35,6 +35,8 @@ export async function GET(request) {
     const r = await calcularResumenJornada(supabase, { fecha: hoy, jornada, hoy, ahora });
     const j = JORNADAS[jornada];
     const t = r.total;
+    // Si en esa jornada no hubo ningún turno (por ejemplo, las tardes de sábado), no se manda nada.
+    if (t.agendados === 0 && !forzar) return Response.json({ ok: true, hoy, jornada, omitido: "No hubo turnos en esta jornada." });
 
     // --- Para Dueñas y Recepción: el resumen de todos ---
     const quienes = r.porProfesional.filter((p) => p.pacientes.length > 0).map((p) => `${primerNombre(p.nombre)}${p.area === "Ortodoncia" ? " (orto)" : ""} ${p.pacientes.length}`);

@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/aviso-cuentas",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/resumen-jornada?jornada=manana",
+      "schedule": "30 15 * * 1-6"
+    },
+    {
+      "path": "/api/cron/resumen-jornada?jornada=tarde",
+      "schedule": "30 21 * * 1-6"
     }
   ]
 }
