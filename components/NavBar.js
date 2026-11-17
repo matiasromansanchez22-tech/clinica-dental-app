@@ -11,6 +11,7 @@ import AvisoPresupuestoNuevo from "@/components/AvisoPresupuestoNuevo";
 import AvisoPrestacionRealizada from "@/components/AvisoPrestacionRealizada";
 import AvisoVisitasPorCompletar from "@/components/AvisoVisitasPorCompletar";
 import AvisoPedidosTurnoOnline from "@/components/AvisoPedidosTurnoOnline";
+import AvisoCierreJornada from "@/components/AvisoCierreJornada";
 import CelebracionVenta from "@/components/CelebracionVenta";
 import AvisoRecordatorios from "@/components/AvisoRecordatorios";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
@@ -37,6 +38,7 @@ const GRUPOS = [
   { tipo: "link", href: "/panoramicas", label: "🩻 Pano y fotos", ocultarRoles: ["Contador"] },
   { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Laboratorio", "Duena", "Asistente"] },
   { tipo: "link", href: "/ingreso-profesionales", label: "⏱️ Ingreso de profesionales", soloRoles: ["Secretaria", "Duena"] },
+  { tipo: "link", href: "/resumen-jornada", label: "📋 Resumen de la jornada", soloDuena: true },
   { tipo: "link", href: "/contador-billetes", label: "💵 Contador de billetes", soloRoles: ["Duena", "Contador"] },
   { tipo: "link", href: "/gerencial/produccion", label: "💰 Producción", soloRoles: ["Secretaria"] },
   {
@@ -361,6 +363,7 @@ export default function NavBar() {
           <AvisoPrestacionRealizada />
           <AvisoVisitasPorCompletar />
           <AvisoPedidosTurnoOnline />
+          <AvisoCierreJornada />
           <CelebracionVenta />
           <AvisoRecordatorios />
         </>

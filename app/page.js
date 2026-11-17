@@ -28,6 +28,7 @@ const ACCESOS_POR_ROL = {
     { href: "/ortodoncia/agenda", icon: "🦷", label: "Agenda Ortodoncia" },
     { href: "/caja", icon: "💰", label: "Caja" },
     { href: "/ingreso-profesionales", icon: "⏱️", label: "Ingreso de profesionales" },
+    { href: "/resumen-jornada", icon: "📋", label: "Resumen de la jornada" },
     { href: "/gerencial/cierre-diario", icon: "🔒", label: "Cierre Diario" },
     { href: "/gerencial/estadisticas", icon: "📊", label: "Tablero Mensual" },
     { href: "/gerencial/metas", icon: "🎯", label: "Metas y Seguimiento" },
