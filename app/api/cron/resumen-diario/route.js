@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
+import { guardarNotificaciones } from "@/lib/server/push";
 
 const CLAVE_POR_MEDIO = {
   Efectivo: "efectivo",
@@ -134,6 +135,8 @@ export async function GET(request) {
         }
       })
     );
+
+    await guardarNotificaciones(supabase, suscripciones, { title: `📊 Cierre del día — ${tituloFecha}`, body: mensaje, url: "/gerencial/cierre-diario" });
 
     return Response.json({ ok: true, enviado: true, enviados, mensaje });
   } catch (err) {

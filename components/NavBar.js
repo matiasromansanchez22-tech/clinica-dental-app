@@ -12,6 +12,7 @@ import AvisoPrestacionRealizada from "@/components/AvisoPrestacionRealizada";
 import AvisoVisitasPorCompletar from "@/components/AvisoVisitasPorCompletar";
 import AvisoPedidosTurnoOnline from "@/components/AvisoPedidosTurnoOnline";
 import AvisoCierreJornada from "@/components/AvisoCierreJornada";
+import CortinaNotificaciones from "@/components/CortinaNotificaciones";
 import CelebracionVenta from "@/components/CelebracionVenta";
 import AvisoRecordatorios from "@/components/AvisoRecordatorios";
 import { obtenerCantidadTurnosAReprogramar } from "@/lib/data/turnosReprogramar";
@@ -400,6 +401,7 @@ export default function NavBar() {
           return <MenuDesplegable key={g.label} grupo={g} activo={activo} badges={badges} rol={perfil?.rol} />;
         })}
         <span className="ml-auto flex items-center gap-3 text-sm text-brand-charcoal/60">
+          {esDuena && <CortinaNotificaciones />}
           {!esAsistente && <ActivarAvisosBoton />}
           <InstalarAppBoton />
           {perfil?.nombre || user.email}

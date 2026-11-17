@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 import { usuarioValido } from "@/lib/server/verificarSesion";
+import { guardarNotificaciones } from "@/lib/server/push";
 
 export async function POST(request) {
   try {
@@ -53,6 +54,8 @@ export async function POST(request) {
         }
       })
     );
+
+    await guardarNotificaciones(supabase, suscripciones, { title: titulo || "Clínica Dental", body: mensaje || "", url: url || "/" });
 
     return Response.json({ ok: true, enviados });
   } catch (err) {
