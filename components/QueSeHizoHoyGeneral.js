@@ -33,7 +33,11 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   // El saldo del plan y el atajo a Caja son para quien cobra: no se le muestran
   // al Odontólogo, Laboratorio ni Marketing.
   const puedeVerCobros = !["Odontologo", "Laboratorio", "CM"].includes(perfil?.rol);
-  const [profesionalId, setProfesionalId] = useState(turno.profesionalDeTurnoId || "");
+  // "Profesional que lo hizo": si carga el propio Odontólogo, se completa solo con él (es quien atendió, aunque el turno figure a nombre de
+  // otro profesional). Si carga Recepción o una Dueña, queda el profesional del turno, que pueden cambiar.
+  const miProfesionalId = perfil?.rol === "Odontologo" ? perfil?.profesional_id || null : null;
+  const [profesionalElegido, setProfesionalId] = useState(null);
+  const profesionalId = profesionalElegido ?? (miProfesionalId || turno.profesionalDeTurnoId || "");
   const [planActivo, setPlanActivo] = useState(null);
   const [pasos, setPasos] = useState([]);
   const [adHocEnviados, setAdHocEnviados] = useState([]);
