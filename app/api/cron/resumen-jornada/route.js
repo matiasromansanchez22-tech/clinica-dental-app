@@ -39,8 +39,10 @@ export async function GET(request) {
 
     // La rutina del equipo (hojas tildadas) se evalúa en el mismo aviso. Si todavía no se corrió la migración 207, simplemente no hay aviso.
     let avisoRutina = null;
+    let rutinaCalculada = null;
     try {
-      avisoRutina = textoAvisoRutina(await calcularRutinaDelDia(supabase, { fecha: hoy, hoy, ahora }), jornada);
+      rutinaCalculada = await calcularRutinaDelDia(supabase, { fecha: hoy, hoy, ahora });
+      avisoRutina = textoAvisoRutina(rutinaCalculada, jornada);
     } catch {
       avisoRutina = null;
     }
@@ -59,7 +61,9 @@ export async function GET(request) {
           : `Vinieron ${t.vinieron} de ${t.agendados}. Sin cargar ${t.pacientesPendientes}: ${quienes.join(" · ")}`,
     };
 
-    if (simular) return Response.json({ ok: true, hoy, ahora, jornada, simulado: true, general: sinTurnos ? null : general, rutina: avisoRutina, total: t });
+    if (simular) return Response.json({ ok: true, hoy, ahora, jornada, simulado: true, general: sinTurnos ? null : general, rutina: avisoRutina, total: t,
+      // Solo en la simulación (pide el secreto): lo que comprobó el sistema en cada tarea, para revisarlo.
+      comprobaciones: rutinaCalculada?.personas.map((p) => ({ nombre: p.nombre, libre: p.libre, tareas: p.tareas.filter((x) => x.sistema).map((x) => `${x.estado} · ${x.sistema.detalle}`) })) });
 
     const { data: subs, error } = await supabase.from("push_subscriptions").select("*, usuario:perfiles(rol, nombre)");
     if (error) throw error;
