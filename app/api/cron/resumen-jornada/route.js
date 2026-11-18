@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { horaYFechaEnArgentina } from "@/lib/pendientesPorProfesional";
 import { calcularResumenJornada, esDestinatarioDelResumen, JORNADAS, textoDeFecha } from "@/lib/resumenJornada";
+import { calcularRutinaDelDia, textoAvisoRutina } from "@/lib/rutinaEquipo";
 import { enviarPushASuscripciones, prepararWebPush } from "@/lib/server/push";
 
 // Aviso de fin de jornada: lo dispara un cron (ver vercel.json) un rato antes de que termine la mañana y la tarde. Manda:
@@ -35,8 +36,18 @@ export async function GET(request) {
     const r = await calcularResumenJornada(supabase, { fecha: hoy, jornada, hoy, ahora });
     const j = JORNADAS[jornada];
     const t = r.total;
-    // Si en esa jornada no hubo ningún turno (por ejemplo, las tardes de sábado), no se manda nada.
-    if (t.agendados === 0 && !forzar) return Response.json({ ok: true, hoy, jornada, omitido: "No hubo turnos en esta jornada." });
+
+    // La rutina del equipo (hojas tildadas) se evalúa en el mismo aviso. Si todavía no se corrió la migración 207, simplemente no hay aviso.
+    let avisoRutina = null;
+    try {
+      avisoRutina = textoAvisoRutina(await calcularRutinaDelDia(supabase, { fecha: hoy, hoy, ahora }), jornada);
+    } catch {
+      avisoRutina = null;
+    }
+
+    // Si en esa jornada no hubo ningún turno (por ejemplo, las tardes de sábado), no se manda el resumen de pacientes (la rutina sí).
+    const sinTurnos = t.agendados === 0 && !forzar;
+    if (sinTurnos && !avisoRutina) return Response.json({ ok: true, hoy, jornada, omitido: "No hubo turnos en esta jornada." });
 
     // --- Para Dueñas y Recepción: el resumen de todos ---
     const quienes = r.porProfesional.filter((p) => p.pacientes.length > 0).map((p) => `${primerNombre(p.nombre)}${p.area === "Ortodoncia" ? " (orto)" : ""} ${p.pacientes.length}`);
@@ -48,14 +59,18 @@ export async function GET(request) {
           : `Vinieron ${t.vinieron} de ${t.agendados}. Sin cargar ${t.pacientesPendientes}: ${quienes.join(" · ")}`,
     };
 
-    if (simular) return Response.json({ ok: true, hoy, ahora, jornada, simulado: true, general, total: t });
+    if (simular) return Response.json({ ok: true, hoy, ahora, jornada, simulado: true, general: sinTurnos ? null : general, rutina: avisoRutina, total: t });
 
     const { data: subs, error } = await supabase.from("push_subscriptions").select("*, usuario:perfiles(rol, nombre)");
     if (error) throw error;
     const suyas = (subs || []).filter((s) => esDestinatarioDelResumen(s.usuario));
     // Si Matías todavía no activó los avisos en su celular, no hay a quién mandarlo: se avisa en la respuesta.
-    const enviados = suyas.length ? await enviarPushASuscripciones(supabase, suyas, { title: general.titulo, body: general.mensaje, url: "/resumen-jornada" }) : 0;
-    return Response.json({ ok: true, hoy, jornada, enviado: true, enviados, sinAvisosActivados: suyas.length === 0, total: t });
+    let enviados = 0;
+    if (suyas.length) {
+      if (!sinTurnos) enviados += await enviarPushASuscripciones(supabase, suyas, { title: general.titulo, body: general.mensaje, url: "/resumen-jornada" });
+      if (avisoRutina) enviados += await enviarPushASuscripciones(supabase, suyas, { title: avisoRutina.titulo, body: avisoRutina.mensaje, url: "/gerencial/rutina-equipo" });
+    }
+    return Response.json({ ok: true, hoy, jornada, enviado: true, enviados, sinAvisosActivados: suyas.length === 0, total: t, rutina: Boolean(avisoRutina) });
   } catch (err) {
     return Response.json({ ok: false, error: err.message }, { status: 200 });
   }

@@ -40,6 +40,8 @@ const GRUPOS = [
   { tipo: "link", href: "/horario", label: "🕐 Mi horario", soloRoles: ["Secretaria", "Laboratorio", "Duena", "Asistente"] },
   { tipo: "link", href: "/ingreso-profesionales", label: "⏱️ Ingreso de profesionales", soloRoles: ["Secretaria", "Duena"] },
   { tipo: "link", href: "/resumen-jornada", label: "📋 Resumen de la jornada", soloDuena: true },
+  { tipo: "link", href: "/rutina-equipo", label: "✅ Mi rutina de hoy", soloRoles: ["Secretaria", "Odontologo", "Laboratorio", "Asistente"] },
+  { tipo: "link", href: "/gerencial/rutina-equipo", label: "✅ Rutina del equipo", soloDuena: true },
   { tipo: "link", href: "/contador-billetes", label: "💵 Contador de billetes", soloRoles: ["Duena", "Contador"] },
   { tipo: "link", href: "/gerencial/produccion", label: "💰 Producción", soloRoles: ["Secretaria"] },
   {
