@@ -64,6 +64,7 @@ const GRUPOS = [
       { href: "/cancelados", label: "Turnos cancelados" },
       { href: "/pacientes", label: "Pacientes" },
       { href: "/consentimientos", label: "✍️ Consentimientos pendientes", ocultarRoles: ["Odontologo", "Laboratorio"] },
+      { href: "/seguimiento-pacientes", label: "📲 Seguimiento de pacientes", ocultarRoles: ["Odontologo", "Laboratorio"] },
       { href: "/nomenclador", label: "Nomenclador" },
       { href: "/catalogo", label: "Catálogo" },
       { href: "/presupuestos", label: "Presupuestos", badgeKey: "presupuestosPendientesConPago" },
