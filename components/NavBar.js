@@ -157,6 +157,7 @@ const GRUPOS = [
       { href: "/gerencial/limpio-laboratorio", label: "🧾 Laboratorio: pagado y limpio" },
       { href: "/gerencial/rentabilidad-diaria", label: "📅 Rentabilidad diaria por profesional" },
       { href: "/gerencial/registro-pacientes", label: "📋 Registro de pacientes por profesional" },
+      { href: "/gerencial/obras-sociales-por-profesional", label: "🏥 Obras sociales por profesional (resumen del mes)" },
       { href: "/gerencial/pacientes-por-obra-social", label: "🏥 Pacientes por obra social" },
       { href: "/gerencial/seguimiento-ortodoncia", label: "🦷 Seguimiento de Ortodoncia" },
       { href: "/gerencial/consultas-ortodoncia", label: "📊 Consultas de ortodoncia (resumen)" },
