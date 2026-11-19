@@ -51,6 +51,7 @@ const GRUPOS = [
     soloRoles: ["Secretaria", "Duena"],
     badgeKey: "autorizacionesPendientes",
   },
+  { tipo: "link", href: "/boletas-pedidos", label: "📦 Boletas de pedidos", soloRoles: ["Duena", "Secretaria", "Laboratorio", "Contador"] },
   { tipo: "link", href: "/chat", label: "💬 Chat", ocultarRoles: ["Contador"] },
   {
     tipo: "grupo",
