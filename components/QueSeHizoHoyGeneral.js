@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { calcularSugerenciaPago, obtenerPlanActivoPaciente } from "@/lib/data/caja";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
+import { obtenerPrestacionesObraSocial } from "@/lib/data/caja";
 import {
   desmarcarPasoRealizado,
   marcarPasoPlanRealizado,
@@ -68,6 +69,23 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
   const miProfesionalId = perfil?.rol === "Odontologo" ? perfil?.profesional_id || null : null;
   const [profesionalElegido, setProfesionalId] = useState(null);
   const profesionalId = profesionalElegido ?? (miProfesionalId || turno.profesionalDeTurnoId || "");
+  // Obra social: el profesional anota el código que pasó y la app busca a qué prestación corresponde (nomenclador de esa obra social).
+  const esObraSocialTurno = Boolean(turno.cobertura) && turno.cobertura !== "Particular";
+  const [nomenclador, setNomenclador] = useState([]);
+  const [codigoTipeado, setCodigoTipeado] = useState("");
+  const [cantidadCodigo, setCantidadCodigo] = useState(1);
+  useEffect(() => {
+    if (!esObraSocialTurno) return;
+    let vigente = true;
+    obtenerPrestacionesObraSocial(turno.cobertura)
+      .then((filas) => vigente && setNomenclador(filas))
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [esObraSocialTurno, turno.cobertura]);
+  const codigoLimpio = codigoTipeado.trim().toLowerCase();
+  const filaDelCodigo = codigoLimpio ? nomenclador.find((n) => String(n.codigo || "").trim().toLowerCase() === codigoLimpio) || null : null;
   const [planActivo, setPlanActivo] = useState(null);
   const [pasos, setPasos] = useState([]);
   const [adHocEnviados, setAdHocEnviados] = useState([]);
@@ -137,6 +155,25 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
     // precio queda vacío y Caja usa el del catálogo / copago de la obra social.
     const item = catalogo?.find((c) => c.id === id);
     setPrecioElegido(planActivo && item ? String(item.valor_lista ?? item.valor_efectivo ?? "") : "");
+  }
+
+  function agregarPorCodigo() {
+    if (!filaDelCodigo) return;
+    setMensaje(null);
+    setAparte((actual) => [
+      ...actual,
+      {
+        clave: `${Date.now()}-${actual.length}`,
+        catalogoId: filaDelCodigo.id_catalogo || null,
+        nomencladorId: filaDelCodigo.id,
+        codigoOs: filaDelCodigo.codigo,
+        prestacion: filaDelCodigo.prestacion_interna || filaDelCodigo.prestacion_os,
+        cantidad: Number(cantidadCodigo) || 1,
+        precio: null,
+      },
+    ]);
+    setCodigoTipeado("");
+    setCantidadCodigo(1);
   }
 
   function agregarAparte() {
@@ -230,6 +267,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           cantidad: a.cantidad,
           precioManual: a.precio,
           sinCargo: catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0),
+          nomencladorId: a.nomencladorId || null,
+          codigoOs: a.codigoOs || null,
           formaPagoPrevista: turno.cobertura === "Particular" && !(catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0)) ? formaPago || null : null,
           cuotasPrevistas: turno.cobertura === "Particular" && !(catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0)) ? cuotasPago || null : null,
           pacienteId: turno.pacienteId,
@@ -437,6 +476,51 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {esObraSocialTurno && (
+              <div className="mb-3 rounded-md border-2 border-sky-300 bg-sky-50 p-3">
+                <p className="text-xs font-semibold text-sky-900">🏥 Paciente de {turno.cobertura}: anotá el CÓDIGO que pasaste</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={codigoTipeado}
+                    onChange={(e) => setCodigoTipeado(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        agregarPorCodigo();
+                      }
+                    }}
+                    placeholder="Código (ej: 203)"
+                    className="w-40 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                  <input type="number" min={1} value={cantidadCodigo} onChange={(e) => setCantidadCodigo(e.target.value)} title="Cantidad" className="w-14 rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
+                  <button
+                    type="button"
+                    onClick={agregarPorCodigo}
+                    disabled={!filaDelCodigo || guardando}
+                    className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-40"
+                  >
+                    + Agregar
+                  </button>
+                </div>
+                {codigoLimpio && filaDelCodigo && (
+                  <p className="mt-1.5 text-xs text-sky-900">
+                    ✔ <strong>{filaDelCodigo.codigo}</strong> · {filaDelCodigo.prestacion_os}
+                    <span className="block text-sky-800">
+                      Se carga como: <strong>{filaDelCodigo.prestacion_interna || "(sin prestación equivalente en la clínica)"}</strong>
+                    </span>
+                  </p>
+                )}
+                {codigoLimpio && !filaDelCodigo && (
+                  <p className="mt-1.5 text-xs text-red-700">
+                    {nomenclador.length === 0 ? "Cargando el nomenclador…" : `No encontré el código "${codigoTipeado.trim()}" en el nomenclador de ${turno.cobertura}. Revisalo o elegí la prestación abajo.`}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-sky-800">Con el código, a la secretaria le queda pre-cargado el cobro con el copago y el valor de la obra social.</p>
               </div>
             )}
 

@@ -215,7 +215,8 @@ export default function CobroFormModal({
           const sinEquivalente = [];
           const filasOS = [];
           for (const p of pendientes.adHoc) {
-            const item = disponibles.find((d) => d.id_catalogo && d.id_catalogo === p.catalogoId);
+            // Si el profesional anotó el código de la obra social, se usa esa fila exacta del nomenclador.
+            const item = (p.nomencladorId && disponibles.find((d) => d.id === p.nomencladorId)) || disponibles.find((d) => d.id_catalogo && d.id_catalogo === p.catalogoId);
             if (!item) {
               sinEquivalente.push(p.prestacion);
               continue;
