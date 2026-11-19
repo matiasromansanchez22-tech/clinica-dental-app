@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SoloDuenaYContador from "@/components/SoloDuenaYContador";
 import RegistrarPagoProfesionalModal from "@/components/RegistrarPagoProfesionalModal";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fechaDeHoyISO } from "@/lib/agenda";
+import { marcarCobrosLiquidados } from "@/lib/data/cobrosLiquidados";
+import { crearPagoProfesional } from "@/lib/data/pagosProfesionales";
+import { buscarPosiblesDuplicados, mensajeDeDuplicados } from "@/lib/data/posiblesDuplicados";
 import { obtenerHistorialPagos } from "@/lib/data/historialPagos";
 import { obtenerCobrosConEstadoDeLiquidacion } from "@/lib/data/estadoLiquidaciones";
 import { obtenerProduccionPorProfesional } from "@/lib/data/produccionProfesionales";
@@ -71,7 +75,149 @@ function textoSaldo(saldo) {
   return { valor: pesos(-saldo), ayuda: "Se le pagó de más (o es de otro mes)", clase: "text-amber-700" };
 }
 
-function Profesional({ e, abierto, onAlternar, soloFaltan, onPagar }) {
+const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito", "Mercado Pago", "QR"];
+
+// "Ya liquidé": para cuando el pago a un profesional lo hizo la dirección por afuera (por ejemplo, el día que correspondía no había plata).
+// Se tildan los pacientes que ya se pagaron y queda registrado el pago y cada paciente como liquidado, igual que al registrar un pago.
+function PanelYaLiquide({ e, preseleccion, onClose, onGuardado }) {
+  const { perfil } = useAuth();
+  const puedeUsarReserva = perfil?.rol === "Duena" || perfil?.rol === "Contador";
+  const pendientes = useMemo(() => e.cobros.filter((c) => c.estado !== "liquidado" && c.falta > 0), [e.cobros]);
+  const [elegidos, setElegidos] = useState(() => new Set(preseleccion ? [preseleccion] : pendientes.map((c) => c.clave)));
+  const [fecha, setFecha] = useState(fechaDeHoyISO());
+  const [medioPago, setMedioPago] = useState("Efectivo");
+  const [desdeReserva, setDesdeReserva] = useState(false);
+  const [observaciones, setObservaciones] = useState(`Marcado como liquidado por ${perfil?.nombre ?? "la dirección"} (se pagó fuera de la app)`);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState(null);
+  const lista = pendientes.filter((c) => elegidos.has(c.clave));
+  const total = lista.reduce((a, c) => a + c.falta, 0);
+
+  const alternar = (clave) =>
+    setElegidos((a) => {
+      const n = new Set(a);
+      if (n.has(clave)) n.delete(clave);
+      else n.add(clave);
+      return n;
+    });
+
+  async function confirmar() {
+    setError(null);
+    if (lista.length === 0 || total <= 0) return setError("Tildá al menos un paciente que ya se haya liquidado.");
+    setGuardando(true);
+    try {
+      const parecidos = await buscarPosiblesDuplicados({ tabla: "pagos_profesionales", fecha, monto: total, quien: `${e.nombre} ${observaciones}`, profesionalId: e.id });
+      if (parecidos.length > 0 && !window.confirm(mensajeDeDuplicados(parecidos, total))) {
+        setGuardando(false);
+        return;
+      }
+      const pago = await crearPagoProfesional({ fecha, profesionalId: e.id, tipo: "Copago", monto: total, medioPago, observaciones, desdeReserva });
+      try {
+        await marcarCobrosLiquidados(
+          pago.id,
+          lista.map((c) => ({ tipo: c.clave.startsWith("o:") ? "ortodoncia" : "general", id: c.clave.split("|")[0].slice(2), parcial: false, honorarios: c.honorarios, montoPagado: c.falta }))
+        );
+      } catch (errMarca) {
+        window.alert(`El pago se registró, pero no se pudieron marcar los pacientes como liquidados: ${errMarca.message}`);
+      }
+      onGuardado();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-heading text-lg font-bold text-brand-brown">✅ Ya liquidé · {e.nombre}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
+            ✕
+          </button>
+        </div>
+        <p className="mb-3 text-sm text-gray-600">Tildá los pacientes que ya le pagaste. Queda registrado el pago y cada paciente como liquidado.</p>
+        {error && <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
+
+        {pendientes.length === 0 ? (
+          <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">No hay pacientes pendientes de liquidar este mes.</p>
+        ) : (
+          <>
+            <div className="mb-2 flex items-center justify-between text-xs">
+              <button onClick={() => setElegidos(new Set(pendientes.map((c) => c.clave)))} className="font-semibold text-brand-brown hover:underline">
+                Tildar todos
+              </button>
+              <button onClick={() => setElegidos(new Set())} className="text-gray-500 hover:underline">
+                Destildar todos
+              </button>
+            </div>
+            <ul className="max-h-64 divide-y divide-gray-100 overflow-y-auto rounded-md border border-gray-200">
+              {pendientes.map((c) => (
+                <li key={c.clave}>
+                  <label className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-brand-cream/60">
+                    <input type="checkbox" checked={elegidos.has(c.clave)} onChange={() => alternar(c.clave)} className="mt-1" />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-gray-900">{c.paciente}</span>
+                      <span className="block truncate text-xs text-gray-500">
+                        {dm(c.fecha)} · {c.detalle}
+                      </span>
+                    </span>
+                    <span className="font-semibold tabular-nums text-brand-green">{pesos(c.falta)}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex items-center justify-between rounded-md bg-brand-green px-3 py-2 text-white">
+              <span className="text-sm">Total que ya liquidaste ({lista.length})</span>
+              <b className="font-heading text-xl">{pesos(total)}</b>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Fecha en que se pagó
+                <input type="date" value={fecha} max={fechaDeHoyISO()} onChange={(ev) => setFecha(ev.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5" />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-gray-700">
+                Medio de pago
+                <select value={medioPago} onChange={(ev) => setMedioPago(ev.target.value)} className="rounded-md border border-gray-300 px-2 py-1.5">
+                  {MEDIOS_PAGO.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {puedeUsarReserva && (
+              <label className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <input type="checkbox" checked={desdeReserva} onChange={(ev) => setDesdeReserva(ev.target.checked)} className="mt-0.5" />
+                <span>
+                  <strong>Se pagó con la reserva del Consultorio.</strong> Descuenta de la reserva y no baja lo limpio del mes. Si no la marcás, queda como un pago de Producción.
+                </span>
+              </label>
+            )}
+            <label className="mt-3 flex flex-col gap-1 text-sm text-gray-700">
+              Observaciones
+              <textarea value={observaciones} onChange={(ev) => setObservaciones(ev.target.value)} rows={2} className="rounded-md border border-gray-300 px-2 py-1.5" />
+            </label>
+          </>
+        )}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Cancelar
+          </button>
+          {pendientes.length > 0 && (
+            <button onClick={confirmar} disabled={guardando || lista.length === 0} className="rounded-md bg-brand-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brand-brown-dark disabled:opacity-50">
+              {guardando ? "Guardando..." : `Ya liquidé ${pesos(total)}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Profesional({ e, abierto, onAlternar, soloFaltan, onPagar, onYaLiquide }) {
   const s = textoSaldo(e.saldo);
   const cobros = soloFaltan ? e.cobros.filter((c) => c.estado !== "liquidado") : e.cobros;
   const totalCorresponde = e.cobros.reduce((a, c) => a + c.honorarios, 0);
@@ -111,7 +257,12 @@ function Profesional({ e, abierto, onAlternar, soloFaltan, onPagar }) {
               {e.osPendiente > 0 && " · la obra social se liquida a mes vencido, cuando se cobra"}
             </p>
             {puedePagar && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {e.cobros.some((c) => c.estado !== "liquidado") && (
+                  <button onClick={() => onYaLiquide(e, null)} className="rounded-md border border-brand-green bg-white px-3 py-1.5 text-sm font-semibold text-brand-green hover:bg-emerald-50">
+                    ✅ Ya liquidé
+                  </button>
+                )}
                 <button
                   onClick={() => onPagar(e, "Copago", Math.max(e.saldo, 0))}
                   className="rounded-md bg-brand-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-green/90"
@@ -162,6 +313,11 @@ function Profesional({ e, abierto, onAlternar, soloFaltan, onPagar }) {
                       <td className="px-4 py-2">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${clase}`}>{texto}</span>
                         {c.estado === "parcial" && <p className="mt-0.5 text-[11px] text-gray-500">Pagó {pesos(c.liquidado)} · falta {pesos(c.falta)}</p>}
+                        {c.estado !== "liquidado" && puedePagar && (
+                          <button onClick={() => onYaLiquide(e, c.clave)} className="mt-1 block text-[11px] font-semibold text-brand-green hover:underline">
+                            ✅ Ya liquidé
+                          </button>
+                        )}
                         {c.estado === "liquidado" && c.fechaLiquidacion && <p className="mt-0.5 text-[11px] text-gray-500">{dm(c.fechaLiquidacion)}</p>}
                       </td>
                     </tr>
@@ -213,6 +369,7 @@ function Contenido() {
   const [soloFaltan, setSoloFaltan] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [modalPago, setModalPago] = useState(null); // { fila, tipo, montoSugerido }
+  const [yaLiquide, setYaLiquide] = useState(null); // { e, preseleccion }
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -338,7 +495,7 @@ function Contenido() {
 
           <div className="mt-4 flex flex-col gap-3">
             {balance.map((e) => (
-              <Profesional key={e.id} e={e} abierto={abiertos.has(e.id)} onAlternar={() => alternar(e.id)} soloFaltan={soloFaltan} onPagar={(prof, tipo, montoSugerido) => setModalPago({ fila: prof.fila, tipo, montoSugerido })} />
+              <Profesional key={e.id} e={e} abierto={abiertos.has(e.id)} onAlternar={() => alternar(e.id)} soloFaltan={soloFaltan} onPagar={(prof, tipo, montoSugerido) => setModalPago({ fila: prof.fila, tipo, montoSugerido })} onYaLiquide={(prof, preseleccion) => setYaLiquide({ e: prof, preseleccion })} />
             ))}
           </div>
         </>
@@ -355,6 +512,18 @@ function Contenido() {
         </Link>
         .
       </p>
+
+      {yaLiquide && (
+        <PanelYaLiquide
+          e={yaLiquide.e}
+          preseleccion={yaLiquide.preseleccion}
+          onClose={() => setYaLiquide(null)}
+          onGuardado={() => {
+            setYaLiquide(null);
+            setVersion((v) => v + 1);
+          }}
+        />
+      )}
 
       {modalPago && (
         <RegistrarPagoProfesionalModal
