@@ -58,8 +58,13 @@ export async function GET(request) {
       mensaje:
         t.pacientesPendientes === 0
           ? `Vinieron ${t.vinieron} de ${t.agendados}. ✅ Todo cargado: qué se hizo y qué sigue.`
-          : `Vinieron ${t.vinieron} de ${t.agendados}. Sin cargar ${t.pacientesPendientes}: ${quienes.join(" · ")}`,
+          : `Vinieron ${t.vinieron} de ${t.agendados}. Sin cargar la visita (qué se hizo/qué sigue) ${t.pacientesPendientes}: ${quienes.join(" · ")}`,
     };
+    // El historial clínico es otra carga: va como línea aparte.
+    if (t.vinieron > 0 && t.historialDisponible) {
+      const sinHist = r.porProfesional.filter((p) => p.sinHistorial.length > 0).map((p) => `${primerNombre(p.nombre)}${p.area === "Ortodoncia" ? " (orto)" : ""} ${p.sinHistorial.length}`);
+      general.mensaje += t.sinHistorial === 0 ? " 📝 Historial clínico al día." : ` 📝 Sin historial clínico ${t.sinHistorial}: ${sinHist.join(" · ")}.`;
+    }
 
     if (simular) return Response.json({ ok: true, hoy, ahora, jornada, simulado: true, general: sinTurnos ? null : general, rutina: avisoRutina, total: t,
       // Solo en la simulación (pide el secreto): lo que comprobó el sistema en cada tarea, para revisarlo.

@@ -45,7 +45,7 @@ export default function AvisoTurnosSinCargar() {
           📝 Tenés {mios.length} paciente{mios.length === 1 ? "" : "s"} sin cargar
         </p>
         <p className="mt-1 text-sm text-red-900">
-          Falta marcar <strong>qué se hizo</strong> y <strong>qué sigue</strong>. Sin eso no se puede cobrar ni liquidar bien. El más viejo es del{" "}
+          Falta marcar <strong>qué se hizo</strong> y <strong>qué sigue</strong> en la agenda (no es el historial clínico). Sin eso no se puede cobrar ni liquidar bien. El más viejo es del{" "}
           {textoFechaCorta(mios[0].fecha)} ({mios[0].paciente}).
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">

@@ -102,7 +102,8 @@ function PaginaPendientes() {
       <h1 className="text-2xl font-bold text-gray-900">📝 Pendientes de registro</h1>
       <p className="mt-0.5 text-sm text-gray-500">
         Pacientes que ya vinieron y todavía no tienen cargado <strong>qué se hizo</strong> y <strong>qué sigue</strong>.
-        Tocá <strong>Cargar</strong> para completarlo; al guardar, el paciente sale de esta lista.
+        Tocá <strong>Cargar</strong> para completarlo; al guardar, el paciente sale de esta lista.{" "}
+        <strong>Ojo:</strong> esto es la visita de la agenda. El historial clínico es otra carga, se escribe en la ficha del paciente y no hace salir al paciente de acá.
       </p>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
@@ -189,7 +190,7 @@ function PaginaPendientes() {
             💰 Ortodoncia: ya cobradas por secretaría, falta completar ({porCompletar.length})
           </p>
           <p className="mt-0.5 text-xs text-amber-800">
-            Tocá <strong>Completar</strong> para indicar qué se hace la próxima vez (o el alta) y si se despegó algún bracket.
+            Tocá <strong>Completar</strong> para indicar qué se hace la próxima vez (o el alta) y si se despegó algún bracket. Completar el historial clínico no alcanza: la visita se completa acá.
           </p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {porCompletar.map((v) => (

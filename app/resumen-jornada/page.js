@@ -77,7 +77,7 @@ function ResumenContenido() {
       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-brown/70">Fin de jornada</p>
       <h1 className="font-heading text-3xl font-extrabold text-brand-brown">📋 Resumen de la {JORNADAS[jornada].texto}</h1>
       <p className="mt-1 max-w-3xl text-sm text-gray-600">
-        Cuántos pacientes vinieron y cuántos quedaron sin cargar <strong>qué se hizo</strong> y <strong>qué sigue</strong> (la próxima prestación o el próximo turno). Incluye Odontología General y Ortodoncia.
+        Cuántos pacientes vinieron y cuántos quedaron sin cargar <strong>qué se hizo</strong> y <strong>qué sigue</strong> (la próxima prestación o el próximo turno). Incluye Odontología General y Ortodoncia. Aparte se controla el <strong>historial clínico</strong> de cada paciente: es otra carga, en la ficha, y no reemplaza a la visita en la agenda.
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -105,11 +105,12 @@ function ResumenContenido() {
 
       {resumen && (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Tarjeta titulo="Agendados" valor={total.agendados} pie={resumen.total.porVenir ? `${resumen.total.porVenir} todavía por atender` : undefined} />
             <Tarjeta titulo="Vinieron" valor={total.vinieron} />
             <Tarjeta titulo="Sin cargar qué se hizo" valor={total.sinQueSeHizo} alerta={total.sinQueSeHizo > 0} />
             <Tarjeta titulo="Sin cargar qué sigue" valor={total.sinQueSigue} alerta={total.sinQueSigue > 0} />
+            <Tarjeta titulo="Sin historial clínico" valor={resumen.total.historialDisponible ? resumen.total.sinHistorial : "—"} alerta={resumen.total.sinHistorial > 0} pie="nota del día en la ficha" />
           </div>
 
           {total.pendientes === 0 ? (
@@ -165,6 +166,12 @@ function ResumenContenido() {
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {p.sinHistorial.length > 0 && (
+                    <div className="mt-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-2">
+                      <p className="text-xs font-semibold text-violet-900">📝 Falta el historial clínico ({p.sinHistorial.length}) — se escribe en la ficha del paciente, no en la agenda</p>
+                      <p className="mt-0.5 text-xs text-violet-900">{p.sinHistorial.map((x) => `${x.hora} ${x.paciente}`).join(" · ")}</p>
+                    </div>
                   )}
                 </section>
               );

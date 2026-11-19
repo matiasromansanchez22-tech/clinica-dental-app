@@ -59,14 +59,15 @@ export default function AvisoVisitasPorCompletar() {
           <div>
             <p className="font-heading text-sm font-bold text-amber-800">💰 {v.paciente} — ya lo cobraron</p>
             <p className="mt-0.5 text-xs text-gray-700">
-              Falta que completes qué hacer la próxima vez y si se despegó algún bracket.
+              Falta completar la <strong>visita en la agenda</strong>: qué hacer la próxima vez y si se despegó algún bracket.{" "}
+              <span className="text-gray-500">(No es el historial clínico: ese se escribe aparte en la ficha.)</span>
             </p>
           </div>
           <a
             href="/pendientes-de-registro"
             className="rounded-md bg-brand-brown px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-brand-brown-dark"
           >
-            Completar
+            Completar la visita
           </a>
         </div>
       ))}
