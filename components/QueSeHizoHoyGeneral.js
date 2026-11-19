@@ -28,6 +28,36 @@ function pesos(n) {
 // `onTurnoActualizado` es opcional: si el que lo usa quiere mantener su
 // propio estado del turno sincronizado (ej. para repintar la grilla), se le
 // avisa acá cada vez que el turno pasa a "Finalizado".
+// Las "etapas del tratamiento" (prueba de corona, cementado, toma de impresión…) están en el catálogo como «Paso interno»: se pueden elegir
+// como lo que se hizo o como lo que sigue, y no llevan cobro.
+const CATEGORIA_ETAPA = "Paso interno";
+
+// Arma las opciones de una lista del catálogo: primero las etapas del tratamiento y después las prestaciones.
+function OpcionesCatalogo({ catalogo }) {
+  const etapas = catalogo.filter((c) => c.categoria === CATEGORIA_ETAPA);
+  const prestaciones = catalogo.filter((c) => c.categoria !== CATEGORIA_ETAPA);
+  return (
+    <>
+      {etapas.length > 0 && (
+        <optgroup label="Etapas del tratamiento (sin cargo)">
+          {etapas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.prestacion}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      <optgroup label="Prestaciones">
+        {prestaciones.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.prestacion}
+          </option>
+        ))}
+      </optgroup>
+    </>
+  );
+}
+
 export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catalogo, onTurnoActualizado }) {
   const { perfil } = useAuth();
   // El saldo del plan y el atajo a Caja son para quien cobra: no se le muestran
@@ -161,7 +191,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setError("Elegí qué hiciste hoy antes de enviar a caja.");
       return;
     }
-    if (aparteConSeleccion.length > 0 && turno.cobertura === "Particular" && (!formaPago || !cuotasPago)) {
+    if (aparteConSeleccion.filter((a) => !(catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0))).length > 0 && turno.cobertura === "Particular" && (!formaPago || !cuotasPago)) {
       setError("Indicá cómo va a pagar el paciente (efectivo o transferencia, al contado o en 2 veces) antes de enviar a caja.");
       return;
     }
@@ -199,8 +229,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           prestacion: a.prestacion,
           cantidad: a.cantidad,
           precioManual: a.precio,
-          formaPagoPrevista: turno.cobertura === "Particular" ? formaPago || null : null,
-          cuotasPrevistas: turno.cobertura === "Particular" ? cuotasPago || null : null,
+          sinCargo: catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0),
+          formaPagoPrevista: turno.cobertura === "Particular" && !(catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0)) ? formaPago || null : null,
+          cuotasPrevistas: turno.cobertura === "Particular" && !(catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0)) ? cuotasPago || null : null,
           pacienteId: turno.pacienteId,
           profesionalId: profesionalId || null,
           turnoGeneralId: turno.id,
@@ -225,7 +256,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
       setFormaPago("");
       setCuotasPago(0);
       await recargar();
-      setMensaje("✓ Enviado a caja. La secretaria ya lo ve para cobrar.");
+      setMensaje(soloEtapasSinCargo ? "✓ Guardado. Esta etapa no lleva cobro." : "✓ Enviado a caja. La secretaria ya lo ve para cobrar.");
     } catch (e) {
       setError(e.message);
       recargar().catch(() => {});
@@ -251,6 +282,10 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
         },
       ]
     : aparte;
+  // Etapas del tratamiento sin cargo (y sin un precio puesto a mano): no se cobran.
+  const esEtapaSinCargo = (a) => catalogo?.find((c) => c.id === a.catalogoId)?.categoria === CATEGORIA_ETAPA && !(a.precio > 0);
+  const aparteCobrables = aparteConSeleccion.filter((a) => !esEtapaSinCargo(a));
+  const soloEtapasSinCargo = pasosElegidos.length === 0 && aparteConSeleccion.length > 0 && aparteCobrables.length === 0;
   const cantidadAEnviar = pasosElegidos.length + aparteConSeleccion.length;
   const hayCatalogo = catalogo?.length > 0;
 
@@ -413,12 +448,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                     onChange={(e) => elegirCatalogo(e.target.value)}
                     className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                   >
-                    <option value="">(elegir prestación)</option>
-                    {catalogo.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.prestacion}
-                      </option>
-                    ))}
+                    <option value="">(elegir lo que se hizo)</option>
+                    <OpcionesCatalogo catalogo={catalogo} />
                   </select>
                   <input
                     type="number"
@@ -514,12 +545,8 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                   onChange={(e) => setProximaPrestacionCatalogoId(e.target.value)}
                   className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                 >
-                  <option value="">(elegir prestación)</option>
-                  {catalogo.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.prestacion}
-                    </option>
-                  ))}
+                  <option value="">(elegir lo que sigue)</option>
+                  <OpcionesCatalogo catalogo={catalogo} />
                 </select>
                 <span className="text-[11px] text-gray-400">
                   Obligatorio para poder enviar a caja. Cuando le den el próximo turno a este paciente, va a venir
@@ -562,7 +589,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           </div>
 
           <div className="mt-4 border-t border-gray-100 pt-3">
-            {aparteConSeleccion.length > 0 && turno.cobertura === "Particular" && (
+            {aparteCobrables.length > 0 && turno.cobertura === "Particular" && (
               <div className="mb-3 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-xs text-amber-900">
                 <p className="font-semibold">💳 ¿Cómo va a pagar el paciente?</p>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
@@ -601,6 +628,7 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
                 : cantidadAEnviar > 0
                   ? `✓ Enviar a caja (${cantidadAEnviar} ${cantidadAEnviar === 1 ? "cosa" : "cosas"})`
                   : "✓ Enviar a caja"}
+              {/* si solo se eligieron etapas sin cargo, el texto de arriba igual sirve: no se genera cobro */}
             </button>
             <p className="mt-1.5 text-xs text-gray-400">
               {cantidadAEnviar === 0
