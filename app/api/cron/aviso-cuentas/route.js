@@ -58,7 +58,7 @@ async function tareaRegistro(supabase, simular) {
       nombre: lista[0].profesional,
       cantidad: lista.length,
       titulo: `📝 Tenés ${lista.length} paciente${lista.length === 1 ? "" : "s"} sin cargar`,
-      mensaje: `Falta marcar qué se hizo y qué sigue. ${masViejos}${lista.length > 3 ? " …" : ""}`,
+      mensaje: `Falta completar la visita en la agenda (qué se hizo y qué sigue; no es el historial clínico). ${masViejos}${lista.length > 3 ? " …" : ""}`,
     };
   });
   if (simular) return { simulado: true, avisos };

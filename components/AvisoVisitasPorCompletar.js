@@ -23,7 +23,7 @@ export default function AvisoVisitasPorCompletar() {
   const { perfil } = useAuth();
   const [visitas, setVisitas] = useState([]);
 
-  const profesionalId = perfil?.rol === "Odontologo" ? perfil.profesional_id : null;
+  const profesionalId = perfil?.rol === "Odontologo" || perfil?.rol === "Duena" ? perfil.profesional_id || null : null;
 
   useEffect(() => {
     if (!profesionalId) return;
