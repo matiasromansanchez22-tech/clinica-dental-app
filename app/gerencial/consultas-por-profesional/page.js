@@ -6,7 +6,7 @@ import { fechaDeHoyISO } from "@/lib/agenda";
 import { PORCENTAJE_CONSULTAS, obtenerConsultasDelPeriodo, resumenPorProfesional } from "@/lib/data/consultasPorProfesional";
 
 // Consultas por profesional, en versión simple: un mes, una "cortina" por profesional con TODAS las consultas cobradas, lo que le
-// corresponde (8% del valor de la consulta), si ya se le liquidó y con qué tratamiento siguió cada paciente después de la consulta.
+// corresponde (15% del valor de la consulta), si ya se le liquidó y con qué tratamiento siguió cada paciente después de la consulta.
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const pesos = (n) => `$${Math.round(n).toLocaleString("es-AR")}`;
