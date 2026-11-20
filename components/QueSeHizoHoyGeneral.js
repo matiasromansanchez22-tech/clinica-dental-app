@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import IndicacionesPaciente from "@/components/IndicacionesPaciente";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { calcularSugerenciaPago, obtenerPlanActivoPaciente } from "@/lib/data/caja";
 import { actualizarEstadoTurnoGeneral } from "@/lib/data/turnosGeneral";
@@ -722,6 +723,9 @@ export default function QueSeHizoHoyGeneral({ turno, fecha, profesionales, catal
           </div>
         </>
       )}
+
+      {/* Recomendaciones para el paciente por WhatsApp, según lo que se hizo hoy. */}
+      <IndicacionesPaciente turno={turno} nombresActuales={[...pasosElegidos, ...aparteConSeleccion.map((a) => a.prestacion)]} />
     </div>
   );
 }
