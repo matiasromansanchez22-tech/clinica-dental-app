@@ -23,6 +23,7 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
   const [fechaAutorizacion, setFechaAutorizacion] = useState(autorizacion?.fechaAutorizacion || "");
   const [numeroAutorizacion, setNumeroAutorizacion] = useState(autorizacion?.numeroAutorizacion || "");
   const [observaciones, setObservaciones] = useState(autorizacion?.observaciones || "");
+  const [archivo, setArchivo] = useState(null);
   const [cargadas, setCargadas] = useState({ obra: null, lista: [] });
   const [busquedaPrestacion, setBusquedaPrestacion] = useState("");
   const [prestacionesAbiertas, setPrestacionesAbiertas] = useState(false);
@@ -109,6 +110,8 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
         fechaAutorizacion: estado === "Autorizada" ? fechaAutorizacion || hoy : null,
         numeroAutorizacion,
         observaciones,
+        archivo,
+        archivoPath: autorizacion?.archivoPath || null,
       });
     } catch (e) {
       setError(e.message);
@@ -322,6 +325,11 @@ export default function AutorizacionFormModal({ autorizacion, pacientes, obrasNo
               </label>
             </div>
           )}
+
+          <label className="flex flex-col gap-1 rounded-md border border-dashed border-brand-tan bg-brand-tan/10 p-2 text-xs font-semibold text-gray-700">
+            📷 Foto o PDF de la ficha{autorizacion?.archivoPath ? " (ya tiene una: elegí otra solo si querés reemplazarla)" : ""}
+            <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setArchivo(e.target.files?.[0] || null)} className="text-xs font-normal" />
+          </label>
 
           <label className="flex flex-col gap-1 text-xs text-gray-700">
             Observaciones

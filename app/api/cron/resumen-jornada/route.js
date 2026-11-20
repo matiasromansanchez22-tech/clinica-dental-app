@@ -60,6 +60,21 @@ export async function GET(request) {
           ? `Vinieron ${t.vinieron} de ${t.agendados}. ✅ Todo cargado: qué se hizo y qué sigue.`
           : `Vinieron ${t.vinieron} de ${t.agendados}. Sin cargar la visita (qué se hizo/qué sigue) ${t.pacientesPendientes}: ${quienes.join(" · ")}`,
     };
+    // Fichas de autorización de obra social cargadas hoy (quién las cargó) y cuántas siguen para autorizar.
+    try {
+      const desdeHoy = `${hoy}T03:00:00Z`;
+      const { data: fichas } = await supabase.from("autorizaciones_obra_social").select("estado, created_at, creador:perfiles!creado_por(nombre)");
+      if (fichas) {
+        const deHoy = fichas.filter((f) => f.created_at >= desdeHoy);
+        const por = {};
+        for (const f of deHoy) por[f.creador?.nombre?.split(" ")[0] || "?"] = (por[f.creador?.nombre?.split(" ")[0] || "?"] || 0) + 1;
+        const quien = Object.entries(por).map(([n, c]) => `${n} ${c}`).join(" · ");
+        const paraAut = fichas.filter((f) => f.estado === "Para autorizar").length;
+        general.mensaje += ` 📋 Fichas hoy: ${deHoy.length}${quien ? ` (${quien})` : ""} · ${paraAut} para autorizar.`;
+      }
+    } catch {
+      // si no se puede leer, el aviso sale igual sin esta línea
+    }
     // El historial clínico es otra carga: va como línea aparte.
     if (t.vinieron > 0 && t.historialDisponible) {
       const sinHist = r.porProfesional.filter((p) => p.sinHistorial.length > 0).map((p) => `${primerNombre(p.nombre)}${p.area === "Ortodoncia" ? " (orto)" : ""} ${p.sinHistorial.length}`);
